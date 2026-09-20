@@ -41,16 +41,6 @@ yarn-error.*
 *.sublime-project
 *.sublime-workspace
 
-# AI Agent & Assistant local caches / scratch directories
-.agents/
-.claude/
-.gemini/
-brain/
-skills-lock.json
-AGENTS.md
-CLAUDE.md
-GEMINI.md
-
 # Supabase Local & Temp CLI data
 supabase/.temp/
 

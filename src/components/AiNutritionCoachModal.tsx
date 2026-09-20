@@ -348,7 +348,7 @@ export function AiNutritionCoachModal({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 10 }}
         >
-          {messages.map((msg) => (
+          {messages.map((msg: ChatMessage) => (
             <View
               key={msg.id}
               className={`mb-3 flex-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}

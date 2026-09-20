@@ -1,6 +1,17 @@
 import { supabase } from './supabase';
-import { decode } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system/legacy';
+
+/**
+ * Decodes a base64 string into an ArrayBuffer for Supabase Storage uploads.
+ */
+function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
 
 /**
  * Uploads a compressed meal photo to Supabase Storage bucket 'meal-images'
@@ -25,7 +36,7 @@ export async function uploadMealPhotoToSupabase(
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    const arrayBuffer = decode(base64);
+    const arrayBuffer = decodeBase64ToArrayBuffer(base64);
 
     const { data, error } = await supabase.storage
       .from('meal-images')
