@@ -222,6 +222,21 @@ export function DailyMacroSummary({
         </View>
       </View>
 
+      {/* Celebratory Goal Hit Banner */}
+      {protPct >= 100 && (
+        <View className="bg-emerald-500/15 border border-emerald-500/40 rounded-2xl px-3.5 py-2 my-1 flex-row items-center justify-between shadow-sm shadow-emerald-500/10">
+          <View className="flex-row items-center gap-1.5">
+            <MaterialCommunityIcons name="trophy" size={14} color="#34d399" />
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-emerald-400 text-xs">
+              Protein Target Reached
+            </Text>
+          </View>
+          <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-300 text-xs">
+            {Math.round(protein.consumed)}g ({protPct}%)
+          </Text>
+        </View>
+      )}
+
       {/* 3 Athletic Telemetry Bars (Protein, Carbs, Fat) */}
       <View className="flex-row gap-2 mt-2 pt-3 border-t border-zinc-800/70">
         {/* Protein Pod */}

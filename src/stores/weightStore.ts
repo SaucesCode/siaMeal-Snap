@@ -17,6 +17,7 @@ interface WeightState {
 }
 
 const WEIGHT_STORAGE_KEY = '@calorie_tracker_weight_history';
+const MAX_WEIGHT_ENTRIES = 180; // Rolling 6 months of weigh-ins
 
 export const useWeightStore = create<WeightState>((set, get) => ({
   entries: [],
@@ -30,6 +31,11 @@ export const useWeightStore = create<WeightState>((set, get) => ({
 
       // Sort by date ascending for charts
       list.sort((a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime());
+
+      // Bound to rolling cap
+      if (list.length > MAX_WEIGHT_ENTRIES) {
+        list = list.slice(-MAX_WEIGHT_ENTRIES);
+      }
 
       set({ entries: list });
     } catch (err) {
@@ -50,8 +56,11 @@ export const useWeightStore = create<WeightState>((set, get) => ({
     const updated = [...current, newEntry];
     updated.sort((a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime());
 
-    await AsyncStorage.setItem(WEIGHT_STORAGE_KEY, JSON.stringify(updated));
-    set({ entries: updated });
+    // Bound entries to prevent unbounded local storage growth
+    const bounded = updated.length > MAX_WEIGHT_ENTRIES ? updated.slice(-MAX_WEIGHT_ENTRIES) : updated;
+
+    await AsyncStorage.setItem(WEIGHT_STORAGE_KEY, JSON.stringify(bounded));
+    set({ entries: bounded });
 
     // Also update Supabase profile weight if user is logged in
     try {

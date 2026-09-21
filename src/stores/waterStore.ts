@@ -21,6 +21,17 @@ interface WaterState {
 const getTodayDateStr = () => new Date().toISOString().split('T')[0];
 const WATER_STORAGE_KEY = '@calorie_tracker_water_logs';
 const WATER_GOAL_KEY = '@calorie_tracker_water_goal';
+const MAX_RETENTION_DAYS = 30; // Rolling 30-day retention for lightweight AsyncStorage
+
+function pruneOldWaterLogs(logs: WaterLog[]): WaterLog[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - MAX_RETENTION_DAYS);
+  const cutoffMs = cutoff.getTime();
+  return logs.filter((l) => {
+    const time = new Date(l.logged_at).getTime();
+    return !isNaN(time) && time >= cutoffMs;
+  });
+}
 
 export const useWaterStore = create<WaterState>((set, get) => ({
   dailyGoalMl: 2500,
@@ -39,7 +50,13 @@ export const useWaterStore = create<WaterState>((set, get) => ({
 
       // Load logs
       const rawLogs = await AsyncStorage.getItem(WATER_STORAGE_KEY);
-      const allLogs: WaterLog[] = rawLogs ? JSON.parse(rawLogs) : [];
+      let allLogs: WaterLog[] = rawLogs ? JSON.parse(rawLogs) : [];
+
+      // Routine pruning if logs exceed retention window
+      if (allLogs.length > 150) {
+        allLogs = pruneOldWaterLogs(allLogs);
+        AsyncStorage.setItem(WATER_STORAGE_KEY, JSON.stringify(allLogs)).catch(() => {});
+      }
 
       const todayLogs = allLogs.filter((l) => l.logged_at.startsWith(todayStr));
       const todayMl = todayLogs.reduce((sum, l) => sum + l.amount_ml, 0);
@@ -62,7 +79,7 @@ export const useWaterStore = create<WaterState>((set, get) => ({
 
       const rawLogs = await AsyncStorage.getItem(WATER_STORAGE_KEY);
       const allLogs: WaterLog[] = rawLogs ? JSON.parse(rawLogs) : [];
-      const updatedAllLogs = [newLog, ...allLogs];
+      const updatedAllLogs = pruneOldWaterLogs([newLog, ...allLogs]);
 
       await AsyncStorage.setItem(WATER_STORAGE_KEY, JSON.stringify(updatedAllLogs));
 

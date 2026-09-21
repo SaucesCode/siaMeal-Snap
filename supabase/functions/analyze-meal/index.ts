@@ -37,16 +37,105 @@ interface RequestPayload {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SCALABILITY HELPERS (1M CONCURRENCY & RESILIENCE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch wrapper with AbortController timeout to prevent stuck connections
+ * from holding open Edge Function worker slots during upstream latency spikes.
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/**
+ * Parses comma-separated API keys to allow key rotation and pool balancing.
+ */
+function getApiKeys(envName: string): string[] {
+  const raw = Deno.env.get(envName) || "";
+  return raw
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+}
+
+/**
+ * In-memory model discovery cache.
+ * Avoids making an external HTTP GET to Google's /models endpoint on EVERY request,
+ * which causes 429 quota exhaustion and adds 400ms unnecessary latency per call.
+ */
+let cachedGeminiModels: { models: string[]; timestamp: number } | null = null;
+const MODEL_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function getCandidateGeminiModels(apiKey: string): Promise<string[]> {
+  const now = Date.now();
+  if (cachedGeminiModels && (now - cachedGeminiModels.timestamp) < MODEL_CACHE_TTL_MS) {
+    return cachedGeminiModels.models;
+  }
+
+  const defaultModels = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+  ];
+
+  try {
+    const listResp = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`,
+      {},
+      4000
+    );
+
+    if (listResp.ok) {
+      const listData = await listResp.json();
+      const discovered = (listData.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m: any) => m.name.replace(/^models\//, ""))
+        .filter((name: string) => /flash|pro/.test(name));
+
+      if (discovered.length > 0) {
+        discovered.sort((a: string, b: string) => {
+          const aFlash = a.includes("flash");
+          const bFlash = b.includes("flash");
+          if (aFlash && !bFlash) return -1;
+          if (!aFlash && bFlash) return 1;
+          return b.localeCompare(a);
+        });
+
+        cachedGeminiModels = { models: discovered, timestamp: now };
+        return discovered;
+      }
+    }
+  } catch (e: any) {
+    console.warn("Gemini model discovery cached fallback:", e.message);
+  }
+
+  // Cache defaults for 15 minutes to prevent hammering on network failure
+  cachedGeminiModels = { models: defaultModels, timestamp: now - MODEL_CACHE_TTL_MS + (15 * 60 * 1000) };
+  return defaultModels;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTTP SERVER HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
+    const geminiKeys = getApiKeys("GEMINI_API_KEY");
+    const openAiKeys = getApiKeys("OPENAI_API_KEY");
 
-    if (!geminiKey && !openAiKey) {
+    if (geminiKeys.length === 0 && openAiKeys.length === 0) {
       return new Response(
         JSON.stringify({ error: "Neither GEMINI_API_KEY nor OPENAI_API_KEY secret is configured in Supabase." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -69,61 +158,63 @@ serve(async (req: Request) => {
         );
       }
 
-      // ── Rich context block injected into every request ──────────────────────
+      // ── Zero-Token Guardrail (Instant refusal for off-topic or prompt injection) ──
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content?.trim() || "";
+      const offTopicPattern = /(?:write (?:a )?(?:code|python|javascript|script|essay|poem|story)|solve (?:math|equation)|who (?:was|is) (?:president|king|queen|actor)|ignore (?:all )?(?:previous )?instructions|system prompt|jailbreak|DAN mode|translate to|write an exploit)/i;
+
+      if (offTopicPattern.test(lastUserMsg)) {
+        return new Response(
+          JSON.stringify({
+            reply: "My paws are strictly tuned for macros, meals, and sports nutrition! Let's get back to fueling your day — what are you planning to eat next?",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ── Sliding Window: Take only the 4 most recent messages to keep tokens lean ──
+      const recentMessages = messages.slice(-4);
+
+      // ── Compact Context block injected into every request ──────────────────────
       let contextBlock = "No athlete profile provided.";
       if (userContext) {
         const uc = userContext;
         const mealsStr = uc.todayMeals?.length
-          ? uc.todayMeals.join(", ")
+          ? uc.todayMeals.slice(-4).join(", ")
           : "Nothing logged yet";
 
         contextBlock = [
-          `ATHLETE: ${uc.displayName || "Athlete"}`,
-          `GOAL: ${uc.goal || "Maintenance"} | DIET: ${uc.dietType || "Balanced"}`,
-          `TARGETS TODAY → Calories: ${uc.targetCalories ?? "?"}kcal | Protein: ${uc.targetProtein ?? "?"}g | Carbs: ${uc.targetCarbs ?? "?"}g | Fat: ${uc.targetFat ?? "?"}g`,
-          `CONSUMED    → Calories: ${uc.consumedCalories ?? 0}kcal | Protein: ${uc.consumedProtein ?? 0}g | Carbs: ${uc.consumedCarbs ?? 0}g | Fat: ${uc.consumedFat ?? 0}g`,
-          `REMAINING   → Calories: ${uc.remainingCalories ?? uc.targetCalories ?? "?"}kcal | Protein: ${uc.remainingProtein ?? uc.targetProtein ?? "?"}g | Carbs: ${uc.remainingCarbs ?? uc.targetCarbs ?? "?"}g | Fat: ${uc.remainingFat ?? uc.targetFat ?? "?"}g`,
-          `MEALS LOGGED: ${mealsStr}`,
+          `ATHLETE: ${uc.displayName || "Athlete"} | GOAL: ${uc.goal || "Fat Loss"} | DIET: ${uc.dietType || "Balanced"}`,
+          `TARGETS TODAY: ${uc.targetCalories ?? "?"}kcal | ${uc.targetProtein ?? "?"}g Protein | ${uc.targetCarbs ?? "?"}g Carbs | ${uc.targetFat ?? "?"}g Fat`,
+          `CONSUMED    : ${uc.consumedCalories ?? 0}kcal | ${uc.consumedProtein ?? 0}g Protein | ${uc.consumedCarbs ?? 0}g Carbs | ${uc.consumedFat ?? 0}g Fat`,
+          `REMAINING   : ${uc.remainingCalories ?? uc.targetCalories ?? "?"}kcal | ${uc.remainingProtein ?? uc.targetProtein ?? "?"}g Protein | ${uc.remainingCarbs ?? uc.targetCarbs ?? "?"}g Carbs | ${uc.remainingFat ?? uc.targetFat ?? "?"}g Fat`,
+          `TODAY'S LOG : ${mealsStr}`,
         ].join("\n");
       }
 
-      const coachSystemPrompt = `You are Sia — a sharp, no-nonsense Siamese cat sports nutritionist inside the SiaMeal app. You have the knowledge of a certified sports dietitian and the directness of a high-performance coach.
+      const coachSystemPrompt = `You are Sia — a warm, encouraging, and witty Siamese cat nutrition coach inside the SiaMeal app.
+You combine the scientific knowledge of a certified sports dietitian with the relatable, caring energy of a personal friend in the athlete's corner (with charming, subtle feline personality!).
 
-━━ LIVE ATHLETE CONTEXT ━━
+━━ ATHLETE'S LIVE TELEMETRY ━━
 ${contextBlock}
 
-━━ EXPERTISE ━━
-You are an expert in: calorie & macro tracking, body recomposition, muscle gain, fat loss, sports nutrition, meal timing, micronutrients, hydration, and food substitutions. You apply evidence-based principles (Mifflin-St Jeor TDEE, protein targets at 1.6–2.2g/kg for muscle, deficit/surplus pacing).
+━━ YOUR PERSONA & VOICE ━━
+- Speak like a friendly, supportive coach texting an athlete — conversational, authentic, empathetic, and never robotic.
+- Naturally weave in charming Siamese cat personality (e.g., purring when protein goals are hit, playfully urging them to pounce on their remaining calories, keen feline curiosity about tasty wholesome foods), but keep it natural and grounded in real nutrition.
+- Celebrate their daily wins warmly. If they overate or missed protein, be supportive, zero-judgment, and give them an easy, realistic next step.
+- Keep responses punchy and focused: 2–4 natural sentences for advice, or 2–3 appetizing options when asked for meal suggestions.
+- Always sound like a real person, not an AI template. No robotic filler ("As an AI...", "According to guidelines...").
 
-━━ COACHING BEHAVIOUR ━━
-- Reference the athlete's ACTUAL remaining macros and logged meals when giving advice — make it personal.
-- Always give specific, actionable answers. Never vague non-answers.
-- If the athlete is low on protein, prioritise protein. If they are over calories, suggest light options.
-- Suggest real whole foods first, not supplements.
-- If a deficit is aggressive or a surplus is excessive, flag it once and move on — do not lecture.
-- Never shame the athlete for food choices. Be encouraging but honest.
-- When suggesting meals, include approximate macros (e.g., "~35g protein, ~400kcal").
-- For lists of meal ideas, limit to 3–5 options — do not dump 10+ options.
+━━ MEAL SUGGESTION FORMAT (CRITICAL) ━━
+- When asked for meal or snack ideas, ALWAYS format each dish as a bullet point with the dish name in bold followed by a colon and estimated macros, e.g.:
+• **Grilled Salmon with Quinoa**: ~420kcal, ~38g protein, ~25g carbs, ~12g fat
+• **Greek Yogurt & Berry Crunch**: ~220kcal, ~24g protein, ~18g carbs, ~4g fat
+- Give 2–3 realistic, delicious options that fit their remaining calories and protein.
+- Use bold ONLY for dish names. Never bold bare numbers or units like "kcal" or "protein".
 
-━━ RESPONSE FORMAT ━━
-- Keep replies concise: 2–5 sentences for simple questions, bullet points for meal lists or multi-step plans.
-- Use **bold** only for food names, key numbers, or critical warnings.
-- Always use numerals (27g, 2000kcal, 3 meals) — never spell out numbers as words.
-- No emojis. No sign-offs like "Hope this helps!" or "Feel free to ask!".
-- Do not start replies with "Great question" or any hollow filler phrase.
-- Do not repeat back what the athlete just said.
-
-━━ OUTPUT RULES (ABSOLUTE) ━━
-- Output ONLY your direct spoken reply. Nothing else.
-- NEVER include labels, headers, role tags, or internal metadata in your output.
-- NEVER re-state the athlete's profile stats unless directly asked.
-- NEVER break character.
-
-━━ SCOPE GUARDRAIL ━━
-- You only discuss: nutrition, food, macros, calories, hydration, meal planning, body composition, and food-related topics.
-- If asked about anything outside this scope, reply with one short sentence declining and redirect to nutrition.`;
-
-
+━━ OUTPUT RULES ━━
+- Speak directly in first-person as Sia.
+- Never output headers, metadata tags, role labels, or prompt echoes.
+- Only discuss food, meals, hydration, body composition, and nutrition.`;
 
       function sanitizeCoachOutput(raw: string): string {
         if (!raw) return "";
@@ -160,50 +251,12 @@ You are an expert in: calorie & macro tracking, body recomposition, muscle gain,
       let replyText = "";
       const debugErrors: string[] = [];
 
-      // 1. Google Gemini Provider — dynamic model discovery (same as analyze handler)
-      if (geminiKey) {
-        let candidateModels: string[] = [];
-
-        // Discover available models from the API first
-        try {
-          const listResp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.trim()}`
-          );
-          if (listResp.ok) {
-            const listData = await listResp.json();
-            candidateModels = (listData.models || [])
-              .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-              .map((m: any) => m.name.replace(/^models\//, ""))
-              // Prefer flash models; skip embedding / aqa / etc.
-              .filter((name: string) => /flash|pro/.test(name));
-          }
-        } catch (e: any) {
-          console.warn("Chat model discovery error:", e.message);
-        }
-
-        // Fallback hardcoded list if discovery fails
-        if (candidateModels.length === 0) {
-          candidateModels = [
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-          ];
-        }
-
-        // Sort: flash first, newest first (higher version numbers first)
-        candidateModels.sort((a, b) => {
-          const aFlash = a.includes("flash");
-          const bFlash = b.includes("flash");
-          if (aFlash && !bFlash) return -1;
-          if (!aFlash && bFlash) return 1;
-          // Within same tier, sort descending by version string
-          return b.localeCompare(a);
-        });
-
+      // 1. Google Gemini Provider — Key rotation & in-memory cached model resolution
+      if (geminiKeys.length > 0) {
         // Sanitize multi-turn contents for Google Gemini API
         const geminiContents: { role: string; parts: { text: string }[] }[] = [];
 
-        for (const m of messages) {
+        for (const m of recentMessages) {
           const role = m.role === "assistant" ? "model" : "user";
           const text = m.content?.trim();
           if (!text) continue;
@@ -224,106 +277,117 @@ You are an expert in: calorie & macro tracking, body recomposition, muscle gain,
           }
         }
 
-        // If all messages were model greeting, ensure at least one user message
         if (geminiContents.length === 0) {
-          const lastUserText = [...messages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hello coach!";
+          const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hello coach!";
           geminiContents.push({
             role: "user",
             parts: [{ text: lastUserText }],
           });
         }
 
-        for (const modelName of candidateModels) {
-          try {
-            // Attempt 1: Multi-turn format with system_instruction
-            let resp = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  system_instruction: { parts: [{ text: coachSystemPrompt }] },
-                  contents: geminiContents,
-                  generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
-                }),
-              }
-            );
+        // Key loop
+        for (const geminiKey of geminiKeys) {
+          if (replyText) break;
+          const candidateModels = await getCandidateGeminiModels(geminiKey);
 
-            // Attempt 2: Single-turn fallback if multi-turn rejected
-            if (!resp.ok) {
-              const lastUserText = [...messages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hi Sia!";
-              const singlePrompt = `${coachSystemPrompt}\n\nAthlete says: "${lastUserText}"\n\nRespond directly as Sia:`;
-
-              resp = await fetch(
+          for (const modelName of candidateModels) {
+            try {
+              // Attempt 1: Multi-turn format with system_instruction
+              let resp = await fetchWithTimeout(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    contents: [{ parts: [{ text: singlePrompt }] }],
-                    generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
+                    system_instruction: { parts: [{ text: coachSystemPrompt }] },
+                    contents: geminiContents,
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 450 },
                   }),
-                }
+                },
+                14000
               );
-            }
 
-            if (resp.ok) {
-              const data = await resp.json();
-              const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-              const sanitized = sanitizeCoachOutput(rawText);
+              // Attempt 2: Single-turn fallback if multi-turn rejected
+              if (!resp.ok) {
+                const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hi Sia!";
+                const singlePrompt = `${coachSystemPrompt}\n\nAthlete says: "${lastUserText}"\n\nRespond directly as Sia:`;
 
-              if (sanitized) {
-                replyText = sanitized;
-                break;
+                resp = await fetchWithTimeout(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      contents: [{ parts: [{ text: singlePrompt }] }],
+                      generationConfig: { temperature: 0.7, maxOutputTokens: 450 },
+                    }),
+                  },
+                  14000
+                );
               }
-            } else {
-              const errBody = await resp.text().catch(() => "");
-              debugErrors.push(`${modelName} (${resp.status}): ${errBody.slice(0, 80)}`);
-              console.warn(`Gemini ${modelName} returned status ${resp.status}:`, errBody);
+
+              if (resp.ok) {
+                const data = await resp.json();
+                const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                const sanitized = sanitizeCoachOutput(rawText);
+
+                if (sanitized) {
+                  replyText = sanitized;
+                  break;
+                }
+              } else {
+                const errBody = await resp.text().catch(() => "");
+                debugErrors.push(`${modelName} (${resp.status}): ${errBody.slice(0, 80)}`);
+                console.warn(`Gemini ${modelName} returned status ${resp.status}:`, errBody);
+              }
+            } catch (err: any) {
+              debugErrors.push(`${modelName} exception: ${err.message}`);
+              console.warn(`Gemini ${modelName} chat error:`, err.message);
             }
-          } catch (err: any) {
-            debugErrors.push(`${modelName} exception: ${err.message}`);
-            console.warn(`Gemini ${modelName} chat error:`, err.message);
           }
         }
       }
 
       // 2. OpenAI GPT-4o-mini Fallback for Chat
-      if (!replyText && openAiKey) {
+      if (!replyText && openAiKeys.length > 0) {
         const openAiMessages = [
           { role: "system", content: coachSystemPrompt },
-          ...messages.map((m) => ({
+          ...recentMessages.map((m) => ({
             role: m.role === "assistant" ? "assistant" : "user",
             content: m.content || "",
           })),
         ];
 
-        try {
-          const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${openAiKey.trim()}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: openAiMessages,
-              temperature: 0.7,
-              max_tokens: 600,
-            }),
-          });
+        for (const openAiKey of openAiKeys) {
+          if (replyText) break;
+          try {
+            const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${openAiKey.trim()}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: openAiMessages,
+                temperature: 0.7,
+                max_tokens: 450,
+              }),
+            }, 14000);
 
-          if (resp.ok) {
-            const data = await resp.json();
-            const rawContent = data.choices?.[0]?.message?.content || "";
-            replyText = sanitizeCoachOutput(rawContent);
-          } else {
-            const errBody = await resp.text().catch(() => "");
-            debugErrors.push(`OpenAI (${resp.status}): ${errBody.slice(0, 120)}`);
-            console.warn(`OpenAI chat returned status ${resp.status}:`, errBody);
+            if (resp.ok) {
+              const data = await resp.json();
+              const rawContent = data.choices?.[0]?.message?.content || "";
+              replyText = sanitizeCoachOutput(rawContent);
+              break;
+            } else {
+              const errBody = await resp.text().catch(() => "");
+              debugErrors.push(`OpenAI (${resp.status}): ${errBody.slice(0, 120)}`);
+              console.warn(`OpenAI chat returned status ${resp.status}:`, errBody);
+            }
+          } catch (err: any) {
+            debugErrors.push(`OpenAI exception: ${err.message}`);
           }
-        } catch (err: any) {
-          debugErrors.push(`OpenAI exception: ${err.message}`);
         }
       }
 
@@ -368,7 +432,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
 
     let parsedData: any = null;
 
-    if (geminiKey) {
+    if (geminiKeys.length > 0) {
       const parts: any[] = [];
       parts.push({
         text: textDescription
@@ -386,68 +450,43 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
         });
       }
 
-      let candidateModels: string[] = [];
-      try {
-        const listResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.trim()}`
-        );
-        if (listResp.ok) {
-          const listData = await listResp.json();
-          candidateModels = (listData.models || [])
-            .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-            .map((m: any) => m.name.replace(/^models\//, ""));
-        }
-      } catch (e: any) {
-        console.warn("Model discovery error:", e.message);
-      }
-
-      if (candidateModels.length === 0) {
-        candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-2.0-flash",
-          "gemini-1.5-flash",
-          "gemini-1.5-pro",
-        ];
-      }
-
-      candidateModels.sort((a, b) => {
-        if (a.includes("flash") && !b.includes("flash")) return -1;
-        if (!a.includes("flash") && b.includes("flash")) return 1;
-        return 0;
-      });
-
       let lastError = "";
 
-      for (const modelName of candidateModels) {
-        try {
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`;
-          const geminiResponse = await fetch(geminiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts }],
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              generationConfig: {
-                response_mime_type: "application/json",
-                temperature: 0.2,
-              },
-            }),
-          });
+      for (const geminiKey of geminiKeys) {
+        if (parsedData) break;
+        const candidateModels = await getCandidateGeminiModels(geminiKey);
 
-          if (geminiResponse.ok) {
-            const geminiData = await geminiResponse.json();
-            const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-            parsedData = JSON.parse(rawText || "{}");
-            break;
-          } else {
-            lastError = await geminiResponse.text();
+        for (const modelName of candidateModels) {
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`;
+            const geminiResponse = await fetchWithTimeout(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts }],
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                  response_mime_type: "application/json",
+                  temperature: 0.2,
+                },
+              }),
+            }, 14000);
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json();
+              const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+              parsedData = JSON.parse(rawText || "{}");
+              break;
+            } else {
+              lastError = await geminiResponse.text();
+            }
+          } catch (e: any) {
+            lastError = e.message;
           }
-        } catch (e: any) {
-          lastError = e.message;
         }
       }
 
-      if (!parsedData && !openAiKey) {
+      if (!parsedData && openAiKeys.length === 0) {
         return new Response(
           JSON.stringify({ error: `Gemini Error: ${lastError}` }),
           { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -455,7 +494,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
       }
     }
 
-    if (!parsedData && openAiKey) {
+    if (!parsedData && openAiKeys.length > 0) {
       const userContent: any[] = [];
       userContent.push({
         type: "text",
@@ -475,34 +514,39 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
         });
       }
 
-      const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openAiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          temperature: 0.2,
-        }),
-      });
+      for (const openAiKey of openAiKeys) {
+        if (parsedData) break;
+        try {
+          const openAiResponse = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openAiKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userContent },
+              ],
+              temperature: 0.2,
+            }),
+          }, 14000);
 
-      if (!openAiResponse.ok) {
-        const errorText = await openAiResponse.text();
-        return new Response(
-          JSON.stringify({ error: `OpenAI error (${openAiResponse.status}): ${errorText}` }),
-          { status: openAiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+          if (openAiResponse.ok) {
+            const openAiData = await openAiResponse.json();
+            const rawContent = openAiData.choices?.[0]?.message?.content;
+            parsedData = JSON.parse(rawContent || "{}");
+            break;
+          } else {
+            const errorText = await openAiResponse.text();
+            console.warn(`OpenAI analyze returned status ${openAiResponse.status}:`, errorText);
+          }
+        } catch (err: any) {
+          console.warn("OpenAI analyze error:", err.message);
+        }
       }
-
-      const openAiData = await openAiResponse.json();
-      const rawContent = openAiData.choices?.[0]?.message?.content;
-      parsedData = JSON.parse(rawContent || "{}");
     }
 
     const sanitizedResult = {

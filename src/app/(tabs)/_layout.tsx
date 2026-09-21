@@ -90,13 +90,16 @@ function SittingCatIcon({ color = '#71717a', size = 22 }: { color?: any; size?: 
 export default function TabLayout() {
   const { session, profile, isInitialized } = useAuthStore();
 
-  if (isInitialized) {
-    if (!session) {
-      return <Redirect href="/(auth)/login" />;
-    }
-    if (!profile?.target_calories) {
-      return <Redirect href="/(auth)/onboarding" />;
-    }
+  if (!isInitialized) {
+    return null;
+  }
+
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!profile?.target_calories) {
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
   return (

@@ -73,6 +73,8 @@ export default function ReviewScreen() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
     if (!name.trim()) {
       hapticFeedback.error();
       Alert.alert('Meal Name', 'Please give this meal a name.');

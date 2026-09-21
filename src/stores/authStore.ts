@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
+
+const PROFILE_CACHE_KEY = '@calorie_tracker_cached_profile';
 
 interface AuthState {
   user: User | null;
@@ -25,9 +28,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     try {
       set({ isLoading: true });
+
+      // Immediate local hydration from cache so UI renders with zero flicker
+      try {
+        const cachedRaw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+        if (cachedRaw) {
+          const cachedProfile = JSON.parse(cachedRaw) as Profile;
+          if (cachedProfile && cachedProfile.target_calories) {
+            set({ profile: cachedProfile });
+          }
+        }
+      } catch (cacheErr) {
+        console.warn('Could not read cached profile:', cacheErr);
+      }
+
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
-        console.error('Error fetching session:', error);
+        console.warn('Error fetching session:', error.message);
       }
 
       set({ session, user: session?.user ?? null });
@@ -62,15 +79,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
+        if (error.code === 'PGRST205') {
+          console.warn('Remote profiles table not found in schema cache. Using cached profile if present.');
+        } else {
+          console.warn('Notice fetching remote profile:', error.message || error);
+        }
+
+        // Return current local profile if remote fetch fails
+        return get().profile;
       }
 
-      set({ profile: data as Profile });
-      return data as Profile;
-    } catch (err) {
-      console.error('Error in fetchProfile:', err);
+      if (data) {
+        set({ profile: data as Profile });
+        try {
+          await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data));
+        } catch (storageErr) {
+          console.warn('Failed to cache profile:', storageErr);
+        }
+        return data as Profile;
+      }
+
       return null;
+    } catch (err) {
+      console.warn('Offline or network failure in fetchProfile, using local profile state:', err);
+      return get().profile;
     }
   },
 
@@ -122,10 +154,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     set({ profile: data as Profile });
+    try {
+      await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data));
+    } catch (cacheErr) {
+      console.warn('Failed to cache saved profile:', cacheErr);
+    }
     return data as Profile;
   },
 
   signOut: async () => {
+    try {
+      await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+    } catch (cacheErr) {
+      console.warn('Failed to clear profile cache on sign out:', cacheErr);
+    }
     await supabase.auth.signOut();
     set({ user: null, session: null, profile: null });
   },

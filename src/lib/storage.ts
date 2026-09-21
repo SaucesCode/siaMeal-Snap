@@ -43,6 +43,7 @@ export async function uploadMealPhotoToSupabase(
       .upload(filename, arrayBuffer, {
         contentType: 'image/jpeg',
         upsert: true,
+        cacheControl: '31536000',
       });
 
     if (error) {

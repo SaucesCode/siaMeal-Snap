@@ -268,14 +268,22 @@ export default function DashboardScreen() {
               setCoachModalVisible(true);
             }}
             activeOpacity={0.8}
-            className="bg-emerald-500/15 border border-emerald-500/40 px-3 py-1.5 rounded-2xl flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+            className={`${
+              consumedTotals.protein_g >= targetProtein && targetProtein > 0
+                ? 'bg-emerald-500/25 border-emerald-400/80 shadow-emerald-500/30'
+                : 'bg-emerald-500/15 border-emerald-500/40 shadow-emerald-500/20'
+            } border px-3 py-1.5 rounded-2xl flex-row items-center gap-1.5 shadow-sm`}
           >
-            <MaterialCommunityIcons name="cat" size={15} color="#10b981" />
+            <MaterialCommunityIcons
+              name={consumedTotals.protein_g >= targetProtein && targetProtein > 0 ? 'trophy' : 'cat'}
+              size={15}
+              color="#10b981"
+            />
             <Text
               style={{ fontFamily: 'Outfit_800ExtraBold' }}
               className="text-emerald-400 text-xs"
             >
-              Sia Coach
+              {consumedTotals.protein_g >= targetProtein && targetProtein > 0 ? 'Goal Hit!' : 'Sia Coach'}
             </Text>
           </TouchableOpacity>
 

@@ -48,6 +48,8 @@ export function TextLogModal({
   }, [visible]);
 
   const handleAnalyze = async (overrideText?: string) => {
+    if (isAnalyzing) return;
+
     const description = (overrideText || text).trim();
     if (!description) {
       hapticFeedback.error();

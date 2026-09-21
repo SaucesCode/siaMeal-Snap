@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { useAuthStore } from '../stores/authStore';
+import { initSyncQueue } from '../lib/syncQueue';
 import {
   useFonts,
   Outfit_600SemiBold,
@@ -19,11 +20,17 @@ import {
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 
-// Suppress false-positive dev warnings during touch swiping
+import { LogBox } from 'react-native';
+
+// Suppress false-positive dev warnings during touch swiping & upstream Expo Router useLinking race condition
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
   strict: false,
 });
+
+LogBox.ignoreLogs([
+  "Can't perform a React state update on a component that hasn't mounted yet",
+]);
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -43,6 +50,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     initialize();
+    const cleanupSync = initSyncQueue();
+    return cleanupSync;
   }, []);
 
   useEffect(() => {
