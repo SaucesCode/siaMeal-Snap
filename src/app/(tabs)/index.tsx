@@ -8,6 +8,7 @@ import {
   RefreshControl,
   StatusBar,
   Alert,
+  Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -251,7 +252,7 @@ export default function DashboardScreen() {
       <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
 
       {/* Header Bar */}
-      <View className="px-5 pt-3 pb-3 border-b border-zinc-900 flex-row items-center justify-between">
+      <View className="px-5 pt-3 pb-3 flex-row items-center justify-between">
         <View>
           <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">
             Daily Dashboard
@@ -263,43 +264,13 @@ export default function DashboardScreen() {
             Hey, {displayName}
           </Text>
         </View>
-
-        <View className="flex-row items-center gap-2">
-          {/* Sia Cat Nutrition Coach Trigger */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              setCoachModalVisible(true);
-            }}
-            activeOpacity={0.8}
-            className={`${
-              consumedTotals.protein_g >= targetProtein && targetProtein > 0
-                ? 'bg-emerald-500/25 border-emerald-400/80 shadow-emerald-500/30'
-                : 'bg-emerald-500/15 border-emerald-500/40 shadow-emerald-500/20'
-            } border px-3 py-1.5 rounded-2xl flex-row items-center gap-1.5 shadow-sm`}
-          >
-            <MaterialCommunityIcons
-              name={consumedTotals.protein_g >= targetProtein && targetProtein > 0 ? 'trophy' : 'cat'}
-              size={15}
-              color="#10b981"
-            />
-            <Text
-              style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-emerald-400 text-xs"
-            >
-              {consumedTotals.protein_g >= targetProtein && targetProtein > 0 ? 'Goal Hit!' : 'Sia Coach'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Feline Hunter Rank Streak Badge */}
-          <FelineHunterRankBadge streakDays={streakDays} compact={true} />
-        </View>
+        <FelineHunterRankBadge streakDays={streakDays} compact={true} />
       </View>
 
       <ScrollView
         className="flex-1 px-5 pt-4"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
         }
@@ -316,97 +287,65 @@ export default function DashboardScreen() {
           fat={{ consumed: consumedTotals.fat_g, target: targetFat }}
         />
 
-        {/* 2. Slim Inline Hydration Bar */}
-        <View className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl px-4 py-3.5 mb-4 flex-row items-center justify-between shadow-sm shadow-black">
-          <View className="flex-row items-center gap-3 flex-1 mr-3">
-            <View className="w-9 h-9 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
-              <Ionicons name="water" size={18} color="#06b6d4" />
+        {/* Slim Hydration Chip */}
+        <Pressable
+          onPress={() => handleQuickAddWater(250)}
+          style={({ pressed }) => [
+            { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+          ]}
+          className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl px-4 py-2.5 mb-4 flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center gap-2.5">
+            <View className="w-7 h-7 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
+              <Ionicons name="water" size={14} color="#06b6d4" />
             </View>
-            <View className="flex-1">
-              <View className="flex-row items-center justify-between mb-1.5">
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs"
-                >
-                  Hydration: {(todayMl / 1000).toFixed(1)}L <Text className="text-zinc-500 font-normal">/ {(targetWaterMl / 1000).toFixed(1)}L</Text>
-                </Text>
-                <Text className="text-cyan-400 text-[11px] font-bold">{waterPercentage}%</Text>
-              </View>
-              {/* Mini fill bar */}
-              <View className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/40">
-                <View
-                  className="h-full bg-cyan-500 rounded-full"
-                  style={{ width: `${waterPercentage}%` }}
-                />
-              </View>
+            <Text style={{ fontFamily: 'Outfit_700Bold', fontVariant: ['tabular-nums'] }} className="text-white text-xs">
+              {(todayMl / 1000).toFixed(1)}L <Text className="text-zinc-500 font-normal">/ {(targetWaterMl / 1000).toFixed(1)}L</Text>
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-2">
+            <View className="h-1.5 w-16 bg-zinc-800 rounded-full overflow-hidden">
+              <View className="h-full bg-cyan-500 rounded-full" style={{ width: `${waterPercentage}%` }} />
+            </View>
+            <View className="bg-cyan-500/15 border border-cyan-500/30 px-2 py-1 rounded-lg">
+              <Text className="text-cyan-400 text-[10px] font-bold">+250ml</Text>
             </View>
           </View>
+        </Pressable>
 
-          {/* Quick 1-Tap Hydration Buttons */}
-          <View className="flex-row items-center gap-1.5">
-            <TouchableOpacity
-              onPress={() => handleQuickAddWater(250)}
-              activeOpacity={0.7}
-              className="bg-cyan-500/15 active:bg-cyan-500/30 border border-cyan-500/40 px-2.5 py-1.5 rounded-xl"
-            >
-              <Text className="text-cyan-400 text-xs font-bold">+250ml</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleQuickAddWater(500)}
-              activeOpacity={0.7}
-              className="bg-cyan-500/15 active:bg-cyan-500/30 border border-cyan-500/40 px-2.5 py-1.5 rounded-xl"
-            >
-              <Text className="text-cyan-400 text-xs font-bold">+500ml</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 3. High-Velocity Cyber-Feline Action Strip */}
-        <View className="flex-row gap-3 mb-5">
-          {/* Sia Optical Food Scan */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              router.push('/(tabs)/camera' as any);
-            }}
-            activeOpacity={0.8}
-            className="flex-1 bg-emerald-500 active:bg-emerald-600 rounded-3xl p-4 flex-row items-center gap-3 shadow-lg shadow-emerald-500/25"
-          >
-            <View className="w-10 h-10 rounded-2xl bg-zinc-950/25 border border-white/20 items-center justify-center">
-              <MaterialCommunityIcons name="camera-iris" size={22} color="#ffffff" />
-            </View>
-            <View className="flex-1">
-              <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-white text-sm">
-                Sia Vision Scan
-              </Text>
-              <Text className="text-white/80 text-[11px] font-semibold mt-0.5">
-                Point camera & track
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Sia Natural Language Text Log */}
-          <TouchableOpacity
+        {/* Quick Action Strip */}
+        <View className="flex-row gap-2.5 mb-4">
+          <Pressable
             onPress={() => {
               hapticFeedback.light();
               setTextModalVisible(true);
             }}
-            activeOpacity={0.8}
-            className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-3xl p-4 flex-row items-center gap-3 shadow-md shadow-black"
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+            ]}
+            className="flex-1 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl py-3 px-4 flex-row items-center gap-2.5"
           >
-            <View className="w-10 h-10 rounded-2xl bg-purple-500/15 items-center justify-center border border-purple-500/30">
-              <MaterialCommunityIcons name="text-box-edit-outline" size={19} color="#c084fc" />
+            <View className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 items-center justify-center">
+              <MaterialCommunityIcons name="text-box-edit-outline" size={15} color="#c084fc" />
             </View>
-            <View className="flex-1">
-              <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-white text-sm">
-                Sia Text Log
-              </Text>
-              <Text className="text-zinc-400 text-[11px] font-medium mt-0.5">
-                Type what you ate
-              </Text>
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">Text Log</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              handlePickGalleryForCategory('snack');
+            }}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+            ]}
+            className="flex-1 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl py-3 px-4 flex-row items-center gap-2.5"
+          >
+            <View className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 items-center justify-center">
+              <Ionicons name="images-outline" size={15} color="#fbbf24" />
             </View>
-          </TouchableOpacity>
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">Photo Library</Text>
+          </Pressable>
         </View>
 
         {/* 4. Proactive AI Nutrition Engine: Sia's Next Catch */}
@@ -421,16 +360,16 @@ export default function DashboardScreen() {
           loggedMeals={meals}
         />
 
-        {/* 5. Categorized Meal Feed */}
+        {/* Categorized Meal Feed */}
         <View className="mb-2">
           <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-3.5 px-0.5">
             Today's Logged Meals
           </Text>
 
-          {meals.length === 0 && (
+          {meals.length === 0 ? (
             <FelineEmptyState
               title="Sia is Snoozing..."
-              description="No catches logged yet today! Snap a photo or quick-type your meal to wake Sia up and feed your daily macro rings."
+              description="No catches logged yet today! Snap a photo or type your meal to start filling your macro rings."
               actionLabel="Snap Your First Catch"
               onAction={() => {
                 hapticFeedback.light();
@@ -438,116 +377,81 @@ export default function DashboardScreen() {
               }}
               mood="idle"
             />
-          )}
-
-          {mealSections.map((section) => {
-            const hasMeals = section.meals.length > 0;
-            return (
-              <View key={section.type} className="mb-4">
-                {/* Category Header Row */}
-                <View className="flex-row items-center justify-between mb-2.5 px-1">
-                  <View className="flex-row items-center gap-2">
-                    <View
-                      className={`w-7 h-7 rounded-xl ${section.badgeBg} items-center justify-center border`}
-                    >
-                      <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
+          ) : (
+            mealSections.map((section) => {
+              const hasMeals = section.meals.length > 0;
+              return (
+                <View key={section.type} className="mb-3">
+                  {/* Category Header Row */}
+                  <View className="flex-row items-center justify-between mb-2 px-1">
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className={`w-7 h-7 rounded-xl ${section.badgeBg} items-center justify-center border`}
+                      >
+                        <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
+                      </View>
+                      <Text
+                        style={{ fontFamily: 'Outfit_700Bold' }}
+                        className="text-white text-sm"
+                      >
+                        {section.title}
+                      </Text>
                     </View>
-                    <Text
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="text-white text-sm"
-                    >
-                      {section.title}
-                    </Text>
+
+                    <View className="flex-row items-center gap-2">
+                      {hasMeals && (
+                        <View className="bg-zinc-900 px-2.5 py-0.5 rounded-lg border border-zinc-800">
+                          <Text
+                            style={{ fontFamily: 'Outfit_700Bold', fontVariant: ['tabular-nums'] }}
+                            className="text-zinc-300 text-xs"
+                          >
+                            {section.totalCalories} kcal
+                          </Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => {
+                          hapticFeedback.light();
+                          setActionSheetCategory(section);
+                        }}
+                        className="w-7 h-7 rounded-xl bg-zinc-800/80 items-center justify-center border border-zinc-700/60"
+                      >
+                        <Ionicons name="add" size={16} color="#e4e4e7" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
-                  <View className="flex-row items-center gap-2">
-                    {hasMeals && (
-                      <View className="bg-zinc-900 px-2.5 py-0.5 rounded-lg border border-zinc-800">
-                        <Text
-                          style={{ fontFamily: 'Outfit_700Bold' }}
-                          className="text-zinc-300 text-xs"
-                        >
-                          {section.totalCalories} kcal
-                        </Text>
-                      </View>
-                    )}
-                    <TouchableOpacity
+                  {/* Meals or Minimal Empty Slot */}
+                  {hasMeals ? (
+                    section.meals.map((meal) => (
+                      <MealItemCard
+                        key={meal.id}
+                        meal={meal}
+                        onDelete={handleDeleteMealWithToast}
+                        onPress={(m) => setSelectedMeal(m)}
+                      />
+                    ))
+                  ) : (
+                    <Pressable
                       onPress={() => {
                         hapticFeedback.light();
                         setActionSheetCategory(section);
                       }}
-                      className="w-7 h-7 rounded-xl bg-zinc-800/80 items-center justify-center border border-zinc-700/60"
+                      style={({ pressed }) => [
+                        { opacity: pressed ? 0.7 : 1 },
+                      ]}
+                      className="border border-dashed border-zinc-800/60 rounded-2xl py-3 px-4 flex-row items-center justify-center gap-2"
                     >
-                      <Ionicons name="add" size={16} color="#e4e4e7" />
-                    </TouchableOpacity>
-                  </View>
+                      <Ionicons name="add-circle-outline" size={14} color={section.color} />
+                      <Text style={{ color: section.color }} className="text-xs font-semibold">
+                        Log {section.title}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
-
-                {/* Populated Meals or Empty State */}
-                {hasMeals ? (
-                  section.meals.map((meal) => (
-                    <MealItemCard
-                      key={meal.id}
-                      meal={meal}
-                      onDelete={handleDeleteMealWithToast}
-                      onPress={(m) => setSelectedMeal(m)}
-                    />
-                  ))
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => {
-                      hapticFeedback.light();
-                      setActionSheetCategory(section);
-                    }}
-                    activeOpacity={0.7}
-                    className="border border-dashed border-zinc-800/90 bg-zinc-950/40 rounded-3xl py-4 px-4"
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-3 flex-1 mr-2">
-                        {/* Sia cat mascot avatar image */}
-                        <View
-                          style={{ borderColor: section.color + '40', borderWidth: 1 }}
-                          className="w-9 h-9 rounded-2xl bg-zinc-900 items-center justify-center overflow-hidden"
-                        >
-                          <Image
-                            source={require('../../../assets/images/logo.jpg')}
-                            style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                            resizeMode="cover"
-                          />
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            style={{ fontFamily: 'Outfit_700Bold', color: section.color }}
-                            className="text-xs"
-                          >
-                            Sia Coach
-                          </Text>
-                          <Text className="text-zinc-400 text-[11px] font-medium mt-0.5">
-                            {section.type === 'breakfast'
-                              ? "Nothing logged yet — fuel up for the day"
-                              : section.type === 'lunch'
-                              ? "Midday gap detected — log your lunch"
-                              : section.type === 'dinner'
-                              ? "Evening plate empty — log your dinner"
-                              : "Any snacks or extras to record?"}
-                          </Text>
-                        </View>
-                      </View>
-                      <View
-                        style={{ borderColor: section.color + '55', backgroundColor: section.color + '18' }}
-                        className="px-3 py-1.5 rounded-xl border flex-row items-center gap-1"
-                      >
-                        <Ionicons name="add" size={13} color={section.color} />
-                        <Text style={{ color: section.color, fontFamily: 'Outfit_800ExtraBold' }} className="text-xs">
-                          Log
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
