@@ -28,6 +28,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import SiaCatMascot from '../../components/SiaCatMascot';
+import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
+import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
+import { FelineEmptyState } from '../../components/FelineEmptyState';
+import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
 
 interface CategoryHeaderConfig {
   type: MealType;
@@ -287,16 +291,8 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Feline Streak Badge */}
-          <View className="bg-emerald-950/70 border border-emerald-700/50 px-2.5 py-1.5 rounded-2xl flex-row items-center gap-1.5">
-            <MaterialCommunityIcons name="paw" size={13} color="#10b981" />
-            <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
-              className="text-emerald-400 text-xs"
-            >
-              {streakDays}d Streak
-            </Text>
-          </View>
+          {/* Feline Hunter Rank Streak Badge */}
+          <FelineHunterRankBadge streakDays={streakDays} compact={true} />
         </View>
       </View>
 
@@ -308,6 +304,9 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
         }
       >
+        {/* Smart Feline Notification Opt-In Prompt */}
+        <NotificationPermissionBanner />
+
         {/* 1. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
         <DailyMacroSummary
           targetCalories={targetCalories}
@@ -410,11 +409,36 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 4. Categorized Meal Feed */}
+        {/* 4. Proactive AI Nutrition Engine: Sia's Next Catch */}
+        <SiaNextCatchCard
+          targets={{
+            calories: targetCalories,
+            protein_g: targetProtein,
+            carbs_g: targetCarbs,
+            fat_g: targetFat,
+          }}
+          consumed={consumedTotals}
+          loggedMeals={meals}
+        />
+
+        {/* 5. Categorized Meal Feed */}
         <View className="mb-2">
           <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-3.5 px-0.5">
             Today's Logged Meals
           </Text>
+
+          {meals.length === 0 && (
+            <FelineEmptyState
+              title="Sia is Snoozing..."
+              description="No catches logged yet today! Snap a photo or quick-type your meal to wake Sia up and feed your daily macro rings."
+              actionLabel="Snap Your First Catch"
+              onAction={() => {
+                hapticFeedback.light();
+                router.push('/(tabs)/camera' as any);
+              }}
+              mood="idle"
+            />
+          )}
 
           {mealSections.map((section) => {
             const hasMeals = section.meals.length > 0;

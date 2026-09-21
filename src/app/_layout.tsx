@@ -3,8 +3,11 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { useAuthStore } from '../stores/authStore';
+
+WebBrowser.maybeCompleteAuthSession();
 import { initSyncQueue } from '../lib/syncQueue';
 import {
   useFonts,

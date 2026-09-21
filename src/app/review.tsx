@@ -18,6 +18,7 @@ import { MealType } from '../types';
 import { getDefaultMealType } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
+import SiaCatMascot from '../components/SiaCatMascot';
 
 interface MealTypeOption {
   type: MealType;
@@ -139,12 +140,8 @@ export default function ReviewScreen() {
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
           {/* Sia Vision Intelligence Card */}
           <View className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 flex-row items-center gap-3 mb-4 shadow-sm shadow-emerald-500/10">
-            <View className="w-10 h-10 rounded-2xl bg-zinc-950 border border-emerald-500/40 items-center justify-center overflow-hidden">
-              <Image
-                source={require('../../assets/images/logo.jpg')}
-                style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                resizeMode="cover"
-              />
+            <View className="items-center justify-center">
+              <SiaCatMascot size={46} mood="happy" withGlow={true} />
             </View>
             <View className="flex-1">
               <View className="flex-row items-center gap-1.5 mb-0.5">
@@ -152,14 +149,14 @@ export default function ReviewScreen() {
                   style={{ fontFamily: 'Outfit_700Bold' }}
                   className="text-white text-xs"
                 >
-                  Sia Vision Estimate
+                  Sia Vision Assessment
                 </Text>
-                <View className="bg-emerald-500/20 px-1.5 py-0.2 rounded-md border border-emerald-500/40">
-                  <Text className="text-emerald-400 text-[9px] font-extrabold uppercase">Calibrated</Text>
+                <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
+                  <Text className="text-emerald-400 text-[9px] font-extrabold uppercase tracking-wider">🐾 AI Verified</Text>
                 </View>
               </View>
               <Text className="text-zinc-400 text-[11px] font-medium leading-4">
-                Estimated from visual scanning. Adjust portions or ingredients before logging.
+                Sia inspected your meal! Tweak portions or ingredients below before saving, human.
               </Text>
             </View>
           </View>

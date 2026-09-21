@@ -230,10 +230,12 @@ export function AiNutritionCoachModal({
     [onClose, router, setDraftMeal]
   );
 
-  // Load persisted history once on mount
+  // Load persisted history on mount or whenever modal opens
   useEffect(() => {
-    loadHistory();
-  }, []);
+    if (visible) {
+      loadHistory();
+    }
+  }, [visible]);
 
   // Inject friendly conversational feline greeting when history is empty
   useEffect(() => {

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { uploadMealPhotoToSupabase } from '../lib/storage';
 import { enqueueMutation } from '../lib/syncQueue';
+import { generateUUID } from '../utils/uuid';
 import { Meal, MealType } from '../types';
 
 const TODAY_MEALS_CACHE_KEY = '@calorie_tracker_cached_today_meals';
@@ -62,6 +63,7 @@ interface MealState {
   }) => Promise<Meal>;
   updateMeal: (id: string, updates: Partial<Meal>) => Promise<Meal>;
   deleteMeal: (id: string) => Promise<void>;
+  reset: () => void;
 }
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
@@ -313,10 +315,8 @@ export const useMealStore = create<MealState>((set, get) => ({
       }).catch(() => {});
     }
 
-    // Generate client-side UUID so we don't wait for server roundtrip
-    const mealId = (globalThis.crypto?.randomUUID && typeof globalThis.crypto.randomUUID === 'function')
-      ? globalThis.crypto.randomUUID()
-      : `meal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    // Generate standard RFC 4122 v4 UUID so Postgres accepts it without error
+    const mealId = generateUUID();
 
     const newMeal: Meal = {
       id: mealId,
@@ -391,5 +391,17 @@ export const useMealStore = create<MealState>((set, get) => ({
 
     await enqueueMutation('DELETE_MEAL', { id });
     get().fetchWeeklyStats().catch(() => {});
+  },
+
+  reset: () => {
+    AsyncStorage.removeItem(TODAY_MEALS_CACHE_KEY).catch(() => {});
+    AsyncStorage.removeItem(WEEKLY_SUMMARY_CACHE_KEY).catch(() => {});
+    set({
+      meals: [],
+      selectedDate: getTodayString(),
+      weeklySummary: null,
+      draftMeal: null,
+      isLoading: false,
+    });
   },
 }));

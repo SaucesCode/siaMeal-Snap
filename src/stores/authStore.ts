@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
+import { useCoachStore } from './coachStore';
+import { useMealStore } from './mealStore';
 
 const PROFILE_CACHE_KEY = '@calorie_tracker_cached_profile';
 
@@ -58,8 +60,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ session: newSession, user: newSession?.user ?? null });
         if (newSession?.user) {
           await get().fetchProfile();
+          useCoachStore.getState().loadHistory(newSession.user.id);
         } else {
           set({ profile: null });
+          useCoachStore.getState().reset();
+          useMealStore.getState().reset();
         }
       });
     } finally {
@@ -164,9 +169,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
+      useCoachStore.getState().reset();
+      useMealStore.getState().reset();
       await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
     } catch (cacheErr) {
-      console.warn('Failed to clear profile cache on sign out:', cacheErr);
+      console.warn('Failed to clear caches on sign out:', cacheErr);
     }
     await supabase.auth.signOut();
     set({ user: null, session: null, profile: null });

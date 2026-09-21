@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { supabase } from './supabase';
+import { generateUUID } from '../utils/uuid';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SYNC_QUEUE_KEY = '@calorie_tracker_mutation_queue';
 
@@ -82,13 +85,23 @@ export async function processSyncQueue(): Promise<void> {
         let error: any = null;
 
         if (item.type === 'CREATE_MEAL') {
+          // Ensure valid UUID format so Postgres never rejects with syntax error
+          if (!item.payload?.id || !UUID_REGEX.test(item.payload.id)) {
+            item.payload.id = generateUUID();
+          }
           // Idempotent upsert so retries never produce duplicates
           const res = await supabase.from('meals').upsert(item.payload, { onConflict: 'id' });
           error = res.error;
         } else if (item.type === 'UPDATE_MEAL') {
+          if (!item.payload?.id || !UUID_REGEX.test(item.payload.id)) {
+            continue; // Safely discard invalid legacy non-UUID update
+          }
           const res = await supabase.from('meals').update(item.payload.updates).eq('id', item.payload.id);
           error = res.error;
         } else if (item.type === 'DELETE_MEAL') {
+          if (!item.payload?.id || !UUID_REGEX.test(item.payload.id)) {
+            continue; // Safely discard invalid legacy non-UUID delete
+          }
           const res = await supabase.from('meals').delete().eq('id', item.payload.id);
           error = res.error;
         }

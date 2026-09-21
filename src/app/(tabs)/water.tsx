@@ -18,6 +18,7 @@ import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { hapticFeedback } from '../../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import SiaCatMascot from '../../components/SiaCatMascot';
+import { FelineEmptyState } from '../../components/FelineEmptyState';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -414,6 +415,26 @@ export default function WaterScreen() {
           </View>
         </View>
 
+        {/* Feline Hydration Goal Celebration Banner */}
+        {percentage >= 100 && (
+          <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-3xl p-4 mb-4 flex-row items-center gap-3.5 shadow-sm shadow-cyan-500/10">
+            <SiaCatMascot size={46} mood="celebrating" withGlow={false} />
+            <View className="flex-1">
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <Text
+                  style={{ fontFamily: 'Outfit_800ExtraBold' }}
+                  className="text-cyan-400 text-sm"
+                >
+                  Paws Fully Hydrated! 🏆
+                </Text>
+              </View>
+              <Text className="text-zinc-300 text-xs leading-4">
+                Sia is purring with delight! Daily target of {(effectiveGoal / 1000).toFixed(1)}L smashed for today.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* 2. Quick Vessel Intake Grid */}
         <View className="mb-5">
           <View className="flex-row items-center justify-between mb-3 px-1">
@@ -470,15 +491,13 @@ export default function WaterScreen() {
           </View>
 
           {logs.length === 0 ? (
-            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-3xl py-10 px-6 items-center justify-center">
-              <View className="w-12 h-12 rounded-2xl bg-cyan-950/40 border border-cyan-800/30 items-center justify-center mb-2.5">
-                <Ionicons name="water-outline" size={24} color="#06b6d4" />
-              </View>
-              <Text className="text-zinc-300 font-bold text-sm mb-1">No fluid logs today</Text>
-              <Text className="text-zinc-500 text-xs text-center">
-                Tap a vessel tile above to record your first hydration entry.
-              </Text>
-            </View>
+            <FelineEmptyState
+              title="Sia's Water Bowl is Dry!"
+              description="Zero fluid logged yet today. Tap any vessel tile above to pour fresh water into Sia's bowl and hit your daily goal."
+              actionLabel="Add +250ml Glass"
+              onAction={() => handleAddWater(250, 'Kitten Bowl')}
+              mood="thinking"
+            />
           ) : (
             logs.map((log) => (
               <View

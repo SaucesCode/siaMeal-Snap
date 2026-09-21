@@ -19,6 +19,7 @@ import { WeeklyAdherenceChart } from '../../components/WeeklyAdherenceChart';
 import { AiNutritionCoachModal } from '../../components/AiNutritionCoachModal';
 import { FloatingCoachWidget } from '../../components/FloatingCoachWidget';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
+import { FelineEmptyState } from '../../components/FelineEmptyState';
 import {
   generateWeeklyCoachingInsights,
   calculateMacroEnergySplit,
@@ -566,15 +567,16 @@ export default function HistoryScreen() {
           </View>
 
           {meals.length === 0 ? (
-            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-3xl py-10 px-6 items-center justify-center">
-              <View className="w-12 h-12 rounded-2xl bg-zinc-800/80 items-center justify-center mb-2.5">
-                <Ionicons name="restaurant-outline" size={22} color="#71717a" />
-              </View>
-              <Text className="text-zinc-300 font-bold text-sm mb-1">No meals logged for this day</Text>
-              <Text className="text-zinc-500 text-xs text-center">
-                Tap on any bar in the 7-day chart above to inspect that day's nutrition.
-              </Text>
-            </View>
+            <FelineEmptyState
+              title="No Catches on This Day"
+              description={`Sia has no hunting records for ${selectedDateLabel}. Tap any bar in the weekly chart above to inspect another day.`}
+              actionLabel="Return to Today"
+              onAction={() => {
+                hapticFeedback.light();
+                setSelectedDate(new Date().toISOString().split('T')[0]);
+              }}
+              mood="thinking"
+            />
           ) : (
             mealSections.map((section) => {
               if (section.meals.length === 0) return null;

@@ -432,6 +432,23 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
 
     let parsedData: any = null;
 
+    // Resolve dynamic image MIME type and clean Base64 payload
+    let detectedMime = "image/jpeg";
+    let cleanImageBase64 = "";
+
+    if (imageBase64) {
+      const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+_-]+);base64,/);
+      if (mimeMatch) {
+        detectedMime = mimeMatch[1];
+        cleanImageBase64 = imageBase64.slice(mimeMatch[0].length);
+      } else {
+        if (imageBase64.startsWith("UklGR")) {
+          detectedMime = "image/webp";
+        }
+        cleanImageBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      }
+    }
+
     if (geminiKeys.length > 0) {
       const parts: any[] = [];
       parts.push({
@@ -440,12 +457,11 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
           : "Analyze this meal photo. Identify all foods, portion sizes, calories, macronutrients (protein, carbs, fat), and individual ingredients.",
       });
 
-      if (imageBase64) {
-        const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      if (cleanImageBase64) {
         parts.push({
           inline_data: {
-            mime_type: "image/jpeg",
-            data: cleanBase64,
+            mime_type: detectedMime,
+            data: cleanImageBase64,
           },
         });
       }
@@ -503,12 +519,11 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
           : "Analyze this meal photo and return the estimated calories, protein, carbs, fat, and ingredients.",
       });
 
-      if (imageBase64) {
-        const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      if (cleanImageBase64) {
         userContent.push({
           type: "image_url",
           image_url: {
-            url: `data:image/jpeg;base64,${cleanBase64}`,
+            url: `data:${detectedMime};base64,${cleanImageBase64}`,
             detail: "low",
           },
         });

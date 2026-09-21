@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
+import SiaCatMascot from './SiaCatMascot';
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -7,31 +8,14 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({ size = 'md', showTagline = true }: BrandLogoProps) {
-  const imageDimension = size === 'lg' ? 76 : size === 'md' ? 56 : 38;
-  const borderRadius = size === 'lg' ? 24 : size === 'md' ? 18 : 12;
+  const imageDimension = size === 'lg' ? 76 : size === 'md' ? 58 : 40;
   const titleSize = size === 'lg' ? 'text-3xl' : size === 'md' ? 'text-2xl' : 'text-lg';
 
   return (
     <View className="items-center">
-      {/* SiaMeal Cat Mascot Icon Badge */}
-      <View
-        style={{
-          width: imageDimension,
-          height: imageDimension,
-          borderRadius,
-          shadowColor: '#10b981',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.35,
-          shadowRadius: 12,
-          elevation: 10,
-        }}
-        className="mb-3 items-center justify-center bg-zinc-950 border border-emerald-500/30 overflow-hidden"
-      >
-        <Image
-          source={require('../../assets/images/logo.jpg')}
-          style={{ width: '100%', height: '100%', borderRadius }}
-          resizeMode="cover"
-        />
+      {/* SiaMeal Cat Mascot Icon Avatar */}
+      <View className="mb-3 items-center justify-center">
+        <SiaCatMascot size={imageDimension} mood="happy" withGlow={true} />
       </View>
 
       {/* Styled Brand Title */}

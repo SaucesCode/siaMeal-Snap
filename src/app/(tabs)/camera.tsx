@@ -340,7 +340,7 @@ export default function CameraScreen() {
         ) : (
           <View className="items-center justify-center px-8">
             <View className="w-64 h-48 border-2 border-emerald-400/80 rounded-3xl items-center justify-center bg-black/20 relative">
-              <View className="w-full h-0.5 bg-emerald-400 shadow-lg shadow-emerald-400" />
+              <View className="w-full h-0.5 bg-emerald-400" style={{ elevation: 4 }} />
               <View className="absolute -bottom-8 bg-black/70 px-4 py-1.5 rounded-full border border-white/10">
                 <Text className="text-white text-xs font-semibold">
                   Align barcode inside frame

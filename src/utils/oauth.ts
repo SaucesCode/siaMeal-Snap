@@ -27,6 +27,11 @@ export async function performGoogleOAuth() {
   }
 
   // 2. Mobile Platforms (Custom Scheme Redirect)
+  // Ensure no stale or leftover session from another account pollutes this attempt
+  try {
+    await supabase.auth.signOut();
+  } catch {}
+
   const redirectUrl = makeRedirectUri({
     scheme: 'siamealsnap',
     path: 'auth/callback',
@@ -41,7 +46,6 @@ export async function performGoogleOAuth() {
       skipBrowserRedirect: true,
       queryParams: {
         access_type: 'offline',
-        prompt: 'select_account',
       },
     },
   });
@@ -60,9 +64,9 @@ export async function performGoogleOAuth() {
 
       try {
         console.log('[OAuth Mobile] Processing callback URL:', callbackUrl);
-        if (Platform.OS === 'ios') {
+        try {
           WebBrowser.dismissAuthSession();
-        }
+        } catch {}
 
         const params = parseOAuthParams(callbackUrl);
 
@@ -108,25 +112,25 @@ export async function performGoogleOAuth() {
         (event.url.includes('code=') ||
           event.url.includes('access_token=') ||
           event.url.includes('auth/callback') ||
-          event.url.startsWith('siamealsnap://'))
+          event.url.startsWith('siamealsnap://') ||
+          event.url.startsWith('exp://'))
       ) {
         handleCallbackUrl(event.url);
       }
     });
 
     try {
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl, {
+        showInRecents: true,
+        createTask: false,
+      });
       console.log('[OAuth Mobile] WebBrowser finished with result:', result.type);
 
       if (result.type === 'success' && result.url) {
         await handleCallbackUrl(result.url);
       } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        const { data: currentSession } = await supabase.auth.getSession();
-        if (currentSession?.session) {
-          resolve(currentSession);
-        } else {
-          resolve(null);
-        }
+        console.log('[OAuth Mobile] User cancelled or dismissed OAuth session.');
+        resolve(null);
       }
     } catch (err) {
       if (!handled) {

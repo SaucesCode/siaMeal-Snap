@@ -28,6 +28,8 @@ import { WeightTrendChart } from '../../components/WeightTrendChart';
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { hapticFeedback } from '../../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
+import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
 
 const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   'person',
@@ -78,12 +80,44 @@ export default function ProfileScreen() {
   const [showWeightTracker, setShowWeightTracker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [newWeightInput, setNewWeightInput] = useState('');
+  const [notificationsEnabled, setNotificationsEnabledState] = useState(false);
 
   useEffect(() => {
     loadWeightHistory();
     loadTodayWater();
     fetchWeeklyStats(profile?.target_calories || 2000);
+    getNotificationStatus().then((status) => {
+      setNotificationsEnabledState(status.isEnabled);
+    });
   }, []);
+
+  const handleToggleNotifications = async () => {
+    hapticFeedback.medium();
+    const status = await getNotificationStatus();
+    if (status.isExpoGo) {
+      Alert.alert(
+        'Expo Go Notice',
+        'Android notifications provided by expo-notifications were removed from Expo Go in SDK 53+. To test notifications, use an Expo Development Build (EAS or npx expo run:android).'
+      );
+      return;
+    }
+    const nextState = !notificationsEnabled;
+    const success = await setNotificationsEnabled(nextState);
+    if (success) {
+      setNotificationsEnabledState(nextState);
+      Alert.alert(
+        nextState ? 'Reminders Enabled' : 'Reminders Disabled',
+        nextState
+          ? "Sia will nudge you to hydrate and protect your hunting streak!"
+          : 'Daily reminders have been turned off.'
+      );
+    } else if (nextState) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow notifications for SiaMeal Snap in your device Settings to receive reminders.'
+      );
+    }
+  };
 
   const handleWeightLogged = async (valKg: number) => {
     setWeightStr(String(valKg));
@@ -405,6 +439,11 @@ export default function ProfileScreen() {
             </Text>
             <Text className="text-zinc-500 text-[9px] font-bold uppercase mt-0.5">Current</Text>
           </View>
+        </View>
+
+        {/* Feline Hunter Rank & Milestones Card */}
+        <View className="mb-5">
+          <FelineHunterRankBadge streakDays={streakCount} compact={false} />
         </View>
 
         {/* 3. Target Energy Blueprint Hero Card */}
@@ -761,7 +800,51 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* 7. Sign Out & Account Actions */}
+        {/* 7. Feline Reminders & Notifications */}
+        <View className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl overflow-hidden mb-5">
+          <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider px-4 pt-3.5 pb-2">
+            Preferences & Notifications
+          </Text>
+
+          <View className="flex-row items-center justify-between p-4 border-t border-zinc-800/60">
+            <View className="flex-row items-center gap-3 flex-1 mr-3">
+              <View className="w-8 h-8 rounded-xl bg-emerald-500/15 items-center justify-center">
+                <Ionicons name="notifications-outline" size={16} color="#10b981" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase">Sia's Daily Reminders</Text>
+                <Text
+                  style={{ fontFamily: 'Outfit_700Bold' }}
+                  className="text-white text-sm mt-0.5"
+                >
+                  Hydration & Streak Shield
+                </Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">
+                  13:30 Hydration check • 19:30 Dinner streak protector
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleToggleNotifications}
+              activeOpacity={0.8}
+              className={`px-3 py-1.5 rounded-xl border ${
+                notificationsEnabled
+                  ? 'bg-emerald-500/20 border-emerald-500/40'
+                  : 'bg-zinc-800/80 border-zinc-700/60'
+              }`}
+            >
+              <Text
+                style={{ fontFamily: 'Outfit_700Bold' }}
+                className={notificationsEnabled ? 'text-emerald-400 text-xs' : 'text-zinc-400 text-xs'}
+              >
+                {notificationsEnabled ? 'Enabled' : 'Off'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 8. Sign Out & Account Actions */}
         <View className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl overflow-hidden mb-6">
           <TouchableOpacity
             onPress={handleSignOut}

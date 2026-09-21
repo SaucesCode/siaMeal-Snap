@@ -1,33 +1,51 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChatMessage } from '../services/aiService';
+import { supabase } from '../lib/supabase';
 
-const COACH_STORAGE_KEY = '@siamessage_coach_history';
+const getCoachStorageKey = (userId?: string | null) =>
+  userId ? `@siamessage_coach_history_${userId}` : '@siamessage_coach_history_guest';
 
 interface CoachState {
   messages: ChatMessage[];
   isLoaded: boolean;
-  loadHistory: () => Promise<void>;
+  currentUserId: string | null;
+  loadHistory: (userId?: string) => Promise<void>;
   addMessage: (msg: ChatMessage) => Promise<void>;
   setMessages: (messages: ChatMessage[]) => Promise<void>;
   clearHistory: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useCoachStore = create<CoachState>((set, get) => ({
   messages: [],
   isLoaded: false,
+  currentUserId: null,
 
-  loadHistory: async () => {
+  loadHistory: async (userId?: string) => {
     try {
-      const stored = await AsyncStorage.getItem(COACH_STORAGE_KEY);
+      // Determine effective user ID
+      let resolvedUserId = userId || get().currentUserId;
+      if (!resolvedUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        resolvedUserId = session?.user?.id || null;
+      }
+
+      // If user changed, reset current messages first
+      if (resolvedUserId !== get().currentUserId) {
+        set({ messages: [], isLoaded: false, currentUserId: resolvedUserId });
+      }
+
+      const key = getCoachStorageKey(resolvedUserId);
+      const stored = await AsyncStorage.getItem(key);
       if (stored) {
         const parsed: ChatMessage[] = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          set({ messages: parsed, isLoaded: true });
+          set({ messages: parsed, isLoaded: true, currentUserId: resolvedUserId });
           return;
         }
       }
-      set({ messages: [], isLoaded: true });
+      set({ messages: [], isLoaded: true, currentUserId: resolvedUserId });
     } catch (err) {
       console.warn('Failed to load coach history from AsyncStorage:', err);
       set({ messages: [], isLoaded: true });
@@ -38,7 +56,8 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     const updated = [...get().messages, msg];
     set({ messages: updated });
     try {
-      await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(updated));
+      const key = getCoachStorageKey(get().currentUserId);
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
     } catch (err) {
       console.warn('Failed to persist coach message:', err);
     }
@@ -47,7 +66,8 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   setMessages: async (messages: ChatMessage[]) => {
     set({ messages });
     try {
-      await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(messages));
+      const key = getCoachStorageKey(get().currentUserId);
+      await AsyncStorage.setItem(key, JSON.stringify(messages));
     } catch (err) {
       console.warn('Failed to persist coach messages:', err);
     }
@@ -56,9 +76,14 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   clearHistory: async () => {
     set({ messages: [] });
     try {
-      await AsyncStorage.removeItem(COACH_STORAGE_KEY);
+      const key = getCoachStorageKey(get().currentUserId);
+      await AsyncStorage.removeItem(key);
     } catch (err) {
       console.warn('Failed to clear coach history:', err);
     }
+  },
+
+  reset: () => {
+    set({ messages: [], isLoaded: false, currentUserId: null });
   },
 }));

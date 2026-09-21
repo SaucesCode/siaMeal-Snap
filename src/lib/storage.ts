@@ -29,7 +29,10 @@ export async function uploadMealPhotoToSupabase(
   }
 
   try {
-    const filename = `${userId}/${Date.now()}.jpg`;
+    const isWebP = localUri.toLowerCase().endsWith('.webp');
+    const extension = isWebP ? 'webp' : 'jpg';
+    const contentType = isWebP ? 'image/webp' : 'image/jpeg';
+    const filename = `${userId}/${Date.now()}.${extension}`;
 
     // Read image as base64
     const base64 = await FileSystem.readAsStringAsync(localUri, {
@@ -41,7 +44,7 @@ export async function uploadMealPhotoToSupabase(
     const { data, error } = await supabase.storage
       .from('meal-images')
       .upload(filename, arrayBuffer, {
-        contentType: 'image/jpeg',
+        contentType,
         upsert: true,
         cacheControl: '31536000',
       });
