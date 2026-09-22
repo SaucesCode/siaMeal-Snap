@@ -40,7 +40,6 @@ interface FormattedChatMessageProps {
   isUser: boolean;
   onLogMeal?: (meal: ParsedSuggestedMeal) => void;
   onCopy?: (text: string) => void;
-  timestamp?: string;
 }
 
 /**
@@ -77,19 +76,6 @@ function getDateDividerLabel(isoString?: string): string {
 }
 
 /**
- * Returns formatted micro-timestamp (e.g. "9:42 AM")
- */
-function formatMessageTime(isoString?: string): string {
-  if (!isoString) return '';
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  } catch {
-    return '';
-  }
-}
-
-/**
  * Parses markdown bold (**text**) and renders clean styled Text components
  * without showing raw markdown asterisks (**) or stray metadata headers,
  * renders interactive 1-tap quick log cards for meal recommendations,
@@ -100,7 +86,6 @@ function FormattedChatMessage({
   isUser,
   onLogMeal,
   onCopy,
-  timestamp,
 }: FormattedChatMessageProps) {
   const cleanedContent = isUser ? content : cleanCoachReply(content);
   const suggestedMeals = useMemo(() => {
@@ -230,29 +215,20 @@ function FormattedChatMessage({
         </View>
       )}
 
-      {/* Bubble Footer: Timestamp & 1-Tap Copy Action */}
-      <View className="flex-row items-center justify-between mt-2 pt-1">
-        <Text
-          style={{ fontVariant: ['tabular-nums'] }}
-          className={`text-[9px] font-semibold ${
-            isUser ? 'text-emerald-200/60' : 'text-zinc-500'
-          }`}
-        >
-          {formatMessageTime(timestamp)}
-        </Text>
-
-        {!isUser && onCopy && (
+      {/* Bubble Footer: 1-Tap Copy Action for Sia's responses */}
+      {!isUser && onCopy && (
+        <View className="flex-row items-center justify-end mt-2 pt-0.5">
           <Pressable
             onPress={() => onCopy(cleanedContent)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={({ pressed }) => [{ opacity: pressed ? 0.5 : 0.8 }]}
-            className="flex-row items-center gap-1 bg-zinc-900/80 border border-zinc-800 px-1.5 py-0.5 rounded-md"
+            className="flex-row items-center gap-1 bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded-md"
           >
-            <Ionicons name="copy-outline" size={10} color="#a1a1aa" />
+            <Ionicons name="copy-outline" size={11} color="#a1a1aa" />
             <Text className="text-[9px] text-zinc-400 font-semibold">Copy</Text>
           </Pressable>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -743,7 +719,6 @@ export function AiNutritionCoachModal({
                       isUser={msg.role === 'user'}
                       onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
                       onCopy={msg.role === 'assistant' ? handleCopyMessage : undefined}
-                      timestamp={msg.timestamp}
                     />
                   </View>
                 </View>
