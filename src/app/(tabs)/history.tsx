@@ -323,38 +323,41 @@ export default function HistoryScreen() {
                 className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-5 shadow-lg shadow-black/50 justify-between"
               >
                 {/* Header with Sia mascot accent */}
-                <View className="flex-row items-center justify-between mb-2.5">
-                  <View className="flex-row items-center gap-2.5">
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, overflow: 'hidden', marginRight: 8 }}>
                     <View
                       className="w-9 h-9 rounded-xl items-center justify-center border"
                       style={{
                         backgroundColor: `${tip.badgeColor}15`,
                         borderColor: `${tip.badgeColor}40`,
+                        flexShrink: 0,
                       }}
                     >
                       <Ionicons name={tip.icon as any} size={17} color={tip.badgeColor} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-sm"
-                        numberOfLines={1}
-                      >
-                        {tip.title}
-                      </Text>
-                    </View>
+                    <Text
+                      style={{ fontFamily: 'Outfit_700Bold', flex: 1 }}
+                      className="text-white text-sm"
+                      numberOfLines={1}
+                    >
+                      {tip.title}
+                    </Text>
                   </View>
 
                   <View
-                    className="px-2 py-1 rounded-xl border ml-2"
                     style={{
+                      flexShrink: 0,
+                      maxWidth: 130,
                       backgroundColor: `${tip.badgeColor}15`,
                       borderColor: `${tip.badgeColor}40`,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
                     }}
                   >
                     <Text
-                      style={{ fontFamily: 'Outfit_700Bold', color: tip.badgeColor, fontVariant: ['tabular-nums'] }}
-                      className="text-[9px] font-bold uppercase"
+                      style={{ fontFamily: 'Outfit_700Bold', color: tip.badgeColor, fontVariant: ['tabular-nums'], fontSize: 9, textTransform: 'uppercase' }}
                       numberOfLines={1}
                     >
                       {tip.badge}
