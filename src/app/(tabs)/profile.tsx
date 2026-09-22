@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -27,9 +28,18 @@ import {
 import { WeightTrendChart } from '../../components/WeightTrendChart';
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { hapticFeedback } from '../../utils/haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
+import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
 import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
+
+export const CAT_AVATARS: { id: string; mood: SiaMood; label: string }[] = [
+  { id: 'cat_happy', mood: 'happy', label: 'Purring Sia' },
+  { id: 'cat_celebrating', mood: 'celebrating', label: 'Champion Sia' },
+  { id: 'cat_scanning', mood: 'scanning', label: 'Vision Eye Sia' },
+  { id: 'cat_thinking', mood: 'thinking', label: 'Scholar Sia' },
+  { id: 'cat_idle', mood: 'idle', label: 'Zen Sia' },
+];
 
 const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   'person',
@@ -343,22 +353,25 @@ export default function ProfileScreen() {
       <ScrollView
         className="flex-1 px-5 pt-4"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* 1. User Profile Pedestal (Tap to Edit Identity) */}
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Pressable
           onPress={() => {
             hapticFeedback.light();
             setActiveSheet('edit_profile');
           }}
-          className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl p-4 mb-4 flex-row items-center justify-between"
+          style={({ pressed }) => [
+            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.9 : 1 },
+          ]}
+          className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-4 mb-4 flex-row items-center justify-between shadow-lg shadow-black/40"
         >
           <View className="flex-row items-center gap-3.5 flex-1 mr-2">
-            <View className="w-13 h-13 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 items-center justify-center relative shadow-sm shadow-emerald-500/20">
-              <Ionicons name={avatarIcon} size={22} color="#10b981" />
-              <View className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-zinc-950" />
-            </View>
+            <SiaCatMascot
+              size={52}
+              mood={avatarIcon?.startsWith('cat_') ? (avatarIcon.replace('cat_', '') as SiaMood) : 'happy'}
+              withGlow={true}
+            />
 
             <View className="flex-1">
               <View className="flex-row items-center gap-1.5">
@@ -377,20 +390,20 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <View className="w-8 h-8 rounded-full bg-zinc-800/80 items-center justify-center">
+          <View className="w-8 h-8 rounded-full bg-zinc-800/80 border border-zinc-700/50 items-center justify-center">
             <Ionicons name="chevron-forward" size={15} color="#a1a1aa" />
           </View>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* 2. Athlete Performance Snapshot Bento (4 Badges) */}
-        <View className="flex-row gap-2.5 mb-5">
+        <View className="flex-row gap-2 mb-5">
           {/* Consistency Streak */}
-          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3 items-center">
+          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-2.5 items-center">
             <View className="w-7 h-7 rounded-lg bg-amber-500/10 items-center justify-center mb-1">
               <Ionicons name="flame" size={15} color="#f59e0b" />
             </View>
             <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
+              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
               className="text-white text-base"
             >
               {streakCount}d
@@ -399,12 +412,12 @@ export default function ProfileScreen() {
           </View>
 
           {/* Meals Logged */}
-          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3 items-center">
+          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-2.5 items-center">
             <View className="w-7 h-7 rounded-lg bg-emerald-500/10 items-center justify-center mb-1">
-              <Ionicons name="restaurant" size={14} color="#10b981" />
+              <MaterialCommunityIcons name="fish" size={14} color="#10b981" />
             </View>
             <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
+              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
               className="text-white text-base"
             >
               {meals.length}
@@ -413,12 +426,12 @@ export default function ProfileScreen() {
           </View>
 
           {/* Hydration Goal */}
-          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3 items-center">
+          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-2.5 items-center">
             <View className="w-7 h-7 rounded-lg bg-cyan-500/10 items-center justify-center mb-1">
               <Ionicons name="water" size={14} color="#06b6d4" />
             </View>
             <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
+              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
               className="text-white text-base"
             >
               {waterTargetL}L
@@ -427,18 +440,25 @@ export default function ProfileScreen() {
           </View>
 
           {/* Weight Entries */}
-          <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3 items-center">
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              setShowWeightTracker(true);
+            }}
+            style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.94 : 1 }] }]}
+            className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-2.5 items-center"
+          >
             <View className="w-7 h-7 rounded-lg bg-indigo-500/10 items-center justify-center mb-1">
               <Ionicons name="scale" size={14} color="#818cf8" />
             </View>
             <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
+              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
               className="text-white text-base"
             >
               {weight}kg
             </Text>
-            <Text className="text-zinc-500 text-[9px] font-bold uppercase mt-0.5">Current</Text>
-          </View>
+            <Text className="text-zinc-500 text-[9px] font-bold uppercase mt-0.5">Weight</Text>
+          </Pressable>
         </View>
 
         {/* Feline Hunter Rank & Milestones Card */}
@@ -549,12 +569,14 @@ export default function ProfileScreen() {
           </Text>
 
           {/* Row 1: Primary Goal */}
-          <TouchableOpacity
+          <Pressable
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('goal');
             }}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+            ]}
             className="flex-row items-center justify-between p-4 border-t border-zinc-800/60"
           >
             <View className="flex-row items-center gap-3">
@@ -576,15 +598,17 @@ export default function ProfileScreen() {
               <Text className="text-emerald-400 font-bold text-xs">{currentGoalObj.tag}</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Row 2: Physical Activity */}
-          <TouchableOpacity
+          <Pressable
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('activity');
             }}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+            ]}
             className="flex-row items-center justify-between p-4 border-t border-zinc-800/60"
           >
             <View className="flex-row items-center gap-3">
@@ -606,15 +630,17 @@ export default function ProfileScreen() {
               <Text className="text-zinc-400 font-semibold text-xs">{currentActivityObj.multiplier}× BMR</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Row 3: Macro Distribution */}
-          <TouchableOpacity
+          <Pressable
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('diet');
             }}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+            ]}
             className="flex-row items-center justify-between p-4 border-t border-zinc-800/60"
           >
             <View className="flex-row items-center gap-3">
@@ -638,15 +664,17 @@ export default function ProfileScreen() {
               </Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Row 4: Biometrics */}
-          <TouchableOpacity
+          <Pressable
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('biometrics');
             }}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+            ]}
             className="flex-row items-center justify-between p-4 border-t border-zinc-800/60"
           >
             <View className="flex-row items-center gap-3">
@@ -668,7 +696,7 @@ export default function ProfileScreen() {
               <Text className="text-emerald-400 font-bold text-xs">{weight} kg</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* 5. Body Weight Velocity & Trend Graph Card */}
@@ -913,21 +941,61 @@ export default function ProfileScreen() {
               className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold mb-5"
             />
 
-            {/* Avatar Icon Selector */}
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase mb-2.5">
-              Choose Avatar Icon
+            {/* Sia Mascot Avatars */}
+            <Text className="text-zinc-400 text-[11px] font-bold uppercase mb-2">
+              Sia Feline Avatars
             </Text>
-            <View className="flex-row flex-wrap gap-3 mb-6">
+            <View className="flex-row gap-2 mb-4">
+              {CAT_AVATARS.map((cat) => {
+                const isSelected = avatarIcon === cat.id;
+                return (
+                  <Pressable
+                    key={cat.id}
+                    onPress={() => {
+                      hapticFeedback.selection();
+                      setAvatarIcon(cat.id as any);
+                    }}
+                    style={({ pressed }) => [
+                      { transform: [{ scale: pressed ? 0.93 : 1 }] },
+                    ]}
+                    className={`flex-1 p-2 rounded-2xl items-center border ${
+                      isSelected
+                        ? 'bg-emerald-500/20 border-emerald-500'
+                        : 'bg-zinc-950 border-zinc-800'
+                    }`}
+                  >
+                    <SiaCatMascot size={34} mood={cat.mood} withGlow={isSelected} />
+                    <Text
+                      numberOfLines={1}
+                      className={`text-[9px] font-bold mt-1.5 ${
+                        isSelected ? 'text-emerald-400' : 'text-zinc-500'
+                      }`}
+                    >
+                      {cat.label.split(' ')[0]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Classic Athlete Icons */}
+            <Text className="text-zinc-400 text-[11px] font-bold uppercase mb-2">
+              Classic Athlete Icons
+            </Text>
+            <View className="flex-row flex-wrap gap-2.5 mb-6">
               {AVATAR_ICONS.map((iconName) => {
                 const isSelected = avatarIcon === iconName;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={iconName}
                     onPress={() => {
                       hapticFeedback.selection();
                       setAvatarIcon(iconName);
                     }}
-                    className={`w-12 h-12 rounded-2xl items-center justify-center border ${
+                    style={({ pressed }) => [
+                      { transform: [{ scale: pressed ? 0.93 : 1 }] },
+                    ]}
+                    className={`w-11 h-11 rounded-2xl items-center justify-center border ${
                       isSelected
                         ? 'bg-emerald-500/20 border-emerald-500'
                         : 'bg-zinc-950 border-zinc-800'
@@ -935,19 +1003,21 @@ export default function ProfileScreen() {
                   >
                     <Ionicons
                       name={iconName}
-                      size={20}
+                      size={18}
                       color={isSelected ? '#10b981' : '#71717a'}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
 
             {/* Save Button */}
-            <TouchableOpacity
+            <Pressable
               onPress={() => persistChanges({ full_name: fullName.trim(), avatar_icon: avatarIcon })}
               disabled={isSaving}
-              activeOpacity={0.8}
+              style={({ pressed }) => [
+                { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+              ]}
               className="w-full bg-emerald-500 py-4 rounded-2xl flex-row items-center justify-center shadow-lg shadow-emerald-500/20"
             >
               {isSaving ? (
@@ -957,7 +1027,7 @@ export default function ProfileScreen() {
                   Save Profile
                 </Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
