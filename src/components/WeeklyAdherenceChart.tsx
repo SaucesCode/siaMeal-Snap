@@ -174,45 +174,115 @@ export function WeeklyAdherenceChart({
         </View>
       </View>
 
-      {/* 3 Telemetry Metrics Strip */}
-      <View className="flex-row gap-2 pt-3 border-t border-zinc-800/70">
-        {/* Weekly Avg */}
-        <View className="flex-1 bg-zinc-950/70 border border-zinc-800/70 p-2.5 rounded-2xl items-center">
-          <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-            Avg Intake
+      {/* Telemetry Stats — asymmetric 2-col layout */}
+      <View className="flex-row gap-2.5 pt-3 border-t border-zinc-800/60">
+
+        {/* LEFT: Hero Avg Intake stat */}
+        <View
+          style={{
+            flex: 1.4,
+            backgroundColor: 'rgba(16,185,129,0.07)',
+            borderWidth: 1,
+            borderColor: 'rgba(16,185,129,0.18)',
+            borderRadius: 20,
+            padding: 14,
+          }}
+        >
+          <Text style={{ color: '#71717a', fontSize: 9, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
+            Avg Daily Intake
           </Text>
           <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className="text-white text-sm mt-0.5"
+            style={{
+              fontFamily: 'Outfit_900Black',
+              fontVariant: ['tabular-nums'],
+              fontSize: 28,
+              color: '#f4f4f5',
+              lineHeight: 30,
+            }}
           >
-            {summary.avgCalories} <Text className="text-[10px] text-zinc-500 font-normal">kcal</Text>
+            {summary.avgCalories.toLocaleString()}
+          </Text>
+          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700', marginTop: 1 }}>
+            kcal / day
+          </Text>
+          {/* Mini fill bar vs target */}
+          <View style={{ marginTop: 10, height: 4, backgroundColor: '#18181b', borderRadius: 4, overflow: 'hidden' }}>
+            <View
+              style={{
+                height: 4,
+                width: `${Math.min(100, Math.round((summary.avgCalories / targetCalories) * 100))}%`,
+                backgroundColor: summary.avgCalories > targetCalories * 1.08 ? '#f43f5e' : '#10b981',
+                borderRadius: 4,
+              }}
+            />
+          </View>
+          <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '600', marginTop: 4, fontVariant: ['tabular-nums'] }}>
+            {Math.round((summary.avgCalories / targetCalories) * 100)}% of {targetCalories.toLocaleString()} target
           </Text>
         </View>
 
-        {/* Adherence */}
-        <View className="flex-1 bg-zinc-950/70 border border-zinc-800/70 p-2.5 rounded-2xl items-center">
-          <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-            Adherence
-          </Text>
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className={`text-sm mt-0.5 ${adherenceRate >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}
-          >
-            {adherenceRate}%
-          </Text>
-        </View>
+        {/* RIGHT: Two stacked secondary stats */}
+        <View style={{ flex: 1, gap: 8 }}>
 
-        {/* Net Deficit */}
-        <View className="flex-1 bg-zinc-950/70 border border-zinc-800/70 p-2.5 rounded-2xl items-center">
-          <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-            Weekly Net
-          </Text>
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className={`text-sm mt-0.5 ${netWeeklyDeficit >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}
+          {/* Adherence */}
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: '#0d0d10',
+              borderWidth: 1,
+              borderColor: '#27272a',
+              borderRadius: 18,
+              padding: 12,
+              justifyContent: 'space-between',
+            }}
           >
-            {netWeeklyDeficit >= 0 ? `-${netWeeklyDeficit}` : `+${Math.abs(netWeeklyDeficit)}`} <Text className="text-[10px] text-zinc-500 font-normal">kcal</Text>
-          </Text>
+            <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              Adherence
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Outfit_900Black',
+                fontSize: 26,
+                color: adherenceRate >= 80 ? '#10b981' : adherenceRate >= 50 ? '#f59e0b' : '#a1a1aa',
+                fontVariant: ['tabular-nums'],
+                lineHeight: 28,
+                marginTop: 4,
+              }}
+            >
+              {adherenceRate}%
+            </Text>
+          </View>
+
+          {/* Net Weekly */}
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: '#0d0d10',
+              borderWidth: 1,
+              borderColor: '#27272a',
+              borderRadius: 18,
+              padding: 12,
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              Weekly Net
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Outfit_800ExtraBold',
+                fontSize: 14,
+                color: netWeeklyDeficit >= 0 ? '#10b981' : '#f59e0b',
+                marginTop: 4,
+                fontVariant: ['tabular-nums'],
+              }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {netWeeklyDeficit >= 0 ? `−${netWeeklyDeficit.toLocaleString()}` : `+${Math.abs(netWeeklyDeficit).toLocaleString()}`} kcal
+            </Text>
+          </View>
+
         </View>
       </View>
     </View>

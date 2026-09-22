@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  Pressable,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
@@ -20,6 +21,7 @@ import { AiNutritionCoachModal } from '../../components/AiNutritionCoachModal';
 import { FloatingCoachWidget } from '../../components/FloatingCoachWidget';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { FelineEmptyState } from '../../components/FelineEmptyState';
+import SiaCatMascot from '../../components/SiaCatMascot';
 import {
   generateWeeklyCoachingInsights,
   calculateMacroEnergySplit,
@@ -200,6 +202,31 @@ export default function HistoryScreen() {
     }
   };
 
+  // Macro helpers for Day Inspector
+  const macroRows = [
+    {
+      label: 'Protein',
+      consumed: Math.round(totals.protein_g),
+      target: targetProtein,
+      color: '#38bdf8',
+      dotBg: 'bg-sky-400',
+    },
+    {
+      label: 'Carbs',
+      consumed: Math.round(totals.carbs_g),
+      target: targetCarbs,
+      color: '#f59e0b',
+      dotBg: 'bg-amber-400',
+    },
+    {
+      label: 'Fat',
+      consumed: Math.round(totals.fat_g),
+      target: targetFat,
+      color: '#fb7185',
+      dotBg: 'bg-rose-400',
+    },
+  ];
+
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
       <StatusBar barStyle="light-content" />
@@ -207,7 +234,7 @@ export default function HistoryScreen() {
       {/* Floating Dynamic Toast HUD */}
       <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
 
-      {/* Clean Spacious Header */}
+      {/* Header — cleaned up, no redundant Sia Coach button */}
       <View className="px-5 pt-3 pb-3 border-b border-zinc-900 flex-row items-center justify-between">
         <View className="flex-row items-center gap-2.5">
           <View className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 items-center justify-center">
@@ -226,40 +253,22 @@ export default function HistoryScreen() {
           </View>
         </View>
 
-        <View className="flex-row items-center gap-2">
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              setCoachModalVisible(true);
-            }}
-            activeOpacity={0.8}
-            className="bg-emerald-500/15 border border-emerald-500/40 px-3 py-1.5 rounded-2xl flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+        {/* Streak Badge only */}
+        <View className="bg-emerald-950/70 border border-emerald-700/50 px-2.5 py-1.5 rounded-2xl flex-row items-center gap-1.5">
+          <MaterialCommunityIcons name="paw" size={13} color="#10b981" />
+          <Text
+            style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
+            className="text-emerald-400 text-xs"
           >
-            <MaterialCommunityIcons name="cat" size={14} color="#10b981" />
-            <Text
-              style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-emerald-400 text-xs"
-            >
-              Sia Coach
-            </Text>
-          </TouchableOpacity>
-
-          <View className="bg-emerald-950/70 border border-emerald-700/50 px-2.5 py-1.5 rounded-2xl flex-row items-center gap-1.5">
-            <MaterialCommunityIcons name="paw" size={13} color="#10b981" />
-            <Text
-              style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-emerald-400 text-xs"
-            >
-              {weeklySummary?.daysLogged || 0}/7d Logged
-            </Text>
-          </View>
+            {weeklySummary?.daysLogged || 0}/7d Logged
+          </Text>
         </View>
       </View>
 
       <ScrollView
         className="flex-1 px-5 pt-4"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
         }
@@ -282,12 +291,15 @@ export default function HistoryScreen() {
         <View className="mb-5">
           <View className="flex-row items-center justify-between mb-2.5 px-1">
             <View className="flex-row items-center gap-1.5">
-              <Ionicons name="sparkles" size={13} color="#10b981" />
+              <MaterialCommunityIcons name="cat" size={14} color="#10b981" />
               <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
-                Sia Diagnostics & Tips
+                Sia's Weekly Diagnostics
               </Text>
             </View>
-            <Text className="text-zinc-500 text-[10px] font-bold">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-zinc-500 text-[10px] font-bold"
+            >
               {activeTipIndex + 1} of {coachingTips.length} • Swipe
             </Text>
           </View>
@@ -310,36 +322,40 @@ export default function HistoryScreen() {
                 style={{ width: CARD_WIDTH }}
                 className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-5 shadow-lg shadow-black/50 justify-between"
               >
-                {/* Header */}
+                {/* Header with Sia mascot accent */}
                 <View className="flex-row items-center justify-between mb-2.5">
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex-row items-center gap-2.5">
                     <View
-                      className="w-8 h-8 rounded-xl items-center justify-center border"
+                      className="w-9 h-9 rounded-xl items-center justify-center border"
                       style={{
                         backgroundColor: `${tip.badgeColor}15`,
                         borderColor: `${tip.badgeColor}40`,
                       }}
                     >
-                      <Ionicons name={tip.icon as any} size={16} color={tip.badgeColor} />
+                      <Ionicons name={tip.icon as any} size={17} color={tip.badgeColor} />
                     </View>
-                    <Text
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="text-white text-base"
-                    >
-                      {tip.title}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{ fontFamily: 'Outfit_700Bold' }}
+                        className="text-white text-sm"
+                        numberOfLines={1}
+                      >
+                        {tip.title}
+                      </Text>
+                    </View>
                   </View>
 
                   <View
-                    className="px-2.5 py-1 rounded-xl border"
+                    className="px-2 py-1 rounded-xl border ml-2"
                     style={{
                       backgroundColor: `${tip.badgeColor}15`,
                       borderColor: `${tip.badgeColor}40`,
                     }}
                   >
                     <Text
-                      style={{ fontFamily: 'Outfit_700Bold', color: tip.badgeColor }}
-                      className="text-[10px] font-bold uppercase"
+                      style={{ fontFamily: 'Outfit_700Bold', color: tip.badgeColor, fontVariant: ['tabular-nums'] }}
+                      className="text-[9px] font-bold uppercase"
+                      numberOfLines={1}
                     >
                       {tip.badge}
                     </Text>
@@ -351,13 +367,13 @@ export default function HistoryScreen() {
                   {tip.message}
                 </Text>
 
-                {/* Actionable Protocol Box */}
+                {/* Actionable Protocol Box — feline-styled */}
                 {tip.actionableStep && (
                   <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl p-3 flex-row items-start gap-2.5">
-                    <Ionicons name="checkbox" size={16} color="#10b981" />
+                    <MaterialCommunityIcons name="paw" size={14} color="#10b981" style={{ marginTop: 1 }} />
                     <View className="flex-1">
                       <Text className="text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider mb-0.5">
-                        Action Protocol
+                        Sia's Rx
                       </Text>
                       <Text className="text-zinc-300 text-xs font-medium leading-4">
                         {tip.actionableStep}
@@ -374,19 +390,20 @@ export default function HistoryScreen() {
             {coachingTips.map((_, idx) => (
               <View
                 key={idx}
-                className={`h-1.5 rounded-full transition-all ${
-                  activeTipIndex === idx
-                    ? 'w-6 bg-emerald-400'
-                    : 'w-1.5 bg-zinc-800'
-                }`}
+                style={{
+                  height: 5,
+                  width: activeTipIndex === idx ? 20 : 5,
+                  borderRadius: 3,
+                  backgroundColor: activeTipIndex === idx ? '#10b981' : '#27272a',
+                }}
               />
             ))}
           </View>
         </View>
 
-        {/* 3. 7-Day Macro Energy Distribution Bar */}
+        {/* 3. 7-Day Macro Energy Distribution — inline rows, not 3 identical boxes */}
         <View className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-5 mb-5 shadow-lg shadow-black/40">
-          <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center justify-between mb-3.5">
             <View>
               <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
                 7-Day Caloric Energy Ratio
@@ -398,85 +415,64 @@ export default function HistoryScreen() {
                 Macro Caloric Split
               </Text>
             </View>
-            <View className="bg-zinc-950 px-2.5 py-1 rounded-xl border border-zinc-800">
-              <Text className="text-zinc-400 text-[10px] font-bold">Target: 30P • 40C • 30F</Text>
-            </View>
           </View>
 
           {/* Segmented Macro Bar */}
-          <View className="h-3 w-full bg-zinc-950 rounded-full overflow-hidden flex-row mb-3.5 border border-zinc-800/60 p-0.5">
+          <View style={{ height: 10, backgroundColor: '#09090b', borderRadius: 8, overflow: 'hidden', flexDirection: 'row', borderWidth: 1, borderColor: '#1c1c1f' }}>
             <View
-              className="bg-sky-400 h-full rounded-l-full"
-              style={{ width: `${Math.max(8, weeklySplit.proteinPct)}%` }}
+              style={{
+                height: '100%',
+                width: `${Math.max(8, weeklySplit.proteinPct)}%`,
+                backgroundColor: '#38bdf8',
+                borderTopLeftRadius: 7,
+                borderBottomLeftRadius: 7,
+              }}
             />
             <View
-              className="bg-amber-400 h-full"
-              style={{ width: `${Math.max(8, weeklySplit.carbsPct)}%` }}
+              style={{
+                height: '100%',
+                width: `${Math.max(8, weeklySplit.carbsPct)}%`,
+                backgroundColor: '#f59e0b',
+              }}
             />
             <View
-              className="bg-rose-400 h-full rounded-r-full"
-              style={{ width: `${Math.max(8, weeklySplit.fatPct)}%` }}
+              style={{
+                height: '100%',
+                width: `${Math.max(8, weeklySplit.fatPct)}%`,
+                backgroundColor: '#fb7185',
+                borderTopRightRadius: 7,
+                borderBottomRightRadius: 7,
+              }}
             />
           </View>
 
-          {/* 3 Macro Breakdown Columns */}
-          <View className="flex-row gap-2">
-            {/* Protein */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-2.5 rounded-2xl">
-              <View className="flex-row items-center gap-1.5 mb-1">
-                <View className="w-2 h-2 rounded-full bg-sky-400" />
-                <Text className="text-sky-400 text-[10px] font-bold uppercase">Protein</Text>
+          {/* Inline Macro Rows — not 3 identical cards */}
+          <View style={{ marginTop: 16, gap: 10 }}>
+            {[
+              { label: 'Protein', pct: weeklySplit.proteinPct, avg: Math.round(weeklySummary?.avgProtein || 0), color: '#38bdf8', kcal: weeklySplit.proteinKcal },
+              { label: 'Carbs', pct: weeklySplit.carbsPct, avg: Math.round(weeklySummary?.avgCarbs || 0), color: '#f59e0b', kcal: weeklySplit.carbsKcal },
+              { label: 'Fat', pct: weeklySplit.fatPct, avg: Math.round(weeklySummary?.avgFat || 0), color: '#fb7185', kcal: weeklySplit.fatKcal },
+            ].map((m) => (
+              <View key={m.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: m.color, marginRight: 8 }} />
+                <Text style={{ color: '#a1a1aa', fontSize: 12, fontWeight: '600', width: 52 }}>{m.label}</Text>
+                <Text style={{ fontFamily: 'Outfit_900Black', color: '#f4f4f5', fontSize: 18, fontVariant: ['tabular-nums'], width: 48 }}>
+                  {m.pct}%
+                </Text>
+                <View style={{ flex: 1, marginLeft: 4 }}>
+                  <Text style={{ color: '#52525b', fontSize: 10, fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+                    {m.avg}g avg · {m.kcal} kcal
+                  </Text>
+                </View>
               </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {weeklySplit.proteinPct}%
-              </Text>
-              <Text className="text-zinc-500 text-[10px] font-semibold mt-0.5">
-                {Math.round(weeklySummary?.avgProtein || 0)}g avg/day
-              </Text>
-            </View>
-
-            {/* Carbs */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-2.5 rounded-2xl">
-              <View className="flex-row items-center gap-1.5 mb-1">
-                <View className="w-2 h-2 rounded-full bg-amber-400" />
-                <Text className="text-amber-400 text-[10px] font-bold uppercase">Carbs</Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {weeklySplit.carbsPct}%
-              </Text>
-              <Text className="text-zinc-500 text-[10px] font-semibold mt-0.5">
-                {Math.round(weeklySummary?.avgCarbs || 0)}g avg/day
-              </Text>
-            </View>
-
-            {/* Fat */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-2.5 rounded-2xl">
-              <View className="flex-row items-center gap-1.5 mb-1">
-                <View className="w-2 h-2 rounded-full bg-rose-400" />
-                <Text className="text-rose-400 text-[10px] font-bold uppercase">Fat</Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {weeklySplit.fatPct}%
-              </Text>
-              <Text className="text-zinc-500 text-[10px] font-semibold mt-0.5">
-                {Math.round(weeklySummary?.avgFat || 0)}g avg/day
-              </Text>
-            </View>
+            ))}
           </View>
         </View>
 
-        {/* 4. Selected Day Inspector Bento */}
+        {/* 4. Selected Day Inspector — redesigned with progress bars */}
         <View className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-5 mb-4 shadow-lg shadow-black/40">
-          <View className="flex-row items-center justify-between mb-3 pb-2.5 border-b border-zinc-800/70">
+          {/* Header */}
+          <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-zinc-800/60">
             <View>
               <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
                 Day Inspector
@@ -489,66 +485,60 @@ export default function HistoryScreen() {
               </Text>
             </View>
 
-            <View className="bg-zinc-950 px-3 py-1.5 rounded-2xl border border-zinc-800 flex-row items-baseline gap-1">
+            {/* Calorie hero badge */}
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
               <Text
-                style={{ fontFamily: 'Outfit_900Black' }}
-                className="text-white text-base"
+                style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'], fontSize: 22, color: '#f4f4f5' }}
               >
                 {Math.round(totals.calories)}
               </Text>
-              <Text className="text-zinc-500 text-xs font-bold">/ {targetCalories} kcal</Text>
+              <Text style={{ color: '#52525b', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+                / {targetCalories} kcal
+              </Text>
             </View>
           </View>
 
-          {/* 3 Macro Pillars for Selected Day */}
-          <View className="flex-row gap-2">
-            {/* Protein */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-3 rounded-2xl">
-              <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-sky-400 text-[9px] font-black uppercase">Protein</Text>
-                <Text className="text-zinc-400 text-[10px] font-bold">
-                  {Math.round((totals.protein_g / targetProtein) * 100)}%
-                </Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {Math.round(totals.protein_g)} <Text className="text-xs text-zinc-500 font-normal">/ {targetProtein}g</Text>
-              </Text>
-            </View>
-
-            {/* Carbs */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-3 rounded-2xl">
-              <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-amber-400 text-[9px] font-black uppercase">Carbs</Text>
-                <Text className="text-zinc-400 text-[10px] font-bold">
-                  {Math.round((totals.carbs_g / targetCarbs) * 100)}%
-                </Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {Math.round(totals.carbs_g)} <Text className="text-xs text-zinc-500 font-normal">/ {targetCarbs}g</Text>
-              </Text>
-            </View>
-
-            {/* Fat */}
-            <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 p-3 rounded-2xl">
-              <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-rose-400 text-[9px] font-black uppercase">Fat</Text>
-                <Text className="text-zinc-400 text-[10px] font-bold">
-                  {Math.round((totals.fat_g / targetFat) * 100)}%
-                </Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-base"
-              >
-                {Math.round(totals.fat_g)} <Text className="text-xs text-zinc-500 font-normal">/ {targetFat}g</Text>
-              </Text>
-            </View>
+          {/* Macro rows with progress bars */}
+          <View style={{ gap: 14 }}>
+            {macroRows.map((m) => {
+              const pct = m.target > 0 ? Math.min(100, Math.round((m.consumed / m.target) * 100)) : 0;
+              return (
+                <View key={m.label}>
+                  {/* Label row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: m.color }} />
+                      <Text style={{ color: m.color, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        {m.label}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
+                      <Text style={{ fontFamily: 'Outfit_800ExtraBold', color: '#f4f4f5', fontSize: 15, fontVariant: ['tabular-nums'] }}>
+                        {m.consumed}g
+                      </Text>
+                      <Text style={{ color: '#52525b', fontSize: 10, fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+                        / {m.target}g
+                      </Text>
+                      <Text style={{ color: '#3f3f46', fontSize: 10, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 4 }}>
+                        {pct}%
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Progress bar */}
+                  <View style={{ height: 5, backgroundColor: '#18181b', borderRadius: 4, overflow: 'hidden' }}>
+                    <View
+                      style={{
+                        height: 5,
+                        width: `${pct}%`,
+                        backgroundColor: m.color,
+                        borderRadius: 4,
+                        opacity: pct > 100 ? 1 : 0.85,
+                      }}
+                    />
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -561,7 +551,10 @@ export default function HistoryScreen() {
             >
               Logged Meals ({selectedDateLabel})
             </Text>
-            <Text className="text-zinc-500 text-xs font-semibold">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-zinc-500 text-xs font-semibold"
+            >
               {meals.length} {meals.length === 1 ? 'meal' : 'meals'}
             </Text>
           </View>
@@ -595,7 +588,12 @@ export default function HistoryScreen() {
                         {section.title}
                       </Text>
                     </View>
-                    <Text className="text-zinc-400 text-xs font-bold">{section.totalCalories} kcal</Text>
+                    <Text
+                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="text-zinc-400 text-xs font-bold"
+                    >
+                      {section.totalCalories} kcal
+                    </Text>
                   </View>
 
                   {section.meals.map((meal) => (
