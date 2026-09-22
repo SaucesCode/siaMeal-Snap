@@ -468,55 +468,116 @@ export default function WaterScreen() {
             </View>
           </View>
 
-          {/* 3 Telemetry Metrics Pods */}
-          <View className="flex-row gap-2 pt-2 border-t border-zinc-800/60">
-            {/* Remaining */}
-            <View className="flex-1 bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-2.5 items-center">
-              <View className="flex-row items-center gap-1">
-                <Ionicons name="water-outline" size={11} color="#71717a" />
-                <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-                  Remaining
-                </Text>
-              </View>
+          {/* Telemetry Stats — asymmetric 2-col layout */}
+          <View className="flex-row gap-2.5 pt-3 border-t border-zinc-800/50">
+
+            {/* LEFT: Hero Pour Target stat */}
+            <View
+              style={{
+                flex: 1.4,
+                backgroundColor: remainingMl <= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(6,182,212,0.07)',
+                borderWidth: 1,
+                borderColor: remainingMl <= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(6,182,212,0.18)',
+                borderRadius: 20,
+                padding: 14,
+              }}
+            >
+              <Text style={{ color: '#71717a', fontSize: 9, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
+                Still to pour
+              </Text>
               <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-white text-sm mt-0.5"
+                style={{
+                  fontFamily: 'Outfit_900Black',
+                  fontVariant: ['tabular-nums'],
+                  fontSize: remainingMl <= 0 ? 28 : 30,
+                  color: remainingMl <= 0 ? '#10b981' : '#f4f4f5',
+                  lineHeight: 32,
+                }}
               >
-                {remainingMl <= 0 ? '0' : remainingMl.toLocaleString()}{' '}
-                <Text className="text-[10px] text-zinc-500 font-normal">ml</Text>
+                {remainingMl <= 0 ? '0' : remainingMl >= 1000
+                  ? `${(remainingMl / 1000).toFixed(1)}`
+                  : remainingMl.toString()}
+              </Text>
+              <Text style={{ color: remainingMl <= 0 ? '#10b981' : '#06b6d4', fontSize: 11, fontWeight: '700', marginTop: 1 }}>
+                {remainingMl >= 1000 ? 'liters left' : 'ml left'}
+              </Text>
+              {/* Mini fill bar */}
+              <View style={{ marginTop: 10, height: 4, backgroundColor: '#18181b', borderRadius: 4, overflow: 'hidden' }}>
+                <View
+                  style={{
+                    height: 4,
+                    width: `${Math.min(100, percentage)}%`,
+                    backgroundColor: remainingMl <= 0 ? '#10b981' : '#06b6d4',
+                    borderRadius: 4,
+                  }}
+                />
+              </View>
+              <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '600', marginTop: 4, fontVariant: ['tabular-nums'] }}>
+                {percentage}% of {(effectiveGoal / 1000).toFixed(1)}L goal
               </Text>
             </View>
 
-            {/* Total Drinks */}
-            <View className="flex-1 bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-2.5 items-center">
-              <View className="flex-row items-center gap-1">
-                <MaterialCommunityIcons name="cup-water" size={11} color="#71717a" />
-                <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-                  Intakes
-                </Text>
-              </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-white text-sm mt-0.5"
-              >
-                {logs.length} <Text className="text-[10px] text-zinc-500 font-normal">drinks</Text>
-              </Text>
-            </View>
+            {/* RIGHT: Two stacked secondary stats */}
+            <View style={{ flex: 1, gap: 8 }}>
 
-            {/* Pacing */}
-            <View className="flex-1 bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-2.5 items-center">
-              <View className="flex-row items-center gap-1">
-                <MaterialCommunityIcons name="paw" size={11} color="#06b6d4" />
-                <Text className="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-                  Hydration Pace
+              {/* Sips Today */}
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: '#0d0d10',
+                  borderWidth: 1,
+                  borderColor: '#27272a',
+                  borderRadius: 18,
+                  padding: 12,
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="cup-water" size={13} color="#52525b" />
+                  <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                    Sips Today
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
+                  <Text style={{ fontFamily: 'Outfit_900Black', fontSize: 26, color: '#f4f4f5', fontVariant: ['tabular-nums'], lineHeight: 28 }}>
+                    {logs.length}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#52525b', fontWeight: '600', marginBottom: 2 }}>drinks</Text>
+                </View>
+              </View>
+
+              {/* Hydration Pace */}
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: '#0d0d10',
+                  borderWidth: 1,
+                  borderColor: '#27272a',
+                  borderRadius: 18,
+                  padding: 12,
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="paw" size={13} color="#06b6d4" />
+                  <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                    Pace
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontFamily: 'Outfit_800ExtraBold',
+                    fontSize: percentage >= 100 ? 14 : 15,
+                    color: percentage >= 100 ? '#10b981' : percentage >= 50 ? '#38bdf8' : '#a1a1aa',
+                    marginTop: 6,
+                  }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {percentage >= 100 ? '✓ Done' : percentage >= 75 ? 'Almost' : percentage >= 50 ? 'On Track' : 'Building'}
                 </Text>
               </View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-cyan-400 text-sm mt-0.5"
-              >
-                {percentage >= 100 ? 'Complete' : percentage >= 50 ? 'On Track' : 'In Progress'}
-              </Text>
+
             </View>
           </View>
         </View>
