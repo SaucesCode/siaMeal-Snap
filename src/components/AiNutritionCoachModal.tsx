@@ -4,16 +4,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Platform,
   Keyboard,
   StyleSheet,
-  Image,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import {
   sendNutritionCoachMessage,
   cleanCoachReply,
@@ -25,7 +26,8 @@ import { useCoachStore } from '../stores/coachStore';
 import { useMealStore } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
-
+import SiaCatMascot from './SiaCatMascot';
+import { ToastBanner, ToastConfig } from './ToastBanner';
 
 interface AiNutritionCoachModalProps {
   visible: boolean;
@@ -37,15 +39,69 @@ interface FormattedChatMessageProps {
   content: string;
   isUser: boolean;
   onLogMeal?: (meal: ParsedSuggestedMeal) => void;
+  onCopy?: (text: string) => void;
+  timestamp?: string;
+}
+
+/**
+ * Returns user-friendly calendar day divider label (e.g. "Today", "Yesterday", "Mon, Sep 21")
+ */
+function getDateDividerLabel(isoString?: string): string {
+  if (!isoString) return 'Today';
+  try {
+    const msgDate = new Date(isoString);
+    const now = new Date();
+
+    const isSameDay =
+      msgDate.getFullYear() === now.getFullYear() &&
+      msgDate.getMonth() === now.getMonth() &&
+      msgDate.getDate() === now.getDate();
+    if (isSameDay) return 'Today';
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      msgDate.getFullYear() === yesterday.getFullYear() &&
+      msgDate.getMonth() === yesterday.getMonth() &&
+      msgDate.getDate() === yesterday.getDate();
+    if (isYesterday) return 'Yesterday';
+
+    return msgDate.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return 'Today';
+  }
+}
+
+/**
+ * Returns formatted micro-timestamp (e.g. "9:42 AM")
+ */
+function formatMessageTime(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
 /**
  * Parses markdown bold (**text**) and renders clean styled Text components
  * without showing raw markdown asterisks (**) or stray metadata headers,
- * and renders interactive 1-tap quick log cards for meal recommendations.
+ * renders interactive 1-tap quick log cards for meal recommendations,
+ * and provides a 1-tap copy action.
  */
-function FormattedChatMessage({ content, isUser, onLogMeal }: FormattedChatMessageProps) {
-  // Aggressively clean any metadata, telemetry dumps, thoughts, or prefixes
+function FormattedChatMessage({
+  content,
+  isUser,
+  onLogMeal,
+  onCopy,
+  timestamp,
+}: FormattedChatMessageProps) {
   const cleanedContent = isUser ? content : cleanCoachReply(content);
   const suggestedMeals = useMemo(() => {
     return isUser || !onLogMeal ? [] : parseMealSuggestions(cleanedContent);
@@ -99,6 +155,7 @@ function FormattedChatMessage({ content, isUser, onLogMeal }: FormattedChatMessa
         );
       })}
 
+      {/* Suggested Meal Cards */}
       {suggestedMeals.length > 0 && onLogMeal && (
         <View className="mt-3 pt-2.5 border-t border-zinc-800/80 gap-2">
           <View className="flex-row items-center gap-1.5 mb-0.5">
@@ -122,25 +179,37 @@ function FormattedChatMessage({ content, isUser, onLogMeal }: FormattedChatMessa
                 </Text>
                 <View className="flex-row items-center gap-1.5 mt-1 flex-wrap">
                   <View className="bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                    <Text className="text-emerald-400 text-[10px] font-extrabold">
+                    <Text
+                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="text-emerald-400 text-[10px] font-extrabold"
+                    >
                       {meal.calories} kcal
                     </Text>
                   </View>
                   <View className="bg-sky-500/15 px-1.5 py-0.5 rounded border border-sky-500/30">
-                    <Text className="text-sky-400 text-[10px] font-bold">
+                    <Text
+                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="text-sky-400 text-[10px] font-bold"
+                    >
                       {meal.protein_g}g P
                     </Text>
                   </View>
                   {meal.carbs_g > 0 && (
                     <View className="bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30">
-                      <Text className="text-amber-400 text-[10px] font-medium">
+                      <Text
+                        style={{ fontVariant: ['tabular-nums'] }}
+                        className="text-amber-400 text-[10px] font-medium"
+                      >
                         {meal.carbs_g}g C
                       </Text>
                     </View>
                   )}
                   {meal.fat_g > 0 && (
                     <View className="bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/30">
-                      <Text className="text-rose-400 text-[10px] font-medium">
+                      <Text
+                        style={{ fontVariant: ['tabular-nums'] }}
+                        className="text-rose-400 text-[10px] font-medium"
+                      >
                         {meal.fat_g}g F
                       </Text>
                     </View>
@@ -160,6 +229,30 @@ function FormattedChatMessage({ content, isUser, onLogMeal }: FormattedChatMessa
           ))}
         </View>
       )}
+
+      {/* Bubble Footer: Timestamp & 1-Tap Copy Action */}
+      <View className="flex-row items-center justify-between mt-2 pt-1">
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className={`text-[9px] font-semibold ${
+            isUser ? 'text-emerald-200/60' : 'text-zinc-500'
+          }`}
+        >
+          {formatMessageTime(timestamp)}
+        </Text>
+
+        {!isUser && onCopy && (
+          <Pressable
+            onPress={() => onCopy(cleanedContent)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={({ pressed }) => [{ opacity: pressed ? 0.5 : 0.8 }]}
+            className="flex-row items-center gap-1 bg-zinc-900/80 border border-zinc-800 px-1.5 py-0.5 rounded-md"
+          >
+            <Ionicons name="copy-outline" size={10} color="#a1a1aa" />
+            <Text className="text-[9px] text-zinc-400 font-semibold">Copy</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -175,35 +268,73 @@ export function AiNutritionCoachModal({
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [toast, setToast] = useState<ToastConfig | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const lastSendTimeRef = useRef<number>(0);
 
-  // Dynamic context-aware prompts based on live remaining calories and protein
+  const remainingCal = userContext.remainingCalories ?? 2000;
+  const remainingProt = userContext.remainingProtein ?? 150;
+  const remainingCarbs = userContext.remainingCarbs ?? 200;
+  const remainingFat = userContext.remainingFat ?? 65;
+
+  // Dynamic context-aware prompts grouped by intent
   const dynamicPrompts = useMemo(() => {
-    const remCal = userContext.remainingCalories ?? 2000;
-    const remProt = userContext.remainingProtein ?? 150;
-    const list: string[] = [];
+    const list: { label: string; query: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [];
 
-    if (remProt > 35) {
-      list.push(`High-protein ideas for my remaining ${remProt}g`);
+    if (remainingProt > 35) {
+      list.push({
+        label: `Hit ${remainingProt}g Protein`,
+        query: `High-protein meal and snack ideas to hit my remaining ${remainingProt}g protein today.`,
+        icon: 'food-drumstick',
+      });
     } else {
-      list.push('How to hit my exact protein target today');
+      list.push({
+        label: 'Exact Protein Hit',
+        query: `Suggest a lean snack to hit my remaining ${remainingProt}g protein target exactly.`,
+        icon: 'target',
+      });
     }
 
-    if (remCal < 400 && remCal > 0) {
-      list.push(`Low-calorie snacks under ${remCal} kcal`);
-    } else if (remCal <= 0) {
-      list.push('How to balance macros after exceeding calories');
+    if (remainingCal < 400 && remainingCal > 0) {
+      list.push({
+        label: `Snacks < ${remainingCal} kcal`,
+        query: `What are delicious, filling low-calorie snacks under ${remainingCal} kcal?`,
+        icon: 'flash-outline',
+      });
+    } else if (remainingCal <= 0) {
+      list.push({
+        label: 'Over Budget Reset',
+        query: 'I exceeded my calories today. How should I balance my hydration and macros for the rest of the day?',
+        icon: 'scale-balance',
+      });
     } else {
-      list.push(`Best meal fitting ~${Math.min(650, remCal)} kcal`);
+      list.push({
+        label: `Meal ~${Math.min(650, remainingCal)} kcal`,
+        query: `Give me a high-satiety meal idea fitting roughly ${Math.min(650, remainingCal)} kcal.`,
+        icon: 'silverware-fork-knife',
+      });
     }
 
-    list.push('How is my macro split looking today?');
-    list.push('Quick pre-workout energy snack');
-    list.push('High-volume vegetables & sides');
+    list.push({
+      label: 'Macro Audit',
+      query: 'Analyze my current macro balance for today and tell me what to adjust.',
+      icon: 'chart-pie',
+    });
+
+    list.push({
+      label: 'Pre-Workout Fuel',
+      query: 'What is a quick pre-workout energy snack that fits my remaining macros?',
+      icon: 'lightning-bolt',
+    });
+
+    list.push({
+      label: 'High-Volume Sides',
+      query: 'What are the best low-calorie high-volume vegetables and side dishes to feel full?',
+      icon: 'leaf',
+    });
 
     return list;
-  }, [userContext.remainingCalories, userContext.remainingProtein]);
+  }, [remainingCal, remainingProt]);
 
   const handleLogSuggestedMeal = useCallback(
     (meal: ParsedSuggestedMeal) => {
@@ -230,6 +361,16 @@ export function AiNutritionCoachModal({
     [onClose, router, setDraftMeal]
   );
 
+  const handleCopyMessage = useCallback(async (text: string) => {
+    hapticFeedback.light();
+    await Clipboard.setStringAsync(text);
+    setToast({
+      title: 'Copied to Clipboard',
+      message: "Sia's advice is ready to paste anywhere.",
+      type: 'info',
+    });
+  }, []);
+
   // Load persisted history on mount or whenever modal opens
   useEffect(() => {
     if (visible) {
@@ -240,8 +381,6 @@ export function AiNutritionCoachModal({
   // Inject friendly conversational feline greeting when history is empty
   useEffect(() => {
     if (visible && isLoaded && messages.length === 0) {
-      const remainingCal = userContext.remainingCalories ?? 2000;
-      const remainingProt = userContext.remainingProtein ?? 150;
       const greeting: ChatMessage = {
         id: `greeting_${new Date().toISOString().split('T')[0]}`,
         role: 'assistant',
@@ -256,7 +395,7 @@ export function AiNutritionCoachModal({
     hapticFeedback.light();
     Alert.alert(
       'Clear Chat',
-      'Start a fresh conversation with Sia? Today\'s history will be deleted.',
+      'Start a fresh conversation with Sia? Message history will be cleared.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -362,10 +501,6 @@ export function AiNutritionCoachModal({
     }
   };
 
-
-  const remainingCal = userContext.remainingCalories ?? 2000;
-  const remainingProt = userContext.remainingProtein ?? 150;
-
   return (
     <View
       style={{
@@ -379,6 +514,9 @@ export function AiNutritionCoachModal({
         justifyContent: 'flex-end',
       }}
     >
+      {/* Dynamic Toast HUD inside modal */}
+      <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
+
       {/* 1. Absolute Backdrop Overlay - tap to dismiss keyboard & modal */}
       <TouchableOpacity
         activeOpacity={1}
@@ -389,21 +527,21 @@ export function AiNutritionCoachModal({
         style={StyleSheet.absoluteFill}
       />
 
-      {/* 2. Main High-Impact Bottom Sheet (86% Height, padded flush above keyboard) */}
+      {/* 2. Main High-Impact Bottom Sheet (88% Height, padded flush above keyboard) */}
       <View
         style={{
-          height: '86%',
+          height: '88%',
           backgroundColor: '#18181b',
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderTopWidth: 1,
           borderColor: '#27272a',
-          paddingHorizontal: 20,
+          paddingHorizontal: 18,
           paddingTop: 16,
           paddingBottom:
             keyboardHeight > 0
-              ? (Platform.OS === 'ios' ? keyboardHeight + 2 : Math.max(8, keyboardHeight - 28))
-              : (Platform.OS === 'ios' ? 30 : 16),
+              ? (Platform.OS === 'ios' ? keyboardHeight + 4 : Math.max(8, keyboardHeight - 24))
+              : (Platform.OS === 'ios' ? 32 : 16),
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.4,
@@ -414,13 +552,7 @@ export function AiNutritionCoachModal({
         {/* Header */}
         <View className="flex-row items-center justify-between pb-3 border-b border-zinc-800/80">
           <View className="flex-row items-center gap-2.5">
-            <View className="w-9 h-9 rounded-xl bg-zinc-950 border border-emerald-500/40 items-center justify-center overflow-hidden">
-              <Image
-                source={require('../../assets/images/logo.jpg')}
-                style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                resizeMode="cover"
-              />
-            </View>
+            <SiaCatMascot size={36} mood="happy" withGlow={true} />
             <View>
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
@@ -440,9 +572,10 @@ export function AiNutritionCoachModal({
           <View className="flex-row items-center gap-2">
             <TouchableOpacity
               onPress={handleClearHistory}
-              className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
+              className="w-8 h-8 rounded-full bg-zinc-800/90 border border-zinc-700/50 items-center justify-center"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="trash-outline" size={14} color="#71717a" />
+              <Ionicons name="trash-outline" size={14} color="#a1a1aa" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -451,86 +584,188 @@ export function AiNutritionCoachModal({
                 hapticFeedback.light();
                 onClose();
               }}
-              className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
+              className="w-8 h-8 rounded-full bg-zinc-800/90 border border-zinc-700/50 items-center justify-center"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={16} color="#a1a1aa" />
+              <Ionicons name="close" size={16} color="#e4e4e7" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Compact Telemetry Context Ribbon */}
-        <View className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl px-3.5 py-2 my-2.5 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-1.5">
-            <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <Text className="text-zinc-400 text-[11px] font-bold">
-              Remaining: <Text className="text-white font-extrabold">{remainingCal} kcal</Text>
-            </Text>
+        {/* 4-Macro Interactive HUD Ribbon (Tap-to-Ask) */}
+        <View className="my-2.5">
+          <View className="flex-row items-center justify-between mb-1.5 px-0.5">
+            <View className="flex-row items-center gap-1">
+              <MaterialCommunityIcons name="paw" size={11} color="#10b981" />
+              <Text className="text-zinc-500 text-[9px] font-extrabold uppercase tracking-wider">
+                Live Targets • Tap to ask Sia
+              </Text>
+            </View>
           </View>
-          <View className="flex-row items-center gap-1.5">
-            <View className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-            <Text className="text-zinc-400 text-[11px] font-bold">
-              Protein: <Text className="text-sky-400 font-extrabold">{remainingProt}g</Text>
-            </Text>
+
+          <View className="flex-row gap-1.5">
+            {/* Calories Pill */}
+            <Pressable
+              onPress={() => {
+                hapticFeedback.selection();
+                handleSendMessage(`What can I eat with my remaining ${remainingCal} kcal?`);
+              }}
+              style={({ pressed }) => [
+                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
+              ]}
+              className="flex-1 bg-zinc-950/85 border border-emerald-500/25 p-2 rounded-xl items-center"
+            >
+              <Text className="text-zinc-500 text-[8px] font-extrabold uppercase">Cal</Text>
+              <Text
+                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
+                className="text-white text-xs mt-0.5"
+                numberOfLines={1}
+              >
+                {remainingCal}
+              </Text>
+            </Pressable>
+
+            {/* Protein Pill */}
+            <Pressable
+              onPress={() => {
+                hapticFeedback.selection();
+                handleSendMessage(`High-protein ideas for my remaining ${remainingProt}g protein?`);
+              }}
+              style={({ pressed }) => [
+                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
+              ]}
+              className="flex-1 bg-zinc-950/85 border border-sky-500/25 p-2 rounded-xl items-center"
+            >
+              <Text className="text-sky-400 text-[8px] font-extrabold uppercase">Prot</Text>
+              <Text
+                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
+                className="text-sky-400 text-xs mt-0.5"
+                numberOfLines={1}
+              >
+                {remainingProt}g
+              </Text>
+            </Pressable>
+
+            {/* Carbs Pill */}
+            <Pressable
+              onPress={() => {
+                hapticFeedback.selection();
+                handleSendMessage(`What clean carb sources fit my remaining ${remainingCarbs}g carbs?`);
+              }}
+              style={({ pressed }) => [
+                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
+              ]}
+              className="flex-1 bg-zinc-950/85 border border-amber-500/25 p-2 rounded-xl items-center"
+            >
+              <Text className="text-amber-400 text-[8px] font-extrabold uppercase">Carb</Text>
+              <Text
+                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
+                className="text-amber-400 text-xs mt-0.5"
+                numberOfLines={1}
+              >
+                {remainingCarbs}g
+              </Text>
+            </Pressable>
+
+            {/* Fat Pill */}
+            <Pressable
+              onPress={() => {
+                hapticFeedback.selection();
+                handleSendMessage(`What healthy fat options fit my remaining ${remainingFat}g fat?`);
+              }}
+              style={({ pressed }) => [
+                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
+              ]}
+              className="flex-1 bg-zinc-950/85 border border-rose-500/25 p-2 rounded-xl items-center"
+            >
+              <Text className="text-rose-400 text-[8px] font-extrabold uppercase">Fat</Text>
+              <Text
+                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
+                className="text-rose-400 text-xs mt-0.5"
+                numberOfLines={1}
+              >
+                {remainingFat}g
+              </Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* Chat Messages List */}
+        {/* Chat Messages List with Calendar Date Dividers */}
         <ScrollView
           ref={scrollViewRef}
           className="flex-1 py-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 10 }}
+          contentContainerStyle={{ paddingBottom: 12 }}
         >
-          {messages.map((msg: ChatMessage) => (
-            <View
-              key={msg.id}
-              className={`mb-3 flex-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <View className="w-7 h-7 rounded-xl bg-zinc-950 border border-emerald-500/30 items-center justify-center mr-2 mt-1 overflow-hidden">
-                  <Image
-                    source={require('../../assets/images/logo.jpg')}
-                    style={{ width: '100%', height: '100%', borderRadius: 8 }}
-                    resizeMode="cover"
-                  />
+          {messages.map((msg: ChatMessage, index: number) => {
+            // Compute whether this message begins a new calendar day
+            const prevMsg = index > 0 ? messages[index - 1] : null;
+            const msgDateStr = msg.timestamp ? new Date(msg.timestamp).toDateString() : '';
+            const prevDateStr = prevMsg?.timestamp ? new Date(prevMsg.timestamp).toDateString() : '';
+            const isNewDay = index === 0 || msgDateStr !== prevDateStr;
+
+            return (
+              <React.Fragment key={msg.id}>
+                {/* Calendar Date Divider Badge */}
+                {isNewDay && (
+                  <View className="items-center my-3">
+                    <View className="bg-zinc-950/90 border border-zinc-800/90 px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm">
+                      <MaterialCommunityIcons name="calendar-today" size={10} color="#71717a" />
+                      <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
+                        {getDateDividerLabel(msg.timestamp)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Chat Message Bubble */}
+                <View
+                  className={`mb-3 flex-row ${
+                    msg.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {msg.role === 'assistant' && (
+                    <View className="mr-2 mt-0.5">
+                      <SiaCatMascot size={28} mood="idle" withGlow={false} />
+                    </View>
+                  )}
+
+                  <View
+                    className={`max-w-[84%] rounded-2xl p-3.5 ${
+                      msg.role === 'user'
+                        ? 'bg-emerald-600 rounded-tr-sm shadow-md shadow-emerald-600/20'
+                        : 'bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm'
+                    }`}
+                  >
+                    <FormattedChatMessage
+                      content={msg.content}
+                      isUser={msg.role === 'user'}
+                      onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
+                      onCopy={msg.role === 'assistant' ? handleCopyMessage : undefined}
+                      timestamp={msg.timestamp}
+                    />
+                  </View>
                 </View>
-              )}
+              </React.Fragment>
+            );
+          })}
 
-              <View
-                className={`max-w-[84%] rounded-2xl p-3.5 ${
-                  msg.role === 'user'
-                    ? 'bg-emerald-600 rounded-tr-sm shadow-md shadow-emerald-600/20'
-                    : 'bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm'
-                }`}
-              >
-                <FormattedChatMessage
-                  content={msg.content}
-                  isUser={msg.role === 'user'}
-                  onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
-                />
-              </View>
-            </View>
-          ))}
-
+          {/* Thinking / Typing State with Animated Mascot */}
           {isTyping && (
             <View className="flex-row items-center gap-2 mb-3">
-              <View className="w-7 h-7 rounded-xl bg-zinc-950 border border-emerald-500/30 items-center justify-center overflow-hidden">
-                <Image
-                  source={require('../../assets/images/logo.jpg')}
-                  style={{ width: '100%', height: '100%', borderRadius: 8 }}
-                  resizeMode="cover"
-                />
-              </View>
-              <View className="bg-zinc-950 border border-zinc-800 p-3 rounded-2xl flex-row items-center gap-1.5">
+              <SiaCatMascot size={32} mood="thinking" withGlow={true} />
+              <View className="bg-zinc-950 border border-zinc-800/90 px-3.5 py-3 rounded-2xl flex-row items-center gap-2 shadow-sm">
                 <ActivityIndicator size="small" color="#10b981" />
-                <Text className="text-zinc-500 text-xs font-semibold">Coach is crafting your nutrition advice...</Text>
+                <Text className="text-zinc-400 text-xs font-semibold">
+                  Sia is crafting your nutrition advice...
+                </Text>
               </View>
             </View>
           )}
         </ScrollView>
 
-        {/* Quick Suggestion Chips */}
+        {/* Quick Suggestion Chips Carousel with Icons & Spring Physics */}
         <View className="mb-2.5">
           <ScrollView
             horizontal
@@ -538,25 +773,32 @@ export function AiNutritionCoachModal({
             keyboardShouldPersistTaps="handled"
             className="flex-row"
           >
-            {dynamicPrompts.map((prompt, idx) => (
-              <TouchableOpacity
+            {dynamicPrompts.map((item, idx) => (
+              <Pressable
                 key={idx}
-                onPress={() => handleSendMessage(prompt)}
+                onPress={() => handleSendMessage(item.query)}
                 disabled={isTyping}
-                className="bg-zinc-950 border border-zinc-800 px-3 py-1.5 rounded-xl mr-2"
+                style={({ pressed }) => [
+                  {
+                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+                className="bg-zinc-950 border border-zinc-800/90 px-3 py-1.5 rounded-xl mr-2 flex-row items-center gap-1.5 shadow-sm"
               >
-                <Text className="text-zinc-300 text-[11px] font-medium">{prompt}</Text>
-              </TouchableOpacity>
+                <MaterialCommunityIcons name={item.icon} size={12} color="#10b981" />
+                <Text className="text-zinc-300 text-[11px] font-semibold">{item.label}</Text>
+              </Pressable>
             ))}
           </ScrollView>
         </View>
 
         {/* Input Bar (Directly Above Keyboard) */}
-        <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 pr-2">
+        <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 pr-2 shadow-sm">
           <TextInput
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask about meals, macros, or food choices..."
+            placeholder="Ask Sia about meals, macros, or ideas..."
             placeholderTextColor="#52525b"
             multiline
             maxLength={200}
@@ -564,16 +806,21 @@ export function AiNutritionCoachModal({
             editable={!isTyping}
           />
 
-          <TouchableOpacity
+          <Pressable
             onPress={() => handleSendMessage()}
             disabled={!inputText.trim() || isTyping}
-            activeOpacity={0.8}
+            style={({ pressed }) => [
+              {
+                transform: [{ scale: pressed ? 0.92 : 1 }],
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
             className={`w-9 h-9 rounded-xl items-center justify-center ${
-              inputText.trim() && !isTyping ? 'bg-emerald-500' : 'bg-zinc-800 opacity-50'
+              inputText.trim() && !isTyping ? 'bg-emerald-500' : 'bg-zinc-800 opacity-40'
             }`}
           >
             <Ionicons name="arrow-up" size={16} color="#ffffff" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </View>
