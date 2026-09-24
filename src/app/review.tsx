@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,29 +14,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useMealStore } from '../stores/mealStore';
+import { useAuthStore } from '../stores/authStore';
 import { MealType } from '../types';
 import { getDefaultMealType } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import SiaCatMascot from '../components/SiaCatMascot';
 
 interface MealTypeOption {
   type: MealType;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  sublabel: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
 }
 
 const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Breakfast', icon: 'sunny-outline', color: '#f59e0b' },
-  { type: 'lunch', label: 'Lunch', icon: 'restaurant-outline', color: '#10b981' },
-  { type: 'dinner', label: 'Dinner', icon: 'moon-outline', color: '#818cf8' },
-  { type: 'snack', label: 'Snack', icon: 'nutrition-outline', color: '#06b6d4' },
+  { type: 'breakfast', label: 'Morning Pounce', sublabel: 'Breakfast', icon: 'cat', color: '#f59e0b' },
+  { type: 'lunch', label: 'Midday Catch', sublabel: 'Lunch', icon: 'fish', color: '#10b981' },
+  { type: 'dinner', label: 'Night Prowl', sublabel: 'Dinner', icon: 'weather-night', color: '#818cf8' },
+  { type: 'snack', label: 'Paws & Treats', sublabel: 'Snack', icon: 'paw', color: '#06b6d4' },
 ];
 
 export default function ReviewScreen() {
   const router = useRouter();
-  const { draftMeal, logMeal } = useMealStore();
+  const { profile } = useAuthStore();
+  const { draftMeal, logMeal, meals } = useMealStore();
 
   const [name, setName] = useState('');
   const [mealType, setMealType] = useState<MealType>(getDefaultMealType());
@@ -47,18 +50,106 @@ export default function ReviewScreen() {
   const [foodItems, setFoodItems] = useState<string[]>([]);
   const [newItemText, setNewItemText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [portionScale, setPortionScale] = useState<number>(1.0);
+
+  // Baseline macro snapshot from AI to support proportional scaling
+  const baseMacros = useRef<{
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  }>({
+    calories: 0,
+    protein_g: 0,
+    carbs_g: 0,
+    fat_g: 0,
+  });
 
   useEffect(() => {
     if (draftMeal) {
       setName(draftMeal.name || '');
       setMealType(draftMeal.meal_type || getDefaultMealType());
-      setCalories(String(draftMeal.calories ?? 0));
-      setProtein(String(draftMeal.protein_g ?? 0));
-      setCarbs(String(draftMeal.carbs_g ?? 0));
-      setFat(String(draftMeal.fat_g ?? 0));
+      const cal = draftMeal.calories ?? 0;
+      const prot = draftMeal.protein_g ?? 0;
+      const crb = draftMeal.carbs_g ?? 0;
+      const ft = draftMeal.fat_g ?? 0;
+
+      baseMacros.current = {
+        calories: cal,
+        protein_g: prot,
+        carbs_g: crb,
+        fat_g: ft,
+      };
+
+      setCalories(String(cal));
+      setProtein(String(prot));
+      setCarbs(String(crb));
+      setFat(String(ft));
       setFoodItems(draftMeal.food_items || []);
+      setPortionScale(1.0);
     }
   }, [draftMeal]);
+
+  // Consumed totals so far today
+  const consumedCalories = useMemo(() => {
+    return meals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0);
+  }, [meals]);
+
+  const consumedProtein = useMemo(() => {
+    return meals.reduce((sum, m) => sum + (Number(m.protein_g) || 0), 0);
+  }, [meals]);
+
+  const targetCalories = profile?.target_calories || 2000;
+  const targetProtein = profile?.target_protein_g || 150;
+
+  // Real-Time Sia Macro Fit Assessment
+  const macroFit = useMemo(() => {
+    const currentCal = Math.max(0, parseFloat(calories) || 0);
+    const currentProt = Math.max(0, parseFloat(protein) || 0);
+    const totalCalAfter = consumedCalories + currentCal;
+    const totalProtAfter = consumedProtein + currentProt;
+    const calorieOver = totalCalAfter - targetCalories;
+    const proteinMet = totalProtAfter >= targetProtein;
+
+    if (proteinMet && calorieOver <= 100) {
+      return {
+        mood: 'celebrating' as const,
+        badgeText: '👑 Protein Goal Smashed',
+        badgeColor: '#10b981',
+        badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
+        message: `Purr-fect! This catch pushes today's protein to ${Math.round(totalProtAfter)}g / ${targetProtein}g. Target conquered!`,
+      };
+    }
+
+    if (calorieOver > 150) {
+      return {
+        mood: 'thinking' as const,
+        badgeText: '⚠️ Over Daily Budget',
+        badgeColor: '#f59e0b',
+        badgeBg: 'bg-amber-500/15 border-amber-500/30',
+        message: `Pushes today's calories +${Math.round(calorieOver)} kcal above your target. Try a 0.75× portion or balance your next catch!`,
+      };
+    }
+
+    const remainingKcal = Math.max(0, targetCalories - totalCalAfter);
+    const remainingProt = Math.max(0, targetProtein - totalProtAfter);
+    return {
+      mood: 'happy' as const,
+      badgeText: '🐾 Fits Daily Budget',
+      badgeColor: '#10b981',
+      badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
+      message: `Wholesome catch! Leaves ~${Math.round(remainingKcal)} kcal and ${Math.round(remainingProt)}g protein for the rest of today.`,
+    };
+  }, [calories, protein, consumedCalories, consumedProtein, targetCalories, targetProtein]);
+
+  const handleScalePortion = (multiplier: number) => {
+    hapticFeedback.selection();
+    setPortionScale(multiplier);
+    setCalories(String(Math.round(baseMacros.current.calories * multiplier)));
+    setProtein(String(Math.round(baseMacros.current.protein_g * multiplier)));
+    setCarbs(String(Math.round(baseMacros.current.carbs_g * multiplier)));
+    setFat(String(Math.round(baseMacros.current.fat_g * multiplier)));
+  };
 
   const handleAddItem = () => {
     if (newItemText.trim()) {
@@ -128,7 +219,7 @@ export default function ReviewScreen() {
           style={{ fontFamily: 'Outfit_700Bold' }}
           className="text-white text-lg"
         >
-          Review & Edit Meal
+          Review & Edit Catch
         </Text>
         <View className="w-10" />
       </View>
@@ -138,26 +229,57 @@ export default function ReviewScreen() {
         className="flex-1"
       >
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
-          {/* Sia Vision Intelligence Card */}
-          <View className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 flex-row items-center gap-3 mb-4 shadow-sm shadow-emerald-500/10">
-            <View className="items-center justify-center">
-              <SiaCatMascot size={46} mood="happy" withGlow={true} />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center gap-1.5 mb-0.5">
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs"
-                >
-                  Sia Vision Assessment
-                </Text>
-                <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
-                  <Text className="text-emerald-400 text-[9px] font-extrabold uppercase tracking-wider">🐾 AI Verified</Text>
-                </View>
+          {/* Sia Vision Intelligence & Macro Fit Card */}
+          <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-4 shadow-sm shadow-black">
+            <View className="flex-row items-center gap-3.5">
+              <View className="items-center justify-center">
+                <SiaCatMascot size={48} mood={macroFit.mood} withGlow={true} />
               </View>
-              <Text className="text-zinc-400 text-[11px] font-medium leading-4">
-                Sia inspected your meal! Tweak portions or ingredients below before saving, human.
-              </Text>
+              <View className="flex-1">
+                <View className="flex-row items-center justify-between mb-1">
+                  <View className="flex-row items-center gap-1.5 flex-wrap">
+                    <Text
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className="text-white text-xs"
+                    >
+                      Sia Macro Fit
+                    </Text>
+                    <View className={`px-1.5 py-0.5 rounded-md border ${macroFit.badgeBg}`}>
+                      <Text
+                        style={{ color: macroFit.badgeColor }}
+                        className="text-[9px] font-extrabold uppercase tracking-wider"
+                      >
+                        {macroFit.badgeText}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text className="text-zinc-400 text-[11px] font-medium leading-4">
+                  {macroFit.message}
+                </Text>
+              </View>
+            </View>
+
+            {/* Quick Micro Telemetry Pill */}
+            <View className="mt-3 pt-2.5 border-t border-zinc-800/80 flex-row items-center justify-between">
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase">Budget Pace:</Text>
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-zinc-300 text-[11px] font-bold"
+                >
+                  {consumedCalories} + <Text className="text-emerald-400 font-extrabold">{Math.round(parseFloat(calories) || 0)}</Text> = {Math.round(consumedCalories + (parseFloat(calories) || 0))} / {targetCalories} kcal
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase">Protein:</Text>
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-sky-400 text-[11px] font-extrabold"
+                >
+                  {Math.round(consumedProtein + (parseFloat(protein) || 0))}g / {targetProtein}g
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -172,7 +294,7 @@ export default function ReviewScreen() {
             </View>
           )}
 
-          {/* Meal Category Selector */}
+          {/* Feline Meal Category Selector */}
           <View className="mb-4">
             <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
               Meal Category
@@ -187,24 +309,32 @@ export default function ReviewScreen() {
                       hapticFeedback.selection();
                       setMealType(item.type);
                     }}
-                    className={`flex-1 py-2.5 px-2 rounded-xl border items-center justify-center ${
+                    className={`flex-1 py-2.5 px-1 rounded-2xl border items-center justify-center ${
                       isSelected
                         ? 'bg-emerald-500/15 border-emerald-500'
                         : 'bg-zinc-900 border-zinc-800'
                     }`}
                   >
-                    <Ionicons
+                    <MaterialCommunityIcons
                       name={item.icon}
-                      size={16}
-                      color={isSelected ? '#10b981' : '#71717a'}
+                      size={18}
+                      color={isSelected ? item.color : '#71717a'}
                     />
                     <Text
                       style={{ fontFamily: 'Outfit_700Bold' }}
-                      className={`text-[11px] mt-1 ${
-                        isSelected ? 'text-emerald-400' : 'text-zinc-400'
+                      numberOfLines={1}
+                      className={`text-[10px] mt-1 text-center ${
+                        isSelected ? 'text-white' : 'text-zinc-400'
                       }`}
                     >
                       {item.label}
+                    </Text>
+                    <Text
+                      className={`text-[8px] uppercase tracking-wider font-semibold ${
+                        isSelected ? 'text-emerald-400' : 'text-zinc-600'
+                      }`}
+                    >
+                      {item.sublabel}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -220,10 +350,56 @@ export default function ReviewScreen() {
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Grilled Chicken & Rice"
+              placeholder="e.g. Grilled Salmon & Quinoa"
               placeholderTextColor="#52525b"
               className="bg-zinc-900 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold"
             />
+          </View>
+
+          {/* Quick Portion Scaler Strip */}
+          <View className="mb-4 bg-zinc-900/80 border border-zinc-800/90 rounded-2xl p-3">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center gap-1.5">
+                <MaterialCommunityIcons name="scale-bathroom" size={14} color="#10b981" />
+                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
+                  Quick Portion Scaler
+                </Text>
+              </View>
+              {portionScale !== 1.0 && (
+                <TouchableOpacity
+                  onPress={() => handleScalePortion(1.0)}
+                  className="px-2 py-0.5 bg-zinc-800 rounded-md border border-zinc-700/60"
+                >
+                  <Text className="text-emerald-400 text-[10px] font-bold">Reset 1.0×</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View className="flex-row gap-2">
+              {[0.5, 0.75, 1.0, 1.25, 1.5].map((scale) => {
+                const isSelected = portionScale === scale;
+                return (
+                  <TouchableOpacity
+                    key={scale}
+                    onPress={() => handleScalePortion(scale)}
+                    className={`flex-1 py-2 rounded-xl items-center justify-center border ${
+                      isSelected
+                        ? 'bg-emerald-500/20 border-emerald-500'
+                        : 'bg-zinc-950 border-zinc-800'
+                    }`}
+                  >
+                    <Text
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className={`text-xs ${
+                        isSelected ? 'text-emerald-400 font-extrabold' : 'text-zinc-400'
+                      }`}
+                    >
+                      {scale === 1.0 ? '1.0×' : `${scale}×`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Macronutrients Grid */}
@@ -239,7 +415,10 @@ export default function ReviewScreen() {
                 <View className="flex-row items-baseline">
                   <TextInput
                     value={calories}
-                    onChangeText={setCalories}
+                    onChangeText={(val) => {
+                      setCalories(val);
+                      setPortionScale(0);
+                    }}
                     keyboardType="numeric"
                     style={{ fontFamily: 'Outfit_800ExtraBold' }}
                     className="text-white text-2xl p-0 flex-1"
@@ -254,7 +433,10 @@ export default function ReviewScreen() {
                 <View className="flex-row items-baseline">
                   <TextInput
                     value={protein}
-                    onChangeText={setProtein}
+                    onChangeText={(val) => {
+                      setProtein(val);
+                      setPortionScale(0);
+                    }}
                     keyboardType="numeric"
                     style={{ fontFamily: 'Outfit_800ExtraBold' }}
                     className="text-white text-2xl p-0 flex-1"
@@ -271,7 +453,10 @@ export default function ReviewScreen() {
                 <View className="flex-row items-baseline">
                   <TextInput
                     value={carbs}
-                    onChangeText={setCarbs}
+                    onChangeText={(val) => {
+                      setCarbs(val);
+                      setPortionScale(0);
+                    }}
                     keyboardType="numeric"
                     style={{ fontFamily: 'Outfit_800ExtraBold' }}
                     className="text-white text-2xl p-0 flex-1"
@@ -286,7 +471,10 @@ export default function ReviewScreen() {
                 <View className="flex-row items-baseline">
                   <TextInput
                     value={fat}
-                    onChangeText={setFat}
+                    onChangeText={(val) => {
+                      setFat(val);
+                      setPortionScale(0);
+                    }}
                     keyboardType="numeric"
                     style={{ fontFamily: 'Outfit_800ExtraBold' }}
                     className="text-white text-2xl p-0 flex-1"
@@ -341,14 +529,20 @@ export default function ReviewScreen() {
             <TouchableOpacity
               onPress={handleSave}
               disabled={isSaving}
+              activeOpacity={0.85}
               className="bg-emerald-500 active:bg-emerald-600 rounded-2xl py-4 flex-row items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
             >
               {isSaving ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
-                  <Text className="text-white font-bold text-base">Save to Daily Log</Text>
+                  <Ionicons name="paw" size={18} color="#ffffff" />
+                  <Text
+                    style={{ fontFamily: 'Outfit_700Bold' }}
+                    className="text-white font-bold text-base"
+                  >
+                    Save Catch to Daily Log
+                  </Text>
                 </>
               )}
             </TouchableOpacity>

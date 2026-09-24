@@ -42,10 +42,10 @@ interface CategoryHeaderConfig {
 }
 
 const CATEGORIES: CategoryHeaderConfig[] = [
-  { type: 'breakfast', title: 'Breakfast', icon: 'cat', color: '#f59e0b', badgeBg: 'bg-amber-500/10 border-amber-500/30' },
-  { type: 'lunch', title: 'Lunch', icon: 'fish', color: '#10b981', badgeBg: 'bg-emerald-500/10 border-emerald-500/30' },
-  { type: 'dinner', title: 'Dinner', icon: 'weather-night', color: '#818cf8', badgeBg: 'bg-indigo-500/10 border-indigo-500/30' },
-  { type: 'snack', title: 'Snacks & Treats', icon: 'paw', color: '#06b6d4', badgeBg: 'bg-cyan-500/10 border-cyan-500/30' },
+  { type: 'breakfast', title: 'Morning Pounce', icon: 'cat', color: '#f59e0b', badgeBg: 'bg-amber-500/10 border-amber-500/30' },
+  { type: 'lunch', title: 'Midday Catch', icon: 'fish', color: '#10b981', badgeBg: 'bg-emerald-500/10 border-emerald-500/30' },
+  { type: 'dinner', title: 'Night Prowl', icon: 'weather-night', color: '#818cf8', badgeBg: 'bg-indigo-500/10 border-indigo-500/30' },
+  { type: 'snack', title: 'Paws & Treats', icon: 'paw', color: '#06b6d4', badgeBg: 'bg-cyan-500/10 border-cyan-500/30' },
 ];
 
 export default function HistoryScreen() {

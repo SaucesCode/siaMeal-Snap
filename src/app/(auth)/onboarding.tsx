@@ -164,13 +164,27 @@ export default function OnboardingScreen() {
             )}
 
             <View className="items-center">
-              <Text
-                style={{ fontFamily: 'Outfit_900Black' }}
-                className="text-lg text-white tracking-tight"
-              >
-                Snap<Text className="text-emerald-400">Cal</Text>
-              </Text>
-              <Text className="text-zinc-500 text-[11px] font-bold">
+              <View className="flex-row items-baseline">
+                <Text
+                  style={{ fontFamily: 'Outfit_900Black' }}
+                  className="text-lg text-white tracking-tight"
+                >
+                  Sia
+                </Text>
+                <Text
+                  style={{ fontFamily: 'Outfit_900Black' }}
+                  className="text-lg text-emerald-400 tracking-tight"
+                >
+                  Meal
+                </Text>
+                <Text
+                  style={{ fontFamily: 'Outfit_900Black' }}
+                  className="text-lg text-sky-400 tracking-tight ml-1"
+                >
+                  Snap
+                </Text>
+              </View>
+              <Text className="text-zinc-500 text-[11px] font-bold mt-0.5">
                 Step {step} of 5
               </Text>
             </View>
@@ -271,46 +285,61 @@ export default function OnboardingScreen() {
               {/* Age */}
               <View className="mb-4">
                 <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-                  Age (years)
+                  Age
                 </Text>
-                <TextInput
-                  value={ageStr}
-                  onChangeText={setAgeStr}
-                  keyboardType="numeric"
-                  placeholder="e.g. 26"
-                  placeholderTextColor="#52525b"
-                  className="bg-zinc-900 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold"
-                />
+                <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-1">
+                  <TextInput
+                    value={ageStr}
+                    onChangeText={setAgeStr}
+                    keyboardType="numeric"
+                    placeholder="e.g. 26"
+                    placeholderTextColor="#52525b"
+                    className="text-white text-base font-semibold flex-1 py-3"
+                  />
+                  <View className="bg-zinc-800/80 px-2.5 py-1 rounded-lg border border-zinc-700/60">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase">years</Text>
+                  </View>
+                </View>
               </View>
 
               {/* Height */}
               <View className="mb-4">
                 <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-                  Height (cm)
+                  Height
                 </Text>
-                <TextInput
-                  value={heightStr}
-                  onChangeText={setHeightStr}
-                  keyboardType="numeric"
-                  placeholder="e.g. 175"
-                  placeholderTextColor="#52525b"
-                  className="bg-zinc-900 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold"
-                />
+                <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-1">
+                  <TextInput
+                    value={heightStr}
+                    onChangeText={setHeightStr}
+                    keyboardType="numeric"
+                    placeholder="e.g. 175"
+                    placeholderTextColor="#52525b"
+                    className="text-white text-base font-semibold flex-1 py-3"
+                  />
+                  <View className="bg-zinc-800/80 px-2.5 py-1 rounded-lg border border-zinc-700/60">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase">cm</Text>
+                  </View>
+                </View>
               </View>
 
               {/* Weight */}
               <View className="mb-6">
                 <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-                  Current Weight (kg)
+                  Current Weight
                 </Text>
-                <TextInput
-                  value={weightStr}
-                  onChangeText={setWeightStr}
-                  keyboardType="numeric"
-                  placeholder="e.g. 75"
-                  placeholderTextColor="#52525b"
-                  className="bg-zinc-900 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold"
-                />
+                <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-1">
+                  <TextInput
+                    value={weightStr}
+                    onChangeText={setWeightStr}
+                    keyboardType="numeric"
+                    placeholder="e.g. 75"
+                    placeholderTextColor="#52525b"
+                    className="text-white text-base font-semibold flex-1 py-3"
+                  />
+                  <View className="bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                    <Text className="text-emerald-400 text-xs font-bold uppercase">kg</Text>
+                  </View>
+                </View>
               </View>
             </View>
           )}
@@ -320,15 +349,16 @@ export default function OnboardingScreen() {
           ========================================================================= */}
           {step === 2 && (
             <View>
-              <View className="mb-6">
+              <View className="mb-5 items-center">
+                <SiaCatMascot size={72} mood="thinking" withGlow={true} style={{ marginBottom: 10 }} />
                 <Text
                   style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-2xl text-white mb-1.5"
+                  className="text-2xl text-white mb-1 text-center"
                 >
-                  Physical Activity
+                  Daily Prowl Activity
                 </Text>
-                <Text className="text-zinc-400 text-sm">
-                  This scales your BMR into your Total Daily Energy Expenditure (TDEE).
+                <Text className="text-zinc-400 text-xs text-center px-4 leading-relaxed">
+                  How active are your daily prowls? Sia uses this PAL multiplier to scale your BMR into your Total Daily Energy Expenditure (TDEE).
                 </Text>
               </View>
 
@@ -388,15 +418,16 @@ export default function OnboardingScreen() {
           ========================================================================= */}
           {step === 3 && (
             <View>
-              <View className="mb-6">
+              <View className="mb-5 items-center">
+                <SiaCatMascot size={72} mood="scanning" withGlow={true} style={{ marginBottom: 10 }} />
                 <Text
                   style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-2xl text-white mb-1.5"
+                  className="text-2xl text-white mb-1 text-center"
                 >
-                  Primary Objective
+                  Hunting Objective
                 </Text>
-                <Text className="text-zinc-400 text-sm">
-                  Select your target calorie deficit or surplus to optimize transformation.
+                <Text className="text-zinc-400 text-xs text-center px-4 leading-relaxed">
+                  Choose your hunting objective: calibrate a deficit for steady fat loss, agility maintenance, or surplus for muscle growth.
                 </Text>
               </View>
 
@@ -462,15 +493,16 @@ export default function OnboardingScreen() {
           ========================================================================= */}
           {step === 4 && (
             <View>
-              <View className="mb-6">
+              <View className="mb-5 items-center">
+                <SiaCatMascot size={72} mood="happy" withGlow={true} style={{ marginBottom: 10 }} />
                 <Text
                   style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-2xl text-white mb-1.5"
+                  className="text-2xl text-white mb-1 text-center"
                 >
-                  Macro Distribution
+                  Macro Fuel Ratio
                 </Text>
-                <Text className="text-zinc-400 text-sm">
-                  Choose how your daily calories will be distributed across Protein, Carbs, and Fat.
+                <Text className="text-zinc-400 text-xs text-center px-4 leading-relaxed">
+                  What kind of prey fuels your engine? Choose how Sia balances your daily calories across Protein, Carbs, and Healthy Fats.
                 </Text>
               </View>
 
@@ -541,15 +573,15 @@ export default function OnboardingScreen() {
           {step === 5 && targets && (
             <View>
               <View className="mb-5 items-center">
-                <SiaCatMascot size={78} mood="celebrating" style={{ marginBottom: 10 }} />
+                <SiaCatMascot size={78} mood="celebrating" withGlow={true} style={{ marginBottom: 10 }} />
                 <Text
                   style={{ fontFamily: 'Outfit_900Black' }}
                   className="text-2xl text-white text-center"
                 >
-                  Sia's Nutrition Blueprint
+                  Sia's Macro Blueprint
                 </Text>
-                <Text className="text-emerald-400 text-xs text-center font-medium mt-1">
-                  Scientifically calculated for your metabolic goals.
+                <Text className="text-emerald-400 text-xs text-center font-bold mt-1">
+                  🐾 Scientifically calculated for your metabolic profile
                 </Text>
               </View>
 
@@ -670,8 +702,8 @@ export default function OnboardingScreen() {
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <>
-                  <Ionicons name="flash" size={18} color="#ffffff" />
-                  <Text className="text-white font-bold text-base">Start Tracking on SiaMeal Snap</Text>
+                  <Ionicons name="paw" size={18} color="#ffffff" />
+                  <Text className="text-white font-bold text-base">Pounce into SiaMeal Snap</Text>
                 </>
               )}
             </TouchableOpacity>
