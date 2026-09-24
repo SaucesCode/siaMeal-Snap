@@ -44,6 +44,10 @@ interface MealState {
     fat_g: number;
     food_items: string[];
     image_url?: string | null;
+    confidence_score?: number;
+    portion_notes?: string;
+    dietary_tags?: string[];
+    feline_verdict?: string;
   } | null;
   isLoading: boolean;
   setSelectedDate: (date: string) => void;

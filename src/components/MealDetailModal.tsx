@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
@@ -20,23 +20,24 @@ interface MealDetailModalProps {
   visible: boolean;
   onClose: () => void;
   onDelete?: (id: string) => Promise<void> | void;
+  onAskCoach?: (meal: Meal) => void;
 }
 
 interface MealTypeOption {
   type: MealType;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
 }
 
 const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Breakfast', icon: 'sunny-outline', color: '#f59e0b' },
-  { type: 'lunch', label: 'Lunch', icon: 'restaurant-outline', color: '#10b981' },
-  { type: 'dinner', label: 'Dinner', icon: 'moon-outline', color: '#818cf8' },
-  { type: 'snack', label: 'Snack', icon: 'nutrition-outline', color: '#06b6d4' },
+  { type: 'breakfast', label: 'Morning Pounce', icon: 'cat', color: '#f59e0b' },
+  { type: 'lunch', label: 'Midday Catch', icon: 'fish', color: '#10b981' },
+  { type: 'dinner', label: 'Night Prowl', icon: 'weather-night', color: '#818cf8' },
+  { type: 'snack', label: 'Paws & Treats', icon: 'paw', color: '#06b6d4' },
 ];
 
-export function MealDetailModal({ meal, visible, onClose }: MealDetailModalProps) {
+export function MealDetailModal({ meal, visible, onClose, onAskCoach }: MealDetailModalProps) {
   const { updateMeal, deleteMeal } = useMealStore();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -143,9 +144,14 @@ export function MealDetailModal({ meal, visible, onClose }: MealDetailModalProps
                 <Ionicons name="time-outline" size={13} color="#a1a1aa" />
                 <Text className="text-zinc-300 text-xs font-semibold">{formattedTime}</Text>
               </View>
-              <View className="bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
-                <Text className="text-emerald-400 text-xs font-bold capitalize">
-                  {meal.meal_type || 'Meal'}
+              <View className="bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full flex-row items-center gap-1.5">
+                <MaterialCommunityIcons
+                  name={MEAL_TYPES.find((t) => t.type === (meal.meal_type || 'snack'))?.icon || 'paw'}
+                  size={12}
+                  color="#10b981"
+                />
+                <Text className="text-emerald-400 text-xs font-bold">
+                  {MEAL_TYPES.find((t) => t.type === (meal.meal_type || 'snack'))?.label || 'Catch'}
                 </Text>
               </View>
             </View>
@@ -230,7 +236,7 @@ export function MealDetailModal({ meal, visible, onClose }: MealDetailModalProps
                             : 'bg-zinc-950 border-zinc-800'
                         }`}
                       >
-                        <Ionicons
+                        <MaterialCommunityIcons
                           name={t.icon}
                           size={15}
                           color={isSelected ? '#10b981' : '#71717a'}
@@ -411,11 +417,40 @@ export function MealDetailModal({ meal, visible, onClose }: MealDetailModalProps
                 </TouchableOpacity>
               </View>
             ) : (
-              <View className="flex-row gap-3 mb-6">
+              <View className="gap-3 mb-6">
+                {onAskCoach && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      hapticFeedback.medium();
+                      onAskCoach(meal);
+                    }}
+                    activeOpacity={0.8}
+                    className="bg-zinc-950 border border-emerald-500/35 p-3.5 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
+                  >
+                    <View className="flex-row items-center gap-2.5">
+                      <View className="w-8 h-8 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
+                        <Ionicons name="chatbubble-ellipses" size={15} color="#10b981" />
+                      </View>
+                      <View>
+                        <Text
+                          style={{ fontFamily: 'Outfit_700Bold' }}
+                          className="text-white text-xs"
+                        >
+                          🐾 Ask Sia About This Catch
+                        </Text>
+                        <Text className="text-zinc-400 text-[10px]">
+                          Get instant AI coach tactical breakdown
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#10b981" />
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   onPress={handleDelete}
                   disabled={isDeleting}
-                  className="flex-1 bg-rose-500/10 border border-rose-500/30 py-3.5 rounded-2xl flex-row items-center justify-center gap-2"
+                  className="bg-rose-500/10 border border-rose-500/30 py-3.5 rounded-2xl flex-row items-center justify-center gap-2"
                 >
                   {isDeleting ? (
                     <ActivityIndicator color="#ef4444" size="small" />

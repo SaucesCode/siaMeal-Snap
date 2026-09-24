@@ -20,6 +20,7 @@ import { getDefaultMealType } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import SiaCatMascot from '../components/SiaCatMascot';
+import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
 interface MealTypeOption {
   type: MealType;
@@ -51,6 +52,8 @@ export default function ReviewScreen() {
   const [newItemText, setNewItemText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [portionScale, setPortionScale] = useState<number>(1.0);
+  const [coachModalVisible, setCoachModalVisible] = useState(false);
+  const [coachInitialQuery, setCoachInitialQuery] = useState('');
 
   // Baseline macro snapshot from AI to support proportional scaling
   const baseMacros = useRef<{
@@ -164,6 +167,13 @@ export default function ReviewScreen() {
     setFoodItems(foodItems.filter((_, i) => i !== index));
   };
 
+  const handleAskSiaAboutMeal = () => {
+    hapticFeedback.medium();
+    const query = `I am reviewing "${name || 'this catch'}" (~${Math.round(parseFloat(calories) || 0)} kcal, ${Math.round(parseFloat(protein) || 0)}g protein, ${Math.round(parseFloat(carbs) || 0)}g carbs). How does this fit into my daily goal, and what should I eat for my next meal?`;
+    setCoachInitialQuery(query);
+    setCoachModalVisible(true);
+  };
+
   const handleSave = async () => {
     if (isSaving) return;
 
@@ -202,6 +212,8 @@ export default function ReviewScreen() {
     return null;
   }
 
+  const confidencePct = Math.round((draftMeal.confidence_score ?? 0.94) * 100);
+
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
       {/* Top Header */}
@@ -230,7 +242,7 @@ export default function ReviewScreen() {
       >
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
           {/* Sia Vision Intelligence & Macro Fit Card */}
-          <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-4 shadow-sm shadow-black">
+          <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-3 shadow-sm shadow-black">
             <View className="flex-row items-center gap-3.5">
               <View className="items-center justify-center">
                 <SiaCatMascot size={48} mood={macroFit.mood} withGlow={true} />
@@ -282,6 +294,84 @@ export default function ReviewScreen() {
               </View>
             </View>
           </View>
+
+          {/* Explainable AI Vision Assessment Card */}
+          <View className="bg-zinc-900/90 border border-emerald-500/25 rounded-3xl p-3.5 mb-3 shadow-sm shadow-emerald-500/10">
+            {/* Header: AI Confidence Badge & Icon */}
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center gap-1.5">
+                <MaterialCommunityIcons name="shield-check" size={14} color="#10b981" />
+                <Text
+                  style={{ fontFamily: 'Outfit_700Bold' }}
+                  className="text-white text-xs"
+                >
+                  Explainable AI Nutrition
+                </Text>
+              </View>
+              <View className="bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <Text className="text-emerald-400 text-[10px] font-extrabold">
+                  {confidencePct}% Certainty
+                </Text>
+              </View>
+            </View>
+
+            {/* Portion Notes */}
+            <View className="flex-row items-start gap-2 bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 mb-2">
+              <MaterialCommunityIcons name="scale" size={13} color="#10b981" style={{ marginTop: 1 }} />
+              <Text className="text-zinc-300 text-xs flex-1 leading-relaxed">
+                {draftMeal.portion_notes || "Estimated serving based on visual cues & macronutrient density"}
+              </Text>
+            </View>
+
+            {/* Feline Coach Verdict */}
+            {draftMeal.feline_verdict && (
+              <Text className="text-zinc-400 text-[11px] italic mb-2 leading-4">
+                "{draftMeal.feline_verdict}"
+              </Text>
+            )}
+
+            {/* Dietary Tags */}
+            {draftMeal.dietary_tags && draftMeal.dietary_tags.length > 0 && (
+              <View className="flex-row flex-wrap gap-1.5">
+                {draftMeal.dietary_tags.map((tag, tIdx) => (
+                  <View
+                    key={tIdx}
+                    className="bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md"
+                  >
+                    <Text className="text-emerald-400 text-[10px] font-bold">
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Ask Sia Coach Continuity Button */}
+          <TouchableOpacity
+            onPress={handleAskSiaAboutMeal}
+            activeOpacity={0.8}
+            className="bg-zinc-900 border border-emerald-500/30 p-3.5 rounded-2xl flex-row items-center justify-between mb-4 shadow-sm shadow-emerald-500/10"
+          >
+            <View className="flex-row items-center gap-2.5">
+              <View className="w-8 h-8 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
+                <Ionicons name="chatbubble-ellipses" size={15} color="#10b981" />
+              </View>
+              <View>
+                <Text
+                  style={{ fontFamily: 'Outfit_700Bold' }}
+                  className="text-white text-xs"
+                >
+                  🐾 Ask Sia About This Catch
+                </Text>
+                <Text className="text-zinc-400 text-[10px]">
+                  Get instant tactical advice for your remaining meals
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#10b981" />
+          </TouchableOpacity>
 
           {/* Photo Thumbnail if available */}
           {draftMeal.image_url && (
@@ -559,6 +649,29 @@ export default function ReviewScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Cross-Modal AI Nutrition Coach Assistant */}
+      <AiNutritionCoachModal
+        visible={coachModalVisible}
+        onClose={() => setCoachModalVisible(false)}
+        userContext={{
+          displayName: profile?.full_name || 'Athlete',
+          goal: profile?.goal_pace || 'Fat Loss / Maintenance',
+          dietType: profile?.diet_type || 'Balanced',
+          targetCalories,
+          targetProtein,
+          targetCarbs: profile?.target_carbs_g || 200,
+          targetFat: profile?.target_fat_g || 65,
+          consumedCalories,
+          consumedProtein,
+          consumedCarbs: 0,
+          consumedFat: 0,
+          remainingCalories: Math.max(0, targetCalories - (consumedCalories + (parseFloat(calories) || 0))),
+          remainingProtein: Math.max(0, targetProtein - (consumedProtein + (parseFloat(protein) || 0))),
+          todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
+        }}
+        initialQuery={coachInitialQuery}
+      />
     </SafeAreaView>
   );
 }

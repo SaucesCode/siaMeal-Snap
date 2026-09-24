@@ -74,6 +74,10 @@ export function TextLogModal({
         fat_g: result.fat_g,
         food_items: result.ingredients,
         image_url: null,
+        confidence_score: result.confidence_score,
+        portion_notes: result.portion_notes,
+        dietary_tags: result.dietary_tags,
+        feline_verdict: result.feline_verdict,
       });
 
       hapticFeedback.success();

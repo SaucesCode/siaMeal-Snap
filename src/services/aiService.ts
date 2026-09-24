@@ -8,6 +8,10 @@ export interface AnalyzeMealResponse {
   carbs_g: number;
   fat_g: number;
   ingredients: string[];
+  confidence_score?: number;
+  portion_notes?: string;
+  dietary_tags?: string[];
+  feline_verdict?: string;
 }
 
 export interface ChatMessage {
@@ -134,6 +138,10 @@ export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMeal
       carbs_g: 45,
       fat_g: 14,
       ingredients: ['Meal photo (offline fallback — adjust in Review)'],
+      confidence_score: 0.85,
+      portion_notes: 'Estimated standard serving (offline mode)',
+      dietary_tags: ['Balanced Catch', 'Offline'],
+      feline_verdict: 'Sia caught your meal offline — verify portions in Review!',
     })
   );
 }
@@ -164,6 +172,10 @@ export async function analyzeMealText(textDescription: string): Promise<AnalyzeM
       carbs_g: 38,
       fat_g: 12,
       ingredients: [textDescription || 'Logged item (offline fallback — adjust in Review)'],
+      confidence_score: 0.88,
+      portion_notes: 'Parsed from natural language description',
+      dietary_tags: ['Text Log'],
+      feline_verdict: 'Logged via text description — adjust if needed!',
     })
   );
 }

@@ -426,7 +426,11 @@ You MUST output ONLY a valid JSON object matching this exact schema:
   "protein_g": number (grams of protein),
   "carbs_g": number (grams of carbohydrates),
   "fat_g": number (grams of fat),
-  "ingredients": ["ingredient 1 with estimated portion", "ingredient 2 with estimated portion"]
+  "ingredients": ["ingredient 1 with estimated portion", "ingredient 2 with estimated portion"],
+  "confidence_score": number (0.0 to 1.0 estimate of food recognition certainty),
+  "portion_notes": "A concise 1-sentence note explaining portion estimation basis, e.g. ~180g grilled chicken breast with 1 cup brown rice",
+  "dietary_tags": ["e.g. High Protein", "Lean", "Complex Carbs"],
+  "feline_verdict": "A brief 1-sentence encouraging nutritional comment from Sia the Siamese cat coach"
 }
 Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code blocks.`;
 
@@ -566,13 +570,21 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
 
     const sanitizedResult = {
       meal_name: String(parsedData?.meal_name || "Logged Meal"),
-      calories: Math.round(Number(parsedData?.calories) || 0),
-      protein_g: Math.round(Number(parsedData?.protein_g) || 0),
-      carbs_g: Math.round(Number(parsedData?.carbs_g) || 0),
-      fat_g: Math.round(Number(parsedData?.fat_g) || 0),
+      calories: Math.max(0, Math.round(Number(parsedData?.calories) || 0)),
+      protein_g: Math.max(0, Math.round(Number(parsedData?.protein_g) || 0)),
+      carbs_g: Math.max(0, Math.round(Number(parsedData?.carbs_g) || 0)),
+      fat_g: Math.max(0, Math.round(Number(parsedData?.fat_g) || 0)),
       ingredients: Array.isArray(parsedData?.ingredients)
         ? parsedData.ingredients.map(String)
         : [],
+      confidence_score: typeof parsedData?.confidence_score === "number"
+        ? Math.min(1, Math.max(0.1, Number(parsedData.confidence_score)))
+        : 0.92,
+      portion_notes: String(parsedData?.portion_notes || "Estimated standard athlete serving based on visual frame"),
+      dietary_tags: Array.isArray(parsedData?.dietary_tags) && parsedData.dietary_tags.length > 0
+        ? parsedData.dietary_tags.map(String).slice(0, 4)
+        : ["Balanced Catch"],
+      feline_verdict: String(parsedData?.feline_verdict || "A wholesome catch to fuel your daily targets!"),
     };
 
     return new Response(JSON.stringify(sanitizedResult), {

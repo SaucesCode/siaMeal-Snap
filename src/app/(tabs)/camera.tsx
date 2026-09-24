@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType, BarcodeScanningResult } from 'expo-camera';
@@ -16,10 +18,21 @@ import { compressImage, analyzeMealPhoto } from '../../services/aiService';
 import { lookupBarcode } from '../../services/barcodeService';
 import { useMealStore } from '../../stores/mealStore';
 import { hapticFeedback } from '../../utils/haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MealType } from '../../types';
+import SiaCatMascot from '../../components/SiaCatMascot';
 
 type ScanMode = 'photo' | 'barcode';
+
+const CATEGORY_NAMES: Record<
+  string,
+  { title: string; color: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
+> = {
+  breakfast: { title: 'Morning Pounce', color: '#f59e0b', icon: 'cat' },
+  lunch: { title: 'Midday Catch', color: '#10b981', icon: 'fish' },
+  dinner: { title: 'Night Prowl', color: '#818cf8', icon: 'weather-night' },
+  snack: { title: 'Paws & Treats', color: '#06b6d4', icon: 'paw' },
+};
 
 export default function CameraScreen() {
   const params = useLocalSearchParams<{ mode?: string; meal_type?: string }>();
@@ -30,20 +43,46 @@ export default function CameraScreen() {
     params.mode === 'barcode' ? 'barcode' : 'photo'
   );
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('Analyzing meal...');
+  const [processingStatus, setProcessingStatus] = useState('Sniffing out ingredients...');
   const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
 
   const cameraRef = useRef<CameraView | null>(null);
   const router = useRouter();
   const setDraftMeal = useMealStore((state) => state.setDraftMeal);
 
-  React.useEffect(() => {
+  // Barcode Laser Sweep Animation
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
     if (params.mode === 'barcode') {
       setScanMode('barcode');
     } else if (params.mode === 'photo') {
       setScanMode('photo');
     }
   }, [params.mode]);
+
+  useEffect(() => {
+    if (scanMode === 'barcode') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanLineAnim, {
+            toValue: 1,
+            duration: 1800,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanLineAnim, {
+            toValue: 0,
+            duration: 1800,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [scanMode, scanLineAnim]);
 
   if (!permission) {
     return (
@@ -56,18 +95,30 @@ export default function CameraScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView className="flex-1 bg-zinc-950 items-center justify-center px-6">
-        <View className="w-16 h-16 rounded-full bg-emerald-500/10 items-center justify-center mb-4">
+        <View className="w-16 h-16 rounded-full bg-emerald-500/10 items-center justify-center mb-4 border border-emerald-500/30">
           <Ionicons name="camera" size={32} color="#10b981" />
         </View>
-        <Text className="text-white text-xl font-bold mb-2 text-center">Camera Access Required</Text>
-        <Text className="text-zinc-400 text-sm text-center mb-6">
-          We need camera access to photograph your meals or scan barcodes to estimate calories and macronutrients.
+        <Text
+          style={{ fontFamily: 'Outfit_800ExtraBold' }}
+          className="text-white text-xl mb-2 text-center"
+        >
+          Camera Access Required
+        </Text>
+        <Text className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
+          Sia requires camera access to photograph your catches and scan barcodes to estimate calories and macronutrients.
         </Text>
         <TouchableOpacity
           onPress={requestPermission}
-          className="bg-emerald-500 active:bg-emerald-600 px-6 py-3.5 rounded-2xl"
+          activeOpacity={0.8}
+          className="bg-emerald-500 active:bg-emerald-600 px-6 py-3.5 rounded-2xl flex-row items-center gap-2"
         >
-          <Text className="text-white font-bold text-base">Grant Permission</Text>
+          <Ionicons name="paw" size={18} color="#ffffff" />
+          <Text
+            style={{ fontFamily: 'Outfit_700Bold' }}
+            className="text-white font-bold text-base"
+          >
+            Grant Camera Permission
+          </Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -81,13 +132,13 @@ export default function CameraScreen() {
       // 1. Strict compression to 512px, 0.5 quality, base64
       const compressed = await compressImage(uri);
 
-      // 2. Invoke Supabase Edge Function
-      setProcessingStatus('Analyzing meal nutrients with AI...');
+      // 2. Invoke Supabase Edge Function with dynamic feline updates
+      setProcessingStatus("Sia's vision eye is analyzing meal nutrients...");
       const result = await analyzeMealPhoto(compressed.base64);
 
       // 3. Set draft meal in store and navigate to Review & Edit screen
       setDraftMeal({
-        name: result.meal_name || 'Logged Meal',
+        name: result.meal_name || 'Logged Catch',
         meal_type: (params.meal_type as MealType) || 'snack',
         calories: result.calories,
         protein_g: result.protein_g,
@@ -95,10 +146,16 @@ export default function CameraScreen() {
         fat_g: result.fat_g,
         food_items: result.ingredients,
         image_url: compressed.uri,
+        confidence_score: result.confidence_score,
+        portion_notes: result.portion_notes,
+        dietary_tags: result.dietary_tags,
+        feline_verdict: result.feline_verdict,
       });
 
+      hapticFeedback.success();
       router.push('/review' as any);
     } catch (err: any) {
+      hapticFeedback.error();
       console.error('Error analyzing image:', err);
       Alert.alert('Analysis Error', err.message || 'Could not analyze the photo. Please try again.');
     } finally {
@@ -112,7 +169,7 @@ export default function CameraScreen() {
     try {
       hapticFeedback.medium();
       setIsProcessing(true);
-      setProcessingStatus('Capturing photo...');
+      setProcessingStatus('Capturing meal...');
 
       let photoUri: string | null = null;
 
@@ -144,6 +201,7 @@ export default function CameraScreen() {
         await processImageUri(photoUri);
       }
     } catch (err: any) {
+      hapticFeedback.error();
       console.error('Failed to take photo:', err);
       Alert.alert('Camera Error', err.message || 'Could not capture photo. Try choosing from gallery.');
     } finally {
@@ -157,7 +215,7 @@ export default function CameraScreen() {
 
     setLastScannedBarcode(rawData);
     setIsProcessing(true);
-    setProcessingStatus(`Looking up barcode ${rawData}...`);
+    setProcessingStatus(`Scanning barcode ${rawData}...`);
 
     try {
       const product = await lookupBarcode(rawData);
@@ -177,6 +235,7 @@ export default function CameraScreen() {
 
         router.push('/review' as any);
       } else {
+        hapticFeedback.error();
         Alert.alert(
           'Product Not Found',
           `Barcode ${rawData} wasn't found in OpenFoodFacts database. You can take a photo of the food or nutrition label instead.`,
@@ -187,6 +246,7 @@ export default function CameraScreen() {
         );
       }
     } catch (err: any) {
+      hapticFeedback.error();
       console.error('Barcode lookup error:', err);
       Alert.alert('Scan Error', 'Could not retrieve product information.');
     } finally {
@@ -200,6 +260,7 @@ export default function CameraScreen() {
     if (isProcessing) return;
 
     try {
+      hapticFeedback.light();
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -210,10 +271,13 @@ export default function CameraScreen() {
         await processImageUri(result.assets[0].uri);
       }
     } catch (err: any) {
+      hapticFeedback.error();
       console.error('Gallery pick error:', err);
       Alert.alert('Gallery Error', 'Could not select photo.');
     }
   };
+
+  const targetCategory = params.meal_type ? CATEGORY_NAMES[params.meal_type] : null;
 
   return (
     <View className="flex-1 bg-black">
@@ -253,8 +317,11 @@ export default function CameraScreen() {
         <View className="px-5 pt-3">
           <View className="flex-row items-center justify-between mb-3">
             <TouchableOpacity
-              onPress={() => router.back()}
-              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10"
+              onPress={() => {
+                hapticFeedback.light();
+                router.back();
+              }}
+              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10 active:opacity-70"
             >
               <Ionicons name="arrow-back" size={20} color="#ffffff" />
             </TouchableOpacity>
@@ -262,7 +329,10 @@ export default function CameraScreen() {
             {/* Mode Switcher Pill */}
             <View className="flex-row bg-black/70 p-1 rounded-full border border-white/15">
               <TouchableOpacity
-                onPress={() => setScanMode('photo')}
+                onPress={() => {
+                  hapticFeedback.selection();
+                  setScanMode('photo');
+                }}
                 className={`px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 ${
                   scanMode === 'photo' ? 'bg-emerald-500' : 'bg-transparent'
                 }`}
@@ -273,7 +343,8 @@ export default function CameraScreen() {
                   color={scanMode === 'photo' ? '#ffffff' : '#a1a1aa'}
                 />
                 <Text
-                  className={`text-xs font-bold ${
+                  style={{ fontFamily: 'Outfit_700Bold' }}
+                  className={`text-xs ${
                     scanMode === 'photo' ? 'text-white' : 'text-zinc-400'
                   }`}
                 >
@@ -282,7 +353,10 @@ export default function CameraScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setScanMode('barcode')}
+                onPress={() => {
+                  hapticFeedback.selection();
+                  setScanMode('barcode');
+                }}
                 className={`px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 ${
                   scanMode === 'barcode' ? 'bg-emerald-500' : 'bg-transparent'
                 }`}
@@ -293,7 +367,8 @@ export default function CameraScreen() {
                   color={scanMode === 'barcode' ? '#ffffff' : '#a1a1aa'}
                 />
                 <Text
-                  className={`text-xs font-bold ${
+                  style={{ fontFamily: 'Outfit_700Bold' }}
+                  className={`text-xs ${
                     scanMode === 'barcode' ? 'text-white' : 'text-zinc-400'
                   }`}
                 >
@@ -303,8 +378,11 @@ export default function CameraScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={() => setTorch((prev) => !prev)}
-              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10"
+              onPress={() => {
+                hapticFeedback.light();
+                setTorch((prev) => !prev);
+              }}
+              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10 active:opacity-70"
             >
               <Ionicons
                 name={torch ? 'flash' : 'flash-off'}
@@ -313,35 +391,88 @@ export default function CameraScreen() {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Active Target Category Badge */}
+          {targetCategory && (
+            <View className="flex-row items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-white/15 self-center mb-1">
+              <MaterialCommunityIcons name={targetCategory.icon} size={13} color={targetCategory.color} />
+              <Text
+                style={{ fontFamily: 'Outfit_700Bold', color: targetCategory.color }}
+                className="text-[11px]"
+              >
+                Logging to {targetCategory.title}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Center Scanner Reticle (in Photo & Barcode modes) */}
+        {/* Center Scanner Reticle (Photo vs Barcode modes) */}
         {scanMode === 'photo' ? (
           <View className="items-center justify-center px-8 pointer-events-none">
             <View className="w-72 h-72 rounded-3xl border border-dashed border-emerald-500/40 items-center justify-center bg-black/10 relative">
-              {/* Corner Targeting Accents */}
-              <View className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
-              <View className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
-              <View className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
-              <View className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
+              {/* Corner L-Brackets with Rounded Corners */}
+              <View className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+              <View className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+              <View className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+              <View className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+
+              {/* Center Crosshair Aperture Ring */}
+              <View className="w-12 h-12 rounded-full border border-emerald-500/30 items-center justify-center">
+                <View className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
+              </View>
 
               {/* Sia Center Reticle Tag */}
-              <View className="bg-black/75 px-3.5 py-1.5 rounded-full border border-emerald-500/40 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20">
-                <Ionicons name="scan-outline" size={13} color="#10b981" />
+              <View className="absolute bottom-3 bg-black/80 px-3.5 py-1.5 rounded-full border border-emerald-500/40 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20">
+                <MaterialCommunityIcons name="camera-iris" size={13} color="#10b981" />
                 <Text
                   style={{ fontFamily: 'Outfit_700Bold' }}
                   className="text-white text-[11px] tracking-wide"
                 >
-                  Sia Optical Scanner
+                  Sia Vision Viewfinder
                 </Text>
               </View>
+            </View>
+
+            {/* Viewfinder Tip */}
+            <View className="mt-3 bg-black/60 px-3.5 py-1.5 rounded-full border border-white/10">
+              <Text className="text-zinc-300 text-[11px] font-medium text-center">
+                🐾 Center meal inside frame for precision macro scan
+              </Text>
             </View>
           </View>
         ) : (
           <View className="items-center justify-center px-8">
-            <View className="w-64 h-48 border-2 border-emerald-400/80 rounded-3xl items-center justify-center bg-black/20 relative">
-              <View className="w-full h-0.5 bg-emerald-400" style={{ elevation: 4 }} />
-              <View className="absolute -bottom-8 bg-black/70 px-4 py-1.5 rounded-full border border-white/10">
+            <View className="w-68 h-48 border-2 border-emerald-400/80 rounded-3xl items-center justify-center bg-black/30 relative overflow-hidden">
+              {/* Corner Brackets */}
+              <View className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-emerald-400" />
+              <View className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-emerald-400" />
+              <View className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-emerald-400" />
+              <View className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-emerald-400" />
+
+              {/* Animated Laser Scanning Beam */}
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  height: 2,
+                  backgroundColor: '#10b981',
+                  shadowColor: '#10b981',
+                  shadowOpacity: 0.9,
+                  shadowRadius: 6,
+                  transform: [
+                    {
+                      translateY: scanLineAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 140],
+                      }),
+                    },
+                  ],
+                }}
+              />
+
+              <View className="absolute -bottom-8 bg-black/80 px-4 py-1.5 rounded-full border border-emerald-500/30">
                 <Text className="text-white text-xs font-semibold">
                   Align barcode inside frame
                 </Text>
@@ -364,25 +495,30 @@ export default function CameraScreen() {
                 <Ionicons name="images-outline" size={22} color="#ffffff" />
               </TouchableOpacity>
 
-              {/* Big Shutter Button */}
+              {/* Big Tactile Shutter Button */}
               <Pressable
                 onPress={handleCapture}
                 disabled={isProcessing}
                 hitSlop={15}
                 style={({ pressed }) => [
                   {
-                    transform: [{ scale: pressed ? 0.92 : 1 }],
+                    transform: [{ scale: pressed ? 0.90 : 1 }],
                     opacity: isProcessing ? 0.5 : 1,
                   },
                 ]}
-                className="w-20 h-20 rounded-full border-4 border-white items-center justify-center p-1 bg-white/20"
+                className="w-20 h-20 rounded-full border-4 border-white/90 items-center justify-center p-1.5 bg-white/20 shadow-lg shadow-black"
               >
-                <View className="w-full h-full rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50" />
+                <View className="w-full h-full rounded-full bg-emerald-500 items-center justify-center shadow-md shadow-emerald-500/50">
+                  <MaterialCommunityIcons name="camera-iris" size={26} color="#ffffff" />
+                </View>
               </Pressable>
 
               {/* Flip Camera */}
               <TouchableOpacity
-                onPress={() => setFacing((prev) => (prev === 'back' ? 'front' : 'back'))}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
+                }}
                 disabled={isProcessing}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 className="w-12 h-12 rounded-full bg-white/15 border border-white/25 items-center justify-center active:opacity-60"
@@ -400,23 +536,32 @@ export default function CameraScreen() {
         )}
       </SafeAreaView>
 
-      {/* Loading Overlay */}
+      {/* Loading Overlay with Sia Scanning Mascot */}
       {isProcessing && (
         <View
           style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}
-          className="bg-black/85 items-center justify-center px-8"
+          className="bg-black/90 items-center justify-center px-8"
         >
-          <View className="bg-zinc-900 border border-emerald-500/30 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/20">
-            <ActivityIndicator size="large" color="#10b981" />
+          <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/20">
+            {/* Animated Sia Scanning Mascot */}
+            <View className="mb-4">
+              <SiaCatMascot size={78} mood="scanning" withGlow={true} />
+            </View>
+
             <Text
-              style={{ fontFamily: 'Outfit_700Bold' }}
-              className="text-white text-base mt-4 text-center"
+              style={{ fontFamily: 'Outfit_800ExtraBold' }}
+              className="text-white text-base text-center"
             >
               {processingStatus}
             </Text>
-            <Text className="text-emerald-400 text-xs mt-1 text-center font-semibold">
-              Sia is estimating macronutrients...
+
+            <Text className="text-emerald-400 text-xs mt-1.5 text-center font-bold">
+              🐾 Sia's vision eye is inspecting nutrients...
             </Text>
+
+            <View className="mt-4 w-full bg-zinc-950/80 rounded-full h-1 overflow-hidden">
+              <View className="h-full bg-emerald-500 w-2/3 rounded-full" />
+            </View>
           </View>
         </View>
       )}

@@ -33,6 +33,7 @@ interface AiNutritionCoachModalProps {
   visible: boolean;
   onClose: () => void;
   userContext: UserNutritionContext;
+  initialQuery?: string;
 }
 
 interface FormattedChatMessageProps {
@@ -237,16 +238,23 @@ export function AiNutritionCoachModal({
   visible,
   onClose,
   userContext,
+  initialQuery,
 }: AiNutritionCoachModalProps) {
   const router = useRouter();
   const { setDraftMeal } = useMealStore();
   const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore();
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const lastSendTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (visible && initialQuery) {
+      setInputText(initialQuery);
+    }
+  }, [visible, initialQuery]);
 
   const remainingCal = userContext.remainingCalories ?? 2000;
   const remainingProt = userContext.remainingProtein ?? 150;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../types';
 import { hapticFeedback } from '../utils/haptics';
 
@@ -11,7 +11,8 @@ interface MealItemCardProps {
 }
 
 interface CategoryConfig {
-  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
   bg: string;
   border: string;
@@ -19,25 +20,29 @@ interface CategoryConfig {
 
 const CATEGORY_CONFIG: Record<MealType, CategoryConfig> = {
   breakfast: {
-    icon: 'sunny-outline',
+    title: 'Morning Pounce',
+    icon: 'cat',
     color: '#f59e0b',
     bg: 'bg-amber-500/10',
     border: 'border-amber-500/30',
   },
   lunch: {
-    icon: 'restaurant-outline',
+    title: 'Midday Catch',
+    icon: 'fish',
     color: '#10b981',
     bg: 'bg-emerald-500/10',
     border: 'border-emerald-500/30',
   },
   dinner: {
-    icon: 'moon-outline',
+    title: 'Night Prowl',
+    icon: 'weather-night',
     color: '#818cf8',
     bg: 'bg-indigo-500/10',
     border: 'border-indigo-500/30',
   },
   snack: {
-    icon: 'nutrition-outline',
+    title: 'Paws & Treats',
+    icon: 'paw',
     color: '#06b6d4',
     bg: 'bg-cyan-500/10',
     border: 'border-cyan-500/30',
@@ -105,7 +110,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
               className={`w-13 h-13 rounded-2xl ${config.bg} border ${config.border} items-center justify-center`}
               style={{ width: 52, height: 52 }}
             >
-              <Ionicons name={config.icon} size={22} color={config.color} />
+              <MaterialCommunityIcons name={config.icon} size={22} color={config.color} />
             </View>
           )}
 
@@ -126,7 +131,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
                 style={{ color: config.color }}
                 className="text-[11px] font-bold uppercase tracking-wider"
               >
-                {mealType}
+                {config.title}
               </Text>
             </View>
           </View>

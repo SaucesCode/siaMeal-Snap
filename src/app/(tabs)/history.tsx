@@ -64,6 +64,7 @@ export default function HistoryScreen() {
   const [activeTipIndex, setActiveTipIndex] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [coachModalVisible, setCoachModalVisible] = useState(false);
+  const [coachInitialQuery, setCoachInitialQuery] = useState('');
 
   const targetCalories = profile?.target_calories || 2000;
   const targetProtein = profile?.target_protein_g || 150;
@@ -620,6 +621,13 @@ export default function HistoryScreen() {
           meal={selectedMeal}
           visible={!!selectedMeal}
           onClose={() => setSelectedMeal(null)}
+          onAskCoach={(meal) => {
+            setSelectedMeal(null);
+            setCoachInitialQuery(
+              `I'm inspecting a logged catch from ${selectedDateLabel}: "${meal.name}" (${Math.round(meal.calories)} kcal, ${Math.round(meal.protein_g)}g protein, ${Math.round(meal.carbs_g)}g carbs, ${Math.round(meal.fat_g)}g fat). How did this meal contribute to my macro split and what suggestions do you have?`
+            );
+            setCoachModalVisible(true);
+          }}
         />
       )}
 
@@ -627,6 +635,7 @@ export default function HistoryScreen() {
       <FloatingCoachWidget
         onPress={() => {
           hapticFeedback.medium();
+          setCoachInitialQuery('');
           setCoachModalVisible(true);
         }}
       />
@@ -636,6 +645,7 @@ export default function HistoryScreen() {
         visible={coachModalVisible}
         onClose={() => setCoachModalVisible(false)}
         userContext={coachUserContext}
+        initialQuery={coachInitialQuery}
       />
     </SafeAreaView>
   );

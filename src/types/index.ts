@@ -48,4 +48,8 @@ export interface AnalyzeMealResponse {
   carbs_g: number;
   fat_g: number;
   ingredients: string[];
+  confidence_score?: number;
+  portion_notes?: string;
+  dietary_tags?: string[];
+  feline_verdict?: string;
 }

@@ -88,6 +88,7 @@ export default function DashboardScreen() {
 
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [coachModalVisible, setCoachModalVisible] = useState(false);
+  const [coachInitialQuery, setCoachInitialQuery] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<ToastConfig | null>(null);
@@ -484,6 +485,13 @@ export default function DashboardScreen() {
           meal={selectedMeal}
           visible={!!selectedMeal}
           onClose={() => setSelectedMeal(null)}
+          onAskCoach={(meal) => {
+            setSelectedMeal(null);
+            setCoachInitialQuery(
+              `I'm inspecting my logged catch "${meal.name}" (${Math.round(meal.calories)} kcal, ${Math.round(meal.protein_g)}g protein, ${Math.round(meal.carbs_g)}g carbs, ${Math.round(meal.fat_g)}g fat). How does this impact my daily deficit, and what should I eat next to hit my macros?`
+            );
+            setCoachModalVisible(true);
+          }}
         />
       )}
 
@@ -504,6 +512,7 @@ export default function DashboardScreen() {
       <FloatingCoachWidget
         onPress={() => {
           hapticFeedback.medium();
+          setCoachInitialQuery('');
           setCoachModalVisible(true);
         }}
       />
@@ -513,6 +522,7 @@ export default function DashboardScreen() {
         visible={coachModalVisible}
         onClose={() => setCoachModalVisible(false)}
         userContext={coachUserContext}
+        initialQuery={coachInitialQuery}
       />
     </SafeAreaView>
   );
