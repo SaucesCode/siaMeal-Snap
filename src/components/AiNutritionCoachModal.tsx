@@ -77,6 +77,19 @@ function getDateDividerLabel(isoString?: string): string {
 }
 
 /**
+ * Helper to assign theme styling to bold tokens
+ */
+function getBoldTextColor(text: string, isUser: boolean): string {
+  if (isUser) return 'text-white font-extrabold';
+  const lower = text.toLowerCase();
+  if (/(?:protein|prot\b)/i.test(lower)) return 'text-sky-400 font-extrabold';
+  if (/(?:carbs?|carb\b)/i.test(lower)) return 'text-amber-400 font-extrabold';
+  if (/(?:fats?|fat\b)/i.test(lower)) return 'text-rose-400 font-extrabold';
+  if (/(?:water|hydration|\bml\b)/i.test(lower)) return 'text-cyan-400 font-extrabold';
+  return 'text-emerald-400 font-extrabold';
+}
+
+/**
  * Parses markdown bold (**text**) and renders clean styled Text components
  * without showing raw markdown asterisks (**) or stray metadata headers,
  * renders interactive 1-tap quick log cards for meal recommendations,
@@ -127,14 +140,39 @@ function FormattedChatMessage({
                   <Text
                     key={partIndex}
                     style={{ fontFamily: 'Outfit_700Bold' }}
-                    className={isUser ? 'text-white font-extrabold' : 'text-emerald-400 font-extrabold'}
+                    className={getBoldTextColor(boldText, isUser)}
                   >
                     {boldText}
                   </Text>
                 );
               }
+
               // Clean any stray markdown asterisks
               const cleanPart = part.replace(/\*\*/g, '');
+
+              // For assistant replies, also auto-bold any bare macro metrics (e.g. "35g protein", "450 kcal")
+              if (!isUser && /(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/i.test(cleanPart)) {
+                const subTokens = cleanPart.split(/(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/gi);
+                return (
+                  <Text key={partIndex}>
+                    {subTokens.map((sub, subIdx) => {
+                      if (/^\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)$/i.test(sub.trim())) {
+                        return (
+                          <Text
+                            key={subIdx}
+                            style={{ fontFamily: 'Outfit_700Bold' }}
+                            className={getBoldTextColor(sub, false)}
+                          >
+                            {sub}
+                          </Text>
+                        );
+                      }
+                      return <Text key={subIdx}>{sub}</Text>;
+                    })}
+                  </Text>
+                );
+              }
+
               return <Text key={partIndex}>{cleanPart}</Text>;
             })}
           </Text>
@@ -368,7 +406,7 @@ export function AiNutritionCoachModal({
       const greeting: ChatMessage = {
         id: `greeting_${new Date().toISOString().split('T')[0]}`,
         role: 'assistant',
-        content: `Hey ${userContext.displayName || 'Athlete'}, I'm **Sia**! I've got your live numbers queued up: you have ${remainingCal} kcal and ${remainingProt}g protein left to hit today.\n\nWhat are you craving, or should we pounce on a quick meal idea together?`,
+        content: `Hey ${userContext.displayName || 'Athlete'}, I'm **Sia**! I've got your live numbers queued up: you have **${remainingCal} kcal** and **${remainingProt}g protein** left to hit today.\n\nWhat are you craving, or should we pounce on a quick meal idea together?`,
         timestamp: new Date().toISOString(),
       };
       setMessages([greeting]);

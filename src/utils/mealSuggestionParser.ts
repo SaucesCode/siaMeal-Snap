@@ -146,15 +146,16 @@ export function parseMealSuggestions(text: string): ParsedSuggestedMeal[] {
 
     // 4. Extract macros from the line (focusing on text outside the dish name)
     const lineWithoutDish = trimmed.replace(`**${dishName}**`, '').replace(dishName, '');
+    const cleanLineForMacros = lineWithoutDish.replace(/\*\*/g, '').replace(/\*/g, '');
 
     let calories = 0;
-    const calMatch = lineWithoutDish.match(/(?:~?\s*(\d+)\s*(?:kcal|calories|cal)\b)/i);
+    const calMatch = cleanLineForMacros.match(/(?:~?\s*(\d+)\s*(?:kcal|calories|cal)\b)/i);
     if (calMatch) {
       calories = parseInt(calMatch[1], 10);
     }
 
     let protein = 0;
-    const protMatch = lineWithoutDish.match(
+    const protMatch = cleanLineForMacros.match(
       /(?:(?:protein|prot|p)\s*[:~]?\s*(\d+(?:\.\d+)?)\s*g?\b|(\d+(?:\.\d+)?)\s*g\s*(?:protein|prot|p)\b)/i
     );
     if (protMatch) {
@@ -162,7 +163,7 @@ export function parseMealSuggestions(text: string): ParsedSuggestedMeal[] {
     }
 
     let carbs = 0;
-    const carbMatch = lineWithoutDish.match(
+    const carbMatch = cleanLineForMacros.match(
       /(?:(?:carbs?|carb|c)\s*[:~]?\s*(\d+(?:\.\d+)?)\s*g?\b|(\d+(?:\.\d+)?)\s*g\s*(?:carbs?|carb|c)\b)/i
     );
     if (carbMatch) {
@@ -170,7 +171,7 @@ export function parseMealSuggestions(text: string): ParsedSuggestedMeal[] {
     }
 
     let fat = 0;
-    const fatMatch = lineWithoutDish.match(
+    const fatMatch = cleanLineForMacros.match(
       /(?:(?:fats?|fat|f)\s*[:~]?\s*(\d+(?:\.\d+)?)\s*g?\b|(\d+(?:\.\d+)?)\s*g\s*(?:fats?|fat|f)\b)/i
     );
     if (fatMatch) {
