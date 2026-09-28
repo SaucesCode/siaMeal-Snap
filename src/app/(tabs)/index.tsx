@@ -73,6 +73,36 @@ const CATEGORIES: CategoryHeaderConfig[] = [
   },
 ];
 
+const getCategoryEmptyPrompt = (type: MealType) => {
+  switch (type) {
+    case 'breakfast':
+      return {
+        prompt: 'Wake up Sia with breakfast prey',
+        sub: 'Start your day with steady macro fuel',
+      };
+    case 'lunch':
+      return {
+        prompt: 'Stalk your midday protein catch',
+        sub: 'Replenish energy & keep the hunt alive',
+      };
+    case 'dinner':
+      return {
+        prompt: 'Night prowl feast & macro recovery',
+        sub: 'Feed muscle repair before rest',
+      };
+    case 'snack':
+      return {
+        prompt: 'Crunchy treats for active claws',
+        sub: 'Top off remaining calories & protein',
+      };
+    default:
+      return {
+        prompt: 'Log your catch',
+        sub: 'Keep your macro rings balanced',
+      };
+  }
+};
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, profile } = useAuthStore();
@@ -432,23 +462,54 @@ export default function DashboardScreen() {
                         onPress={(m) => setSelectedMeal(m)}
                       />
                     ))
-                  ) : (
-                    <Pressable
-                      onPress={() => {
-                        hapticFeedback.light();
-                        setActionSheetCategory(section);
-                      }}
-                      style={({ pressed }) => [
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                      className="border border-dashed border-zinc-800/60 rounded-2xl py-3 px-4 flex-row items-center justify-center gap-2"
-                    >
-                      <Ionicons name="add-circle-outline" size={14} color={section.color} />
-                      <Text style={{ color: section.color }} className="text-xs font-semibold">
-                        Log {section.title}
-                      </Text>
-                    </Pressable>
-                  )}
+                  ) : (() => {
+                    const emptyInfo = getCategoryEmptyPrompt(section.type);
+                    return (
+                      <Pressable
+                        onPress={() => {
+                          hapticFeedback.light();
+                          setActionSheetCategory(section);
+                        }}
+                        style={({ pressed }) => [
+                          { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+                        ]}
+                        className="bg-zinc-900/40 border border-dashed border-zinc-800/80 rounded-2xl p-3 flex-row items-center justify-between"
+                      >
+                        <View className="flex-row items-center gap-3 flex-1 pr-2">
+                          <View
+                            className={`w-8 h-8 rounded-xl ${section.badgeBg} items-center justify-center border`}
+                          >
+                            <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
+                          </View>
+                          <View className="flex-1">
+                            <Text
+                              style={{ fontFamily: 'Outfit_700Bold' }}
+                              className="text-zinc-300 text-xs"
+                              numberOfLines={1}
+                            >
+                              {emptyInfo.prompt}
+                            </Text>
+                            <Text className="text-zinc-500 text-[10px]" numberOfLines={1}>
+                              {emptyInfo.sub}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View
+                          style={{ borderColor: section.color + '40', backgroundColor: section.color + '15' }}
+                          className="px-2.5 py-1 rounded-xl border flex-row items-center gap-1"
+                        >
+                          <Ionicons name="add" size={13} color={section.color} />
+                          <Text
+                            style={{ fontFamily: 'Outfit_700Bold', color: section.color }}
+                            className="text-[11px]"
+                          >
+                            Log
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })()}
                 </View>
               );
             })

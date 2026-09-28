@@ -109,6 +109,8 @@ export default function WaterScreen() {
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const celebrationAnim = useRef(new Animated.Value(0)).current;
+  const celebrationTimerRef = useRef<any>(null);
+  const particleAnim = useRef(new Animated.Value(0)).current;
 
   const effectiveGoal = profile?.target_water_ml || dailyGoalMl || 2500;
   const percentage = effectiveGoal > 0 ? Math.min(100, Math.round((todayMl / effectiveGoal) * 100)) : 0;
@@ -136,36 +138,96 @@ export default function WaterScreen() {
     }).start();
   }, [percentage, circumference]);
 
+  const dismissCelebration = () => {
+    if (celebrationTimerRef.current) {
+      clearTimeout(celebrationTimerRef.current);
+      celebrationTimerRef.current = null;
+    }
+    Animated.timing(celebrationAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setShowCelebration(false));
+  };
+
   const handleAddWater = async (amount: number, label = '') => {
     hapticFeedback.medium();
-    await addWater(amount);
-    const newTotal = (todayMl + amount) / 1000;
-    const goalL = (effectiveGoal / 1000).toFixed(1);
-    setToast({
-      title: 'Hydration Logged',
-      message: `+${amount} ml added ${label ? `(${label})` : ''} • Today: ${newTotal.toFixed(1)}L / ${goalL}L`,
-      type: 'water',
-    });
-
-    // Trigger cat celebration if goal just reached
+    const prevMl = todayMl;
     const newMl = todayMl + amount;
-    if (newMl >= effectiveGoal && todayMl < effectiveGoal) {
+    await addWater(amount);
+
+    const prevPct = effectiveGoal > 0 ? (prevMl / effectiveGoal) * 100 : 0;
+    const newPct = effectiveGoal > 0 ? (newMl / effectiveGoal) * 100 : 0;
+    const newTotal = newMl / 1000;
+    const goalL = (effectiveGoal / 1000).toFixed(1);
+
+    // 1. Apex 100% Goal Reached
+    if (newMl >= effectiveGoal && prevMl < effectiveGoal) {
       hapticFeedback.success();
       setShowCelebration(true);
       celebrationAnim.setValue(0);
-      Animated.spring(celebrationAnim, {
-        toValue: 1,
-        friction: 5,
-        tension: 80,
-        useNativeDriver: true,
-      }).start(() => {
-        setTimeout(() => {
-          Animated.timing(celebrationAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }).start(() => setShowCelebration(false));
-        }, 2400);
+      particleAnim.setValue(0);
+
+      Animated.parallel([
+        Animated.spring(celebrationAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 75,
+          useNativeDriver: true,
+        }),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(particleAnim, {
+              toValue: 1,
+              duration: 1800,
+              useNativeDriver: true,
+            }),
+            Animated.timing(particleAnim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ])
+        ),
+      ]).start();
+
+      celebrationTimerRef.current = setTimeout(() => {
+        dismissCelebration();
+      }, 3500);
+    }
+    // 2. 75% Almost Full Milestone
+    else if (newPct >= 75 && prevPct < 75) {
+      hapticFeedback.medium();
+      setToast({
+        title: 'Almost Full Bowl! 🐾',
+        message: `75% milestone reached! Only ${(Math.max(0, effectiveGoal - newMl) / 1000).toFixed(1)}L left to apex hydration.`,
+        type: 'water',
+      });
+    }
+    // 3. 50% Halfway Purr-fect Milestone
+    else if (newPct >= 50 && prevPct < 50) {
+      hapticFeedback.medium();
+      setToast({
+        title: 'Purr-fect Halfway! 💧',
+        message: `50% milestone crushed! Sia is feeling hydrated and full of energy.`,
+        type: 'water',
+      });
+    }
+    // 4. 25% Prowl Kickoff Milestone
+    else if (newPct >= 25 && prevPct < 25) {
+      hapticFeedback.light();
+      setToast({
+        title: 'Prowl Kickoff 🐾',
+        message: `25% milestone hit! Great fluid momentum for the day.`,
+        type: 'water',
+      });
+    }
+    // Standard Logged Toast
+    else {
+      setToast({
+        title: 'Hydration Logged',
+        message: `+${amount} ml added ${label ? `(${label})` : ''} • Today: ${newTotal.toFixed(1)}L / ${goalL}L`,
+        type: 'water',
       });
     }
   };
@@ -229,12 +291,17 @@ export default function WaterScreen() {
             zIndex: 99,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.72)',
+            backgroundColor: 'rgba(0,0,0,0.78)',
             transform: [{ scale: celebrationAnim }],
             opacity: celebrationAnim,
           }}
-          pointerEvents="none"
         >
+          {/* Backdrop tap to dismiss */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={dismissCelebration}
+          />
+
           <View
             style={{
               backgroundColor: '#07181c',
@@ -249,15 +316,63 @@ export default function WaterScreen() {
               shadowOpacity: 0.6,
               shadowRadius: 24,
               elevation: 20,
+              maxWidth: 340,
             }}
           >
-            <SiaCatMascot size={72} mood="celebrating" style={{ marginBottom: 14 }} />
-            <Text style={{ fontFamily: 'Outfit_900Black', color: '#38bdf8', fontSize: 22, letterSpacing: -0.5 }}>
+            {/* Animated Floating Paws & Sparkles */}
+            {[
+              { icon: 'paw', x: -85, y: -30, size: 20, color: '#38bdf8' },
+              { icon: 'sparkles', x: 85, y: -35, size: 18, color: '#34d399' },
+              { icon: 'water', x: -80, y: 35, size: 17, color: '#06b6d4' },
+              { icon: 'paw', x: 80, y: 40, size: 18, color: '#a5f3fc' },
+              { icon: 'sparkles', x: -35, y: -65, size: 15, color: '#38bdf8' },
+              { icon: 'paw', x: 40, y: -65, size: 16, color: '#34d399' },
+            ].map((p, i) => (
+              <Animated.View
+                key={i}
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  marginLeft: p.x,
+                  marginTop: p.y,
+                  opacity: particleAnim.interpolate({
+                    inputRange: [0, 0.25, 0.75, 1],
+                    outputRange: [0, 0.95, 0.95, 0],
+                  }),
+                  transform: [
+                    {
+                      translateY: particleAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [15, -45],
+                      }),
+                    },
+                    {
+                      scale: particleAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.7, 1.15, 0.85],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={p.icon as any}
+                  size={p.size}
+                  color={p.color}
+                />
+              </Animated.View>
+            ))}
+
+            <SiaCatMascot size={76} mood="celebrating" style={{ marginBottom: 14 }} />
+            <Text style={{ fontFamily: 'Outfit_900Black', color: '#38bdf8', fontSize: 22, letterSpacing: -0.5, textAlign: 'center' }}>
               Paws Fully Hydrated! 🏆
             </Text>
-            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 4, textAlign: 'center', fontWeight: '600' }}>
+            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 4, textAlign: 'center', fontWeight: '600', lineHeight: 18 }}>
               Sia is purring with delight! Target reached!
             </Text>
+
             <View
               style={{
                 marginTop: 12,
@@ -270,9 +385,38 @@ export default function WaterScreen() {
               }}
             >
               <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700' }}>
-                +10 Hydration Streak XP Active
+                +10 Hydration Streak XP Active 🐾
               </Text>
             </View>
+
+            {/* Tap-to-dismiss interactive button */}
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                dismissCelebration();
+              }}
+              activeOpacity={0.8}
+              style={{
+                marginTop: 18,
+                backgroundColor: '#06b6d4',
+                paddingHorizontal: 26,
+                paddingVertical: 10,
+                borderRadius: 18,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                shadowColor: '#06b6d4',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 10,
+                elevation: 6,
+              }}
+            >
+              <MaterialCommunityIcons name="paw" size={15} color="#042f2e" />
+              <Text style={{ fontFamily: 'Outfit_800ExtraBold', color: '#042f2e', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Purr-fect!
+              </Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
       )}

@@ -225,6 +225,83 @@ function MilestonesModal({ visible, onClose, currentStreak, rank }: MilestonesMo
               </View>
             </View>
 
+            {/* 7-Day Paw Trail Strip */}
+            <View className="bg-zinc-900/90 border border-zinc-800/80 rounded-3xl p-4 mb-4 shadow-sm">
+              <View className="flex-row items-center justify-between mb-3">
+                <View className="flex-row items-center gap-2">
+                  <MaterialCommunityIcons name="paw" size={14} color="#10b981" />
+                  <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
+                    7-Day Hunting Trail
+                  </Text>
+                </View>
+                <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-400 text-xs">
+                  {currentStreak}d Velocity 🐾
+                </Text>
+              </View>
+
+              {/* 7 Day Pods (Mon -> Sun) */}
+              <View className="flex-row justify-between items-center mb-3">
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dayLabel, index) => {
+                  const todayDay = (new Date().getDay() + 6) % 7;
+                  const isPastOrToday = index <= todayDay;
+                  const isToday = index === todayDay;
+                  const daysAgo = todayDay - index;
+                  const isActive = isPastOrToday && daysAgo >= 0 && daysAgo < currentStreak;
+
+                  return (
+                    <View key={index} className="items-center gap-1.5">
+                      <View
+                        className={`w-9 h-9 rounded-2xl items-center justify-center border ${
+                          isActive
+                            ? 'bg-emerald-500/20 border-emerald-500 shadow-sm shadow-emerald-500/30'
+                            : isToday
+                            ? 'bg-zinc-900 border-cyan-500/60'
+                            : 'bg-zinc-950 border-zinc-800/60'
+                        }`}
+                      >
+                        <MaterialCommunityIcons
+                          name={isActive ? 'paw' : 'paw-off'}
+                          size={15}
+                          color={isActive ? '#10b981' : isToday ? '#06b6d4' : '#3f3f46'}
+                        />
+                      </View>
+                      <Text
+                        style={{ fontFamily: isToday ? 'Outfit_800ExtraBold' : 'Outfit_600SemiBold' }}
+                        className={`text-[10px] ${
+                          isToday ? 'text-cyan-400' : isActive ? 'text-emerald-400' : 'text-zinc-500'
+                        }`}
+                      >
+                        {dayLabel}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Next Rank Unlock Bar */}
+              {!rank.isMaxTier && rank.nextTier && (
+                <View className="bg-zinc-950 rounded-2xl p-2.5 border border-zinc-800/60">
+                  <View className="flex-row items-center justify-between mb-1.5">
+                    <View className="flex-row items-center gap-1.5">
+                      <MaterialCommunityIcons name="lightning-bolt" size={12} color="#34d399" />
+                      <Text className="text-zinc-400 text-[10px] font-semibold">
+                        Next Tier: <Text className="text-white font-bold">{rank.nextTier.title}</Text>
+                      </Text>
+                    </View>
+                    <Text className="text-emerald-400 text-[10px] font-extrabold">
+                      {rank.daysToNextTier} {rank.daysToNextTier === 1 ? 'day' : 'days'} left
+                    </Text>
+                  </View>
+                  <View className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+                    <View
+                      className="h-full bg-emerald-500 rounded-full"
+                      style={{ width: `${rank.progressPercent}%` }}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
             <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-3 px-1">
               All Milestone Ranks
             </Text>

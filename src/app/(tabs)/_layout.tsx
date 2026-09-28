@@ -149,7 +149,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 3. Center Camera — floating aperture pedestal (unchanged) */}
+      {/* 3. Center Camera — floating feline aperture pedestal */}
       <Tabs.Screen
         name="camera"
         options={{
@@ -157,35 +157,69 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <View
               style={{
-                width: 62,
-                height: 62,
-                borderRadius: 31,
-                backgroundColor: '#0c0c0e',
+                width: 64,
+                height: 64,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginTop: Platform.OS === 'ios' ? -28 : -24,
-                borderWidth: 2.5,
-                borderColor: focused ? '#10b981' : '#27272a',
-                shadowColor: '#10b981',
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.45,
-                shadowRadius: 10,
-                elevation: 14,
               }}
             >
+              {/* Twin Feline Ear Silhouette Accents */}
+              <Svg
+                width={64}
+                height={12}
+                viewBox="0 0 64 12"
+                style={{ position: 'absolute', top: -7, zIndex: 1 }}
+              >
+                {/* Left Ear */}
+                <Path
+                  d="M 14 12 L 20 2 L 27 12 Z"
+                  fill="#0c0c0e"
+                  stroke={focused ? '#10b981' : '#27272a'}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+                {/* Right Ear */}
+                <Path
+                  d="M 37 12 L 44 2 L 50 12 Z"
+                  fill="#0c0c0e"
+                  stroke={focused ? '#10b981' : '#27272a'}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+
               <View
                 style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#10b981',
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: '#0c0c0e',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderWidth: 1.5,
-                  borderColor: '#34d399',
+                  borderWidth: 2.5,
+                  borderColor: focused ? '#10b981' : '#27272a',
+                  shadowColor: '#10b981',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: focused ? 0.6 : 0.3,
+                  shadowRadius: 10,
+                  elevation: 14,
                 }}
               >
-                <Ionicons name="camera" size={26} color="#ffffff" />
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: '#10b981',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1.5,
+                    borderColor: '#34d399',
+                  }}
+                >
+                  <Ionicons name="camera" size={24} color="#ffffff" />
+                </View>
               </View>
             </View>
           ),
