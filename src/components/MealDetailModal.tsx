@@ -21,6 +21,7 @@ interface MealDetailModalProps {
   onClose: () => void;
   onDelete?: (id: string) => Promise<void> | void;
   onAskCoach?: (meal: Meal) => void;
+  onDuplicate?: (meal: Meal) => void;
 }
 
 interface MealTypeOption {
@@ -37,8 +38,8 @@ const MEAL_TYPES: MealTypeOption[] = [
   { type: 'snack', label: 'Paws & Treats', icon: 'paw', color: '#06b6d4' },
 ];
 
-export function MealDetailModal({ meal, visible, onClose, onAskCoach }: MealDetailModalProps) {
-  const { updateMeal, deleteMeal } = useMealStore();
+export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicate }: MealDetailModalProps) {
+  const { updateMeal, deleteMeal, duplicateMeal } = useMealStore();
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -49,6 +50,7 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach }: MealDeta
   const [fat, setFat] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -121,6 +123,24 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach }: MealDeta
         },
       ]
     );
+  };
+
+  const handleDuplicate = async () => {
+    if (!meal) return;
+    try {
+      setIsDuplicating(true);
+      hapticFeedback.pounce();
+      await duplicateMeal(meal);
+      if (onDuplicate) {
+        onDuplicate(meal);
+      }
+      onClose();
+    } catch (err: any) {
+      hapticFeedback.error();
+      Alert.alert('Re-Pounce Failed', err.message || 'Could not duplicate meal.');
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   const formattedTime = new Date(meal.logged_at).toLocaleTimeString([], {
@@ -446,6 +466,36 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach }: MealDeta
                     <Ionicons name="chevron-forward" size={16} color="#10b981" />
                   </TouchableOpacity>
                 )}
+
+                {/* 1-Tap Re-Pounce / Duplicate to Today */}
+                <TouchableOpacity
+                  onPress={handleDuplicate}
+                  disabled={isDuplicating}
+                  activeOpacity={0.8}
+                  className="bg-zinc-950 border border-zinc-800/90 p-3.5 rounded-2xl flex-row items-center justify-between"
+                >
+                  <View className="flex-row items-center gap-2.5">
+                    <View className="w-8 h-8 rounded-xl bg-emerald-500/15 items-center justify-center border border-emerald-500/30">
+                      <MaterialCommunityIcons name="repeat" size={16} color="#10b981" />
+                    </View>
+                    <View>
+                      <Text
+                        style={{ fontFamily: 'Outfit_700Bold' }}
+                        className="text-white text-xs"
+                      >
+                        🔁 Duplicate to Today
+                      </Text>
+                      <Text className="text-zinc-400 text-[10px]">
+                        Re-pounce this exact catch into today's log
+                      </Text>
+                    </View>
+                  </View>
+                  {isDuplicating ? (
+                    <ActivityIndicator color="#10b981" size="small" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={16} color="#71717a" />
+                  )}
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={handleDelete}

@@ -65,6 +65,9 @@ interface MealState {
     image_url?: string | null;
     logged_at?: string;
   }) => Promise<Meal>;
+  duplicateMeal: (sourceMeal: Meal, targetMealType?: MealType) => Promise<Meal>;
+  getYesterdayMeals: () => Promise<Record<MealType, Meal | null>>;
+  getRecentMeals: (mealType?: MealType, limit?: number) => Promise<Meal[]>;
   updateMeal: (id: string, updates: Partial<Meal>) => Promise<Meal>;
   deleteMeal: (id: string) => Promise<void>;
   reset: () => void;
@@ -356,6 +359,107 @@ export const useMealStore = create<MealState>((set, get) => ({
     get().fetchWeeklyStats().catch(() => {});
 
     return newMeal;
+  },
+
+  duplicateMeal: async (sourceMeal, targetMealType) => {
+    return await get().logMeal({
+      name: sourceMeal.name,
+      meal_type: targetMealType || sourceMeal.meal_type || 'snack',
+      calories: sourceMeal.calories,
+      protein_g: sourceMeal.protein_g,
+      carbs_g: sourceMeal.carbs_g,
+      fat_g: sourceMeal.fat_g,
+      food_items: sourceMeal.food_items || [],
+      image_url: sourceMeal.image_url,
+      logged_at: new Date().toISOString(),
+    });
+  },
+
+  getYesterdayMeals: async () => {
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const startOfDay = new Date(`${yesterdayStr}T00:00:00.000Z`).toISOString();
+      const endOfDay = new Date(`${yesterdayStr}T23:59:59.999Z`).toISOString();
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      let query = supabase
+        .from('meals')
+        .select('*')
+        .gte('logged_at', startOfDay)
+        .lte('logged_at', endOfDay);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.order('logged_at', { ascending: false }).limit(50);
+      if (error || !data) return { breakfast: null, lunch: null, dinner: null, snack: null };
+
+      const result: Record<MealType, Meal | null> = {
+        breakfast: null,
+        lunch: null,
+        dinner: null,
+        snack: null,
+      };
+
+      for (const m of data as Meal[]) {
+        const type = (m.meal_type || 'snack') as MealType;
+        if (!result[type]) {
+          result[type] = m;
+        }
+      }
+      return result;
+    } catch (err) {
+      console.error('Error fetching yesterday meals:', err);
+      return { breakfast: null, lunch: null, dinner: null, snack: null };
+    }
+  },
+
+  getRecentMeals: async (mealType, limit = 15) => {
+    try {
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const startIso = fourteenDaysAgo.toISOString();
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      let query = supabase
+        .from('meals')
+        .select('*')
+        .gte('logged_at', startIso);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      if (mealType) {
+        query = query.eq('meal_type', mealType);
+      }
+
+      const { data, error } = await query.order('logged_at', { ascending: false }).limit(100);
+      if (error || !data) return [];
+
+      const seen = new Set<string>();
+      const uniqueMeals: Meal[] = [];
+
+      for (const m of data as Meal[]) {
+        const key = `${m.name.toLowerCase().trim()}_${Math.round(m.calories)}_${Math.round(m.protein_g)}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueMeals.push(m);
+        }
+        if (uniqueMeals.length >= limit) break;
+      }
+
+      return uniqueMeals;
+    } catch (err) {
+      console.error('Error fetching recent meals:', err);
+      return [];
+    }
   },
 
   updateMeal: async (id: string, updates: Partial<Meal>) => {

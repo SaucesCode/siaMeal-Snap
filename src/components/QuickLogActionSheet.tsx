@@ -16,6 +16,7 @@ interface QuickLogActionSheetProps {
   onSelectText: (type: MealType) => void;
   onSelectBarcode: (type: MealType) => void;
   onSelectGallery: (type: MealType) => void;
+  onSelectRePounce?: (type: MealType) => void;
 }
 
 export function QuickLogActionSheet({
@@ -30,6 +31,7 @@ export function QuickLogActionSheet({
   onSelectText,
   onSelectBarcode,
   onSelectGallery,
+  onSelectRePounce,
 }: QuickLogActionSheetProps) {
   if (!visible) return null;
 
@@ -179,6 +181,35 @@ export function QuickLogActionSheet({
             </View>
             <Ionicons name="chevron-forward" size={16} color="#71717a" />
           </TouchableOpacity>
+
+          {/* 5. Quick Re-Pounce Recent Catch */}
+          {onSelectRePounce && (
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.medium();
+                onClose();
+                onSelectRePounce(mealType);
+              }}
+              activeOpacity={0.8}
+              className="bg-zinc-950 border border-emerald-500/30 p-4 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-10 h-10 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
+                  <MaterialCommunityIcons name="repeat" size={20} color="#10b981" />
+                </View>
+                <View>
+                  <Text
+                    style={{ fontFamily: 'Outfit_700Bold' }}
+                    className="text-white text-sm"
+                  >
+                    🔁 Re-Pounce Recent Catch
+                  </Text>
+                  <Text className="text-zinc-400 text-xs">Duplicate past meals from last 14 days</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#10b981" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>

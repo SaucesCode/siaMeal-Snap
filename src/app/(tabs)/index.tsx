@@ -21,6 +21,7 @@ import { MealItemCard } from '../../components/MealItemCard';
 import { MealDetailModal } from '../../components/MealDetailModal';
 import { TextLogModal } from '../../components/TextLogModal';
 import { QuickLogActionSheet } from '../../components/QuickLogActionSheet';
+import { RePounceSheet } from '../../components/RePounceSheet';
 import { AiNutritionCoachModal } from '../../components/AiNutritionCoachModal';
 import { FloatingCoachWidget } from '../../components/FloatingCoachWidget';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
@@ -116,6 +117,8 @@ export default function DashboardScreen() {
     setDraftMeal,
     weeklySummary,
     fetchWeeklyStats,
+    duplicateMeal,
+    getYesterdayMeals,
   } = useMealStore();
   const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore();
 
@@ -126,7 +129,14 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [actionSheetCategory, setActionSheetCategory] = useState<CategoryHeaderConfig | null>(null);
+  const [rePounceSheetCategory, setRePounceSheetCategory] = useState<CategoryHeaderConfig | null>(null);
   const [unlockedMilestoneTier, setUnlockedMilestoneTier] = useState<FelineHunterTier | null>(null);
+  const [yesterdayMeals, setYesterdayMeals] = useState<Record<MealType, Meal | null>>({
+    breakfast: null,
+    lunch: null,
+    dinner: null,
+    snack: null,
+  });
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -134,6 +144,7 @@ export default function DashboardScreen() {
     fetchMealsForDate(todayStr);
     fetchWeeklyStats(profile?.target_calories || 2000);
     loadTodayWater();
+    getYesterdayMeals().then(setYesterdayMeals).catch(() => {});
   }, [todayStr]);
 
   const onRefresh = async () => {
@@ -142,8 +153,23 @@ export default function DashboardScreen() {
       fetchMealsForDate(todayStr),
       fetchWeeklyStats(profile?.target_calories || 2000),
       loadTodayWater(),
+      getYesterdayMeals().then(setYesterdayMeals).catch(() => {}),
     ]);
     setRefreshing(false);
+  };
+
+  const handleDirectRePounce = async (meal: Meal, targetType?: MealType) => {
+    try {
+      hapticFeedback.pounce();
+      await duplicateMeal(meal, targetType);
+      setToast({
+        title: 'Re-Pounced Catch! 🐾',
+        message: `Logged "${meal.name}" (${Math.round(meal.calories)} kcal) to today's hunt`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      Alert.alert('Re-Pounce Failed', err.message || 'Could not copy meal.');
+    }
   };
 
   const streakDays = weeklySummary?.streakDays || 1;
@@ -497,50 +523,79 @@ export default function DashboardScreen() {
                     ))
                   ) : (() => {
                     const emptyInfo = getCategoryEmptyPrompt(section.type);
+                    const yesterdayCatch = yesterdayMeals[section.type];
                     return (
-                      <Pressable
-                        onPress={() => {
-                          hapticFeedback.light();
-                          setActionSheetCategory(section);
-                        }}
-                        style={({ pressed }) => [
-                          { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
-                        ]}
-                        className="bg-zinc-900/40 border border-dashed border-zinc-800/80 rounded-2xl p-3 flex-row items-center justify-between"
-                      >
-                        <View className="flex-row items-center gap-3 flex-1 pr-2">
-                          <View
-                            className={`w-8 h-8 rounded-xl ${section.badgeBg} items-center justify-center border`}
-                          >
-                            <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
-                          </View>
-                          <View className="flex-1">
-                            <Text
-                              style={{ fontFamily: 'Outfit_700Bold' }}
-                              className="text-zinc-300 text-xs"
-                              numberOfLines={1}
-                            >
-                              {emptyInfo.prompt}
-                            </Text>
-                            <Text className="text-zinc-500 text-[10px]" numberOfLines={1}>
-                              {emptyInfo.sub}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View
-                          style={{ borderColor: section.color + '40', backgroundColor: section.color + '15' }}
-                          className="px-2.5 py-1 rounded-xl border flex-row items-center gap-1"
+                      <View className="gap-2">
+                        <Pressable
+                          onPress={() => {
+                            hapticFeedback.light();
+                            setActionSheetCategory(section);
+                          }}
+                          style={({ pressed }) => [
+                            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
+                          ]}
+                          className="bg-zinc-900/40 border border-dashed border-zinc-800/80 rounded-2xl p-3 flex-row items-center justify-between"
                         >
-                          <Ionicons name="add" size={13} color={section.color} />
-                          <Text
-                            style={{ fontFamily: 'Outfit_700Bold', color: section.color }}
-                            className="text-[11px]"
+                          <View className="flex-row items-center gap-3 flex-1 pr-2">
+                            <View
+                              className={`w-8 h-8 rounded-xl ${section.badgeBg} items-center justify-center border`}
+                            >
+                              <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
+                            </View>
+                            <View className="flex-1">
+                              <Text
+                                style={{ fontFamily: 'Outfit_700Bold' }}
+                                className="text-zinc-300 text-xs"
+                                numberOfLines={1}
+                              >
+                                {emptyInfo.prompt}
+                              </Text>
+                              <Text className="text-zinc-500 text-[10px]" numberOfLines={1}>
+                                {emptyInfo.sub}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View
+                            style={{ borderColor: section.color + '40', backgroundColor: section.color + '15' }}
+                            className="px-2.5 py-1 rounded-xl border flex-row items-center gap-1"
                           >
-                            Log
-                          </Text>
-                        </View>
-                      </Pressable>
+                            <Ionicons name="add" size={13} color={section.color} />
+                            <Text
+                              style={{ fontFamily: 'Outfit_700Bold', color: section.color }}
+                              className="text-[11px]"
+                            >
+                              Log
+                            </Text>
+                          </View>
+                        </Pressable>
+
+                        {/* 1-Tap Inline Quick Re-Pounce Pill (MacroFactor / Lose It! Killer) */}
+                        {yesterdayCatch && (
+                          <TouchableOpacity
+                            onPress={() => handleDirectRePounce(yesterdayCatch, section.type)}
+                            activeOpacity={0.8}
+                            className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-3.5 py-2.5 flex-row items-center justify-between shadow-sm"
+                          >
+                            <View className="flex-row items-center gap-2 flex-1 pr-2">
+                              <View className="w-6 h-6 rounded-lg bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
+                                <MaterialCommunityIcons name="repeat" size={13} color="#10b981" />
+                              </View>
+                              <Text className="text-zinc-400 text-xs" numberOfLines={1}>
+                                Re-Pounce Yesterday: <Text className="text-white font-bold">{yesterdayCatch.name}</Text>
+                              </Text>
+                            </View>
+                            <View className="bg-emerald-500/25 px-2 py-0.5 rounded-lg border border-emerald-500/40">
+                              <Text
+                                style={{ fontFamily: 'Outfit_700Bold', fontVariant: ['tabular-nums'] }}
+                                className="text-emerald-300 text-[10px]"
+                              >
+                                +{Math.round(yesterdayCatch.calories)} kcal
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     );
                   })()}
                 </View>
@@ -570,6 +625,9 @@ export default function DashboardScreen() {
           onSelectText={(type) => {
             setTextModalVisible(true);
           }}
+          onSelectRePounce={(type) => {
+            setRePounceSheetCategory(actionSheetCategory);
+          }}
         />
       )}
 
@@ -579,6 +637,13 @@ export default function DashboardScreen() {
           meal={selectedMeal}
           visible={!!selectedMeal}
           onClose={() => setSelectedMeal(null)}
+          onDuplicate={(meal) => {
+            setToast({
+              title: 'Re-Pounced Catch! 🐾',
+              message: `Duplicated "${meal.name}" (${Math.round(meal.calories)} kcal) to today`,
+              type: 'success',
+            });
+          }}
           onAskCoach={(meal) => {
             setSelectedMeal(null);
             setCoachInitialQuery(
@@ -599,6 +664,19 @@ export default function DashboardScreen() {
             router.push('/review' as any);
           }}
           initialMealType={actionSheetCategory?.type || 'snack'}
+        />
+      )}
+
+      {/* Re-Pounce Recent Catches Vault Sheet (MacroFactor Killer) */}
+      {rePounceSheetCategory && (
+        <RePounceSheet
+          visible={!!rePounceSheetCategory}
+          categoryType={rePounceSheetCategory.type}
+          categoryTitle={rePounceSheetCategory.title}
+          categoryIcon={rePounceSheetCategory.icon}
+          categoryColor={rePounceSheetCategory.color}
+          onClose={() => setRePounceSheetCategory(null)}
+          onPounceMeal={(meal) => handleDirectRePounce(meal, rePounceSheetCategory.type)}
         />
       )}
 
