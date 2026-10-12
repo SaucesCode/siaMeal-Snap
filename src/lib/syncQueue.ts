@@ -90,13 +90,22 @@ export async function processSyncQueue(): Promise<void> {
             item.payload.id = generateUUID();
           }
           // Idempotent upsert so retries never produce duplicates
-          const res = await supabase.from('meals').upsert(item.payload, { onConflict: 'id' });
+          let res = await supabase.from('meals').upsert(item.payload, { onConflict: 'id' });
+          if (res.error && res.error.message?.toLowerCase().includes('column')) {
+            // Backward-compatibility: strip unmigrated micronutrient columns if DB table lacks them
+            const { fiber_g, sugar_g, sodium_mg, potassium_mg, ...legacyPayload } = item.payload;
+            res = await supabase.from('meals').upsert(legacyPayload, { onConflict: 'id' });
+          }
           error = res.error;
         } else if (item.type === 'UPDATE_MEAL') {
           if (!item.payload?.id || !UUID_REGEX.test(item.payload.id)) {
             continue; // Safely discard invalid legacy non-UUID update
           }
-          const res = await supabase.from('meals').update(item.payload.updates).eq('id', item.payload.id);
+          let res = await supabase.from('meals').update(item.payload.updates).eq('id', item.payload.id);
+          if (res.error && res.error.message?.toLowerCase().includes('column')) {
+            const { fiber_g, sugar_g, sodium_mg, potassium_mg, ...legacyUpdates } = item.payload.updates;
+            res = await supabase.from('meals').update(legacyUpdates).eq('id', item.payload.id);
+          }
           error = res.error;
         } else if (item.type === 'DELETE_MEAL') {
           if (!item.payload?.id || !UUID_REGEX.test(item.payload.id)) {

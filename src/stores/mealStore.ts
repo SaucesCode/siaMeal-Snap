@@ -42,6 +42,10 @@ interface MealState {
     protein_g: number;
     carbs_g: number;
     fat_g: number;
+    fiber_g?: number;
+    sugar_g?: number;
+    sodium_mg?: number;
+    potassium_mg?: number;
     food_items: string[];
     image_url?: string | null;
     confidence_score?: number;
@@ -61,6 +65,10 @@ interface MealState {
     protein_g: number;
     carbs_g: number;
     fat_g: number;
+    fiber_g?: number;
+    sugar_g?: number;
+    sodium_mg?: number;
+    potassium_mg?: number;
     food_items: string[];
     image_url?: string | null;
     logged_at?: string;
@@ -334,6 +342,10 @@ export const useMealStore = create<MealState>((set, get) => ({
       protein_g: Number(mealData.protein_g) || 0,
       carbs_g: Number(mealData.carbs_g) || 0,
       fat_g: Number(mealData.fat_g) || 0,
+      fiber_g: mealData.fiber_g != null ? Number(mealData.fiber_g) : 0,
+      sugar_g: mealData.sugar_g != null ? Number(mealData.sugar_g) : 0,
+      sodium_mg: mealData.sodium_mg != null ? Number(mealData.sodium_mg) : 0,
+      potassium_mg: mealData.potassium_mg != null ? Number(mealData.potassium_mg) : 0,
       food_items: mealData.food_items || [],
       image_url: finalImageUrl,
       logged_at: mealData.logged_at || new Date().toISOString(),
@@ -369,6 +381,10 @@ export const useMealStore = create<MealState>((set, get) => ({
       protein_g: sourceMeal.protein_g,
       carbs_g: sourceMeal.carbs_g,
       fat_g: sourceMeal.fat_g,
+      fiber_g: sourceMeal.fiber_g,
+      sugar_g: sourceMeal.sugar_g,
+      sodium_mg: sourceMeal.sodium_mg,
+      potassium_mg: sourceMeal.potassium_mg,
       food_items: sourceMeal.food_items || [],
       image_url: sourceMeal.image_url,
       logged_at: new Date().toISOString(),

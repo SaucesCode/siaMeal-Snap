@@ -9,6 +9,10 @@ export interface BarcodeProductResult {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number;
+  sugar_g?: number;
+  sodium_mg?: number;
+  potassium_mg?: number;
   servingSize?: string;
   ingredients: string[];
   imageUrl?: string;
@@ -118,6 +122,42 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProductResu
       0
     );
 
+    // Extract key micronutrients & electrolytes (Cronometer Spec)
+    const rawFiber = Math.round(
+      nutriments['fiber_serving'] ??
+      nutriments['fiber_100g'] ??
+      nutriments['fiber'] ??
+      0
+    );
+    const fiber_g = Math.max(0, rawFiber);
+
+    const rawSugar = Math.round(
+      nutriments['sugars_serving'] ??
+      nutriments['sugars_100g'] ??
+      nutriments['sugars'] ??
+      0
+    );
+    const sugar_g = Math.max(0, rawSugar);
+
+    const rawSodiumG =
+      nutriments['sodium_serving'] ??
+      nutriments['sodium_100g'] ??
+      nutriments['sodium'] ??
+      (nutriments['salt_serving'] != null
+        ? nutriments['salt_serving'] / 2.5
+        : nutriments['salt_100g'] != null
+        ? nutriments['salt_100g'] / 2.5
+        : 0);
+    const sodium_mg = Math.round(Math.max(0, Number(rawSodiumG) * 1000));
+
+    const rawPotassium =
+      nutriments['potassium_serving'] ??
+      nutriments['potassium_100g'] ??
+      nutriments['potassium'] ??
+      0;
+    const potassiumMultiplier = nutriments['potassium_unit'] === 'g' ? 1000 : 1;
+    const potassium_mg = Math.round(Math.max(0, Number(rawPotassium) * potassiumMultiplier));
+
     // Reconcile and calibrate calories using Atwater factor system (ISO 5055)
     const calories = reconcileCaloriesWithMacros(rawCalories, protein_g, carbs_g, fat_g);
 
@@ -143,6 +183,7 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProductResu
     const dietary_tags: string[] = ['Verified Barcode'];
     if (protein_g >= 15) dietary_tags.push('High Protein');
     if (carbs_g <= 5 && fat_g > 10) dietary_tags.push('Keto Friendly');
+    if (fiber_g >= 5) dietary_tags.push('High Fiber');
     if (product.labels_tags && Array.isArray(product.labels_tags)) {
       const rawLabels: string[] = product.labels_tags;
       if (rawLabels.some((l) => l.includes('organic') || l.includes('bio'))) dietary_tags.push('Organic');
@@ -161,6 +202,10 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProductResu
       protein_g,
       carbs_g,
       fat_g,
+      fiber_g,
+      sugar_g,
+      sodium_mg,
+      potassium_mg,
       servingSize,
       ingredients,
       imageUrl: product.image_url || product.image_front_url || product.image_small_url,

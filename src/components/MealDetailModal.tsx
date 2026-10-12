@@ -48,6 +48,10 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
   const [protein, setProtein] = useState('0');
   const [carbs, setCarbs] = useState('0');
   const [fat, setFat] = useState('0');
+  const [fiber, setFiber] = useState('0');
+  const [sugar, setSugar] = useState('0');
+  const [sodium, setSodium] = useState('0');
+  const [potassium, setPotassium] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -61,6 +65,10 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
       setProtein(String(meal.protein_g ?? 0));
       setCarbs(String(meal.carbs_g ?? 0));
       setFat(String(meal.fat_g ?? 0));
+      setFiber(String(meal.fiber_g ?? 0));
+      setSugar(String(meal.sugar_g ?? 0));
+      setSodium(String(meal.sodium_mg ?? 0));
+      setPotassium(String(meal.potassium_mg ?? 0));
       setIsEditing(false);
       setImageError(false);
     }
@@ -84,6 +92,10 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
         protein_g: Math.max(0, parseFloat(protein) || 0),
         carbs_g: Math.max(0, parseFloat(carbs) || 0),
         fat_g: Math.max(0, parseFloat(fat) || 0),
+        fiber_g: Math.max(0, parseFloat(fiber) || 0),
+        sugar_g: Math.max(0, parseFloat(sugar) || 0),
+        sodium_mg: Math.max(0, parseFloat(sodium) || 0),
+        potassium_mg: Math.max(0, parseFloat(potassium) || 0),
       });
 
       hapticFeedback.success();
@@ -332,61 +344,153 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
                       className="bg-zinc-900 border border-zinc-700 text-rose-400 font-bold px-3 py-1 rounded-lg text-right w-24"
                     />
                   </View>
+
+                  <View className="h-px bg-zinc-800 my-1" />
+
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-emerald-400 font-medium text-sm">Fiber (g)</Text>
+                    <TextInput
+                      value={fiber}
+                      onChangeText={setFiber}
+                      keyboardType="numeric"
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className="bg-zinc-900 border border-zinc-700 text-emerald-400 font-bold px-3 py-1 rounded-lg text-right w-24"
+                    />
+                  </View>
+
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-amber-400 font-medium text-sm">Sugar (g)</Text>
+                    <TextInput
+                      value={sugar}
+                      onChangeText={setSugar}
+                      keyboardType="numeric"
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className="bg-zinc-900 border border-zinc-700 text-amber-400 font-bold px-3 py-1 rounded-lg text-right w-24"
+                    />
+                  </View>
+
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-cyan-400 font-medium text-sm">Sodium (mg)</Text>
+                    <TextInput
+                      value={sodium}
+                      onChangeText={setSodium}
+                      keyboardType="numeric"
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className="bg-zinc-900 border border-zinc-700 text-cyan-400 font-bold px-3 py-1 rounded-lg text-right w-24"
+                    />
+                  </View>
+
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-purple-400 font-medium text-sm">Potassium (mg)</Text>
+                    <TextInput
+                      value={potassium}
+                      onChangeText={setPotassium}
+                      keyboardType="numeric"
+                      style={{ fontFamily: 'Outfit_700Bold' }}
+                      className="bg-zinc-900 border border-zinc-700 text-purple-400 font-bold px-3 py-1 rounded-lg text-right w-24"
+                    />
+                  </View>
                 </View>
               ) : (
-                <View className="flex-row items-center justify-between">
-                  <View className="items-center flex-1">
-                    <Text
-                      style={{ fontFamily: 'Outfit_900Black' }}
-                      className="text-emerald-400 text-xl"
-                    >
-                      {Math.round(meal.calories)}
-                    </Text>
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                      Calories
-                    </Text>
+                <View>
+                  <View className="flex-row items-center justify-between">
+                    <View className="items-center flex-1">
+                      <Text
+                        style={{ fontFamily: 'Outfit_900Black' }}
+                        className="text-emerald-400 text-xl"
+                      >
+                        {Math.round(meal.calories)}
+                      </Text>
+                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
+                        Calories
+                      </Text>
+                    </View>
+
+                    <View className="w-px h-8 bg-zinc-800" />
+
+                    <View className="items-center flex-1">
+                      <Text
+                        style={{ fontFamily: 'Outfit_900Black' }}
+                        className="text-blue-400 text-xl"
+                      >
+                        {Math.round(meal.protein_g)}g
+                      </Text>
+                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
+                        Protein
+                      </Text>
+                    </View>
+
+                    <View className="w-px h-8 bg-zinc-800" />
+
+                    <View className="items-center flex-1">
+                      <Text
+                        style={{ fontFamily: 'Outfit_900Black' }}
+                        className="text-amber-400 text-xl"
+                      >
+                        {Math.round(meal.carbs_g)}g
+                      </Text>
+                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
+                        Carbs
+                      </Text>
+                    </View>
+
+                    <View className="w-px h-8 bg-zinc-800" />
+
+                    <View className="items-center flex-1">
+                      <Text
+                        style={{ fontFamily: 'Outfit_900Black' }}
+                        className="text-rose-400 text-xl"
+                      >
+                        {Math.round(meal.fat_g)}g
+                      </Text>
+                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
+                        Fat
+                      </Text>
+                    </View>
                   </View>
 
-                  <View className="w-px h-8 bg-zinc-800" />
+                  {/* Cronometer Micronutrient Pods */}
+                  <View className="mt-3.5 pt-3 border-t border-zinc-800/80">
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="text-zinc-400 text-[9px] font-bold uppercase tracking-wider">
+                        ⚡ Electrolytes & Micronutrients
+                      </Text>
+                      <View className="bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 rounded-md">
+                        <Text className="text-sky-300 text-[9px] font-bold">
+                          Net Carbs: {Math.max(0, Math.round(((meal.carbs_g || 0) - (meal.fiber_g || 0)) * 10) / 10)}g
+                        </Text>
+                      </View>
+                    </View>
 
-                  <View className="items-center flex-1">
-                    <Text
-                      style={{ fontFamily: 'Outfit_900Black' }}
-                      className="text-blue-400 text-xl"
-                    >
-                      {Math.round(meal.protein_g)}g
-                    </Text>
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                      Protein
-                    </Text>
-                  </View>
-
-                  <View className="w-px h-8 bg-zinc-800" />
-
-                  <View className="items-center flex-1">
-                    <Text
-                      style={{ fontFamily: 'Outfit_900Black' }}
-                      className="text-amber-400 text-xl"
-                    >
-                      {Math.round(meal.carbs_g)}g
-                    </Text>
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                      Carbs
-                    </Text>
-                  </View>
-
-                  <View className="w-px h-8 bg-zinc-800" />
-
-                  <View className="items-center flex-1">
-                    <Text
-                      style={{ fontFamily: 'Outfit_900Black' }}
-                      className="text-rose-400 text-xl"
-                    >
-                      {Math.round(meal.fat_g)}g
-                    </Text>
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                      Fat
-                    </Text>
+                    <View className="flex-row items-center justify-between bg-zinc-900/60 p-2 rounded-xl border border-zinc-800/60">
+                      <View className="items-center flex-1">
+                        <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-emerald-400 text-xs">
+                          {Math.round(meal.fiber_g || 0)}g
+                        </Text>
+                        <Text className="text-zinc-500 text-[9px] font-semibold mt-0.5">Fiber</Text>
+                      </View>
+                      <View className="w-px h-6 bg-zinc-800" />
+                      <View className="items-center flex-1">
+                        <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-amber-400 text-xs">
+                          {Math.round(meal.sugar_g || 0)}g
+                        </Text>
+                        <Text className="text-zinc-500 text-[9px] font-semibold mt-0.5">Sugar</Text>
+                      </View>
+                      <View className="w-px h-6 bg-zinc-800" />
+                      <View className="items-center flex-1">
+                        <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-cyan-400 text-xs">
+                          {Math.round(meal.sodium_mg || 0)}mg
+                        </Text>
+                        <Text className="text-zinc-500 text-[9px] font-semibold mt-0.5">Sodium</Text>
+                      </View>
+                      <View className="w-px h-6 bg-zinc-800" />
+                      <View className="items-center flex-1">
+                        <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-purple-400 text-xs">
+                          {Math.round(meal.potassium_mg || 0)}mg
+                        </Text>
+                        <Text className="text-zinc-500 text-[9px] font-semibold mt-0.5">Potassium</Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
               )}

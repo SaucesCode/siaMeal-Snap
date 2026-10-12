@@ -35,6 +35,10 @@ export interface Meal {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number;
+  sugar_g?: number;
+  sodium_mg?: number;
+  potassium_mg?: number;
   food_items: string[];
   image_url?: string | null;
   logged_at: string;
@@ -47,6 +51,10 @@ export interface AnalyzeMealResponse {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number;
+  sugar_g?: number;
+  sodium_mg?: number;
+  potassium_mg?: number;
   ingredients: string[];
   confidence_score?: number;
   portion_notes?: string;

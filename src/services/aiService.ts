@@ -129,7 +129,13 @@ export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMeal
         throw new Error(detailedMessage);
       }
 
-      return data as AnalyzeMealResponse;
+      return {
+        ...data,
+        fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
+        sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
+        sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
+        potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
+      } as AnalyzeMealResponse;
     },
     () => ({
       meal_name: 'Scanned Meal',
@@ -137,6 +143,10 @@ export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMeal
       protein_g: 25,
       carbs_g: 45,
       fat_g: 14,
+      fiber_g: 5,
+      sugar_g: 4,
+      sodium_mg: 450,
+      potassium_mg: 350,
       ingredients: ['Meal photo (offline fallback — adjust in Review)'],
       confidence_score: 0.85,
       portion_notes: 'Estimated standard serving (offline mode)',
@@ -163,7 +173,13 @@ export async function analyzeMealText(textDescription: string): Promise<AnalyzeM
         throw new Error(detailedMessage);
       }
 
-      return data as AnalyzeMealResponse;
+      return {
+        ...data,
+        fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
+        sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
+        sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
+        potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
+      } as AnalyzeMealResponse;
     },
     () => ({
       meal_name: textDescription.slice(0, 35) || 'Logged Meal',
@@ -171,6 +187,10 @@ export async function analyzeMealText(textDescription: string): Promise<AnalyzeM
       protein_g: 22,
       carbs_g: 38,
       fat_g: 12,
+      fiber_g: 4,
+      sugar_g: 3,
+      sodium_mg: 380,
+      potassium_mg: 310,
       ingredients: [textDescription || 'Logged item (offline fallback — adjust in Review)'],
       confidence_score: 0.88,
       portion_notes: 'Parsed from natural language description',

@@ -58,11 +58,22 @@ CREATE TABLE IF NOT EXISTS public.meals (
   protein_g NUMERIC(6, 2) NOT NULL,
   carbs_g NUMERIC(6, 2) NOT NULL,
   fat_g NUMERIC(6, 2) NOT NULL,
+  fiber_g NUMERIC(6, 2) DEFAULT 0,
+  sugar_g NUMERIC(6, 2) DEFAULT 0,
+  sodium_mg NUMERIC(7, 2) DEFAULT 0,
+  potassium_mg NUMERIC(7, 2) DEFAULT 0,
   food_items JSONB DEFAULT '[]'::JSONB NOT NULL,
   image_url TEXT,
   logged_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
 );
+
+-- Migration for existing meals table (Cronometer Micronutrient Spec)
+ALTER TABLE public.meals
+  ADD COLUMN IF NOT EXISTS fiber_g NUMERIC(6, 2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sugar_g NUMERIC(6, 2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sodium_mg NUMERIC(7, 2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS potassium_mg NUMERIC(7, 2) DEFAULT 0;
 
 -- Index for querying meals by user and date
 CREATE INDEX IF NOT EXISTS meals_user_logged_at_idx ON public.meals(user_id, logged_at DESC);
