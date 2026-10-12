@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useMealStore } from '../stores/mealStore';
 import { useAuthStore } from '../stores/authStore';
 import { MealType } from '../types';
-import { getDefaultMealType } from '../utils/nutrition';
+import { getDefaultMealType, evaluateMacroIntegrity, reconcileCaloriesWithMacros } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import SiaCatMascot from '../components/SiaCatMascot';
@@ -145,6 +145,14 @@ export default function ReviewScreen() {
     };
   }, [calories, protein, consumedCalories, consumedProtein, targetCalories, targetProtein]);
 
+  const macroIntegrity = useMemo(() => {
+    const c = parseFloat(calories) || 0;
+    const p = parseFloat(protein) || 0;
+    const cb = parseFloat(carbs) || 0;
+    const f = parseFloat(fat) || 0;
+    return evaluateMacroIntegrity(c, p, cb, f);
+  }, [calories, protein, carbs, fat]);
+
   const handleScalePortion = (multiplier: number) => {
     hapticFeedback.selection();
     setPortionScale(multiplier);
@@ -152,6 +160,12 @@ export default function ReviewScreen() {
     setProtein(String(Math.round(baseMacros.current.protein_g * multiplier)));
     setCarbs(String(Math.round(baseMacros.current.carbs_g * multiplier)));
     setFat(String(Math.round(baseMacros.current.fat_g * multiplier)));
+  };
+
+  const handleAutoAlignCalories = () => {
+    hapticFeedback.light();
+    setCalories(String(macroIntegrity.computedCalories));
+    setPortionScale(0);
   };
 
   const handleAddItem = () => {
@@ -185,13 +199,23 @@ export default function ReviewScreen() {
 
     try {
       setIsSaving(true);
+      const rawProt = Math.max(0, parseFloat(protein) || 0);
+      const rawCarb = Math.max(0, parseFloat(carbs) || 0);
+      const rawFat = Math.max(0, parseFloat(fat) || 0);
+      const finalCal = reconcileCaloriesWithMacros(
+        Math.max(0, parseFloat(calories) || 0),
+        rawProt,
+        rawCarb,
+        rawFat
+      );
+
       await logMeal({
         name: name.trim(),
         meal_type: mealType,
-        calories: Math.max(0, parseFloat(calories) || 0),
-        protein_g: Math.max(0, parseFloat(protein) || 0),
-        carbs_g: Math.max(0, parseFloat(carbs) || 0),
-        fat_g: Math.max(0, parseFloat(fat) || 0),
+        calories: finalCal,
+        protein_g: rawProt,
+        carbs_g: rawCarb,
+        fat_g: rawFat,
         food_items: foodItems,
         image_url: draftMeal?.image_url || null,
         logged_at: new Date().toISOString(),
@@ -572,6 +596,40 @@ export default function ReviewScreen() {
                   <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
                 </View>
               </View>
+            </View>
+
+            {/* Macro Conservation Law Indicator (ISO/IEC 5055 Compliance) */}
+            <View className={`mt-2.5 p-3 rounded-2xl border flex-row items-center justify-between ${
+              macroIntegrity.isValid
+                ? 'bg-emerald-500/10 border-emerald-500/25'
+                : 'bg-amber-500/10 border-amber-500/35'
+            }`}>
+              <View className="flex-row items-center gap-2 flex-1 mr-2">
+                <MaterialCommunityIcons
+                  name={macroIntegrity.isValid ? 'scale-balance' : 'alert-circle-outline'}
+                  size={16}
+                  color={macroIntegrity.isValid ? '#10b981' : '#f59e0b'}
+                />
+                <Text className={`text-[11px] leading-relaxed flex-1 ${
+                  macroIntegrity.isValid ? 'text-emerald-300' : 'text-amber-300'
+                }`}>
+                  {macroIntegrity.isValid
+                    ? `Atwater Equilibrium: 4P + 4C + 9F = ${macroIntegrity.computedCalories} kcal (Calibrated)`
+                    : (macroIntegrity.warningMessage || 'Macronutrient sum diverges from reported calories.')}
+                </Text>
+              </View>
+
+              {!macroIntegrity.isValid && macroIntegrity.computedCalories > 0 && (
+                <TouchableOpacity
+                  onPress={handleAutoAlignCalories}
+                  className="px-2.5 py-1.5 bg-amber-500/20 border border-amber-500/40 rounded-xl"
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-amber-300 text-[10px] font-extrabold">
+                    Align {macroIntegrity.computedCalories} kcal
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 

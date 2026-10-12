@@ -218,7 +218,7 @@ export function cleanCoachReply(raw: string): string {
   const cleanedLines: string[] = [];
   let skippingHeaderBlock = true;
 
-  const metadataPattern = /^(?:[-*•]\s*)?(?:\*\*)?(?:User(?:\s*Name|\s*Message|\s*Profile|\s*Goal)?|Athlete(?:\s*Name|\s*Message|\s*Stats|\s*Goal)?|Fitness\s*Objective|Diet\s*Style|Diet\s*Type|Daily\s*Calorie\s*Target|Protein\s*Target|Carbs\s*Target|Fat\s*Target|Meals\s*Logged\s*Today|Tone(?:\s*Summary)?|Persona|Thinking\s*Process|Reasoning|Internal\s*Context|Current\s*Status|Telemetry|Objective|Scope|Context|Direct\s*Spoken\s*Response|Response|Output|Sia)(?:\*\*)?\s*:/i;
+  const metadataPattern = /^(?:[-*•#>|]+\s*)?(?:\*\*)?(?:User(?:\s*Name|\s*Message|\s*Profile|\s*Goal)?|Athlete(?:\s*Name|\s*Message|\s*Stats|\s*Goal)?|Fitness\s*Objective|Diet\s*Style|Diet\s*Type|Daily\s*Calorie\s*Target|Protein\s*Target|Carbs\s*Target|Fat\s*Target|Meals\s*Logged\s*Today|Tone(?:\s*Summary)?|Persona|Thinking\s*Process|Reasoning|Internal\s*Context|Current\s*Status|Telemetry|Objective|Scope|Context|Direct\s*Spoken\s*Response|Response|Output|Sia)(?:\*\*)?\s*[:#-]/i;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -234,7 +234,10 @@ export function cleanCoachReply(raw: string): string {
       continue;
     }
 
-    // Check if line is a section title like "ATHLETE'S CURRENT STATS" or "OUTPUT RULES"
+    // Check if line is a section title like "ATHLETE'S CURRENT STATS" or markdown headers
+    if (/^(?:#{1,6}\s*(?:ATHLETE|INTERNAL CONTEXT|OUTPUT RULES|CONVERSATIONAL|TELEMETRY|LIVE STATS|SIA|RESPONSE|ADVICE))/i.test(trimmed)) {
+      continue;
+    }
     if (/^(?:ATHLETE['’]?S\s*CURRENT\s*STATS|INTERNAL\s*CONTEXT|OUTPUT\s*RULES|CONVERSATIONAL\s*DYNAMICS|LIVE\s*USER\s*TELEMETRY|CURRENT\s*STATUS)/i.test(trimmed)) {
       continue;
     }
@@ -246,8 +249,8 @@ export function cleanCoachReply(raw: string): string {
 
   text = cleanedLines.join('\n').trim();
 
-  // 4. Strip any leading role prefixes like "Sia:" or "Assistant:"
-  text = text.replace(/^(?:Sia\s*\([^)]*\)|Sia|Assistant|Coach|Model)\s*:\s*/i, '').trim();
+  // 4. Strip any leading role prefixes like "Sia:" or "Assistant:" or markdown headers
+  text = text.replace(/^(?:#{1,6}\s*)?(?:Sia\s*\([^)]*\)|Sia|Assistant|Coach|Model)\s*:\s*/i, '').trim();
 
   // 5. Remove any unicode emojis
   text = text.replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '').trim();

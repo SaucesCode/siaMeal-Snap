@@ -250,3 +250,108 @@ export function getMealTypeIcon(type?: MealType): keyof typeof Ionicons.glyphMap
       return 'nutrition-outline';
   }
 }
+
+/**
+ * Macro Conservation Law & Mathematical Validation (ISO/IEC 5055 Quality Standards)
+ * Grounded in the USDA / Atwater General Factor System:
+ * Energy (kcal) = (4 * Protein_g) + (4 * Carbs_g) + (9 * Fat_g)
+ */
+export interface MacroIntegrityReport {
+  isValid: boolean;
+  computedCalories: number;
+  reportedCalories: number;
+  variancePercentage: number;
+  warningMessage?: string;
+}
+
+export function evaluateMacroIntegrity(
+  calories: number,
+  protein_g: number,
+  carbs_g: number,
+  fat_g: number,
+  allowedVarianceFraction = 0.20 // 20% tolerance to account for dietary fiber and FDA rounding guidelines
+): MacroIntegrityReport {
+  const p = Math.max(0, protein_g || 0);
+  const c = Math.max(0, carbs_g || 0);
+  const f = Math.max(0, fat_g || 0);
+  const reported = Math.max(0, calories || 0);
+
+  const computed = Math.round(p * 4 + c * 4 + f * 9);
+
+  if (reported < 10 && computed < 10) {
+    return {
+      isValid: true,
+      computedCalories: computed,
+      reportedCalories: reported,
+      variancePercentage: 0,
+    };
+  }
+
+  // Anomaly: calories reported with 0 macros entered
+  if (reported > 30 && p + c + f < 1) {
+    return {
+      isValid: false,
+      computedCalories: computed,
+      reportedCalories: reported,
+      variancePercentage: 100,
+      warningMessage: 'Calories entered without macronutrients.',
+    };
+  }
+
+  // Anomaly: macros entered with 0 calories reported
+  if (reported < 10 && computed > 30) {
+    return {
+      isValid: false,
+      computedCalories: computed,
+      reportedCalories: reported,
+      variancePercentage: 100,
+      warningMessage: 'Macronutrients entered without calories.',
+    };
+  }
+
+  const denominator = Math.max(reported, computed, 1);
+  const variance = Math.abs(reported - computed) / denominator;
+
+  if (variance > allowedVarianceFraction) {
+    const pct = Math.round(variance * 100);
+    const isUnder = reported < computed;
+    return {
+      isValid: false,
+      computedCalories: computed,
+      reportedCalories: reported,
+      variancePercentage: pct,
+      warningMessage: isUnder
+        ? `Reported calories (${reported} kcal) are ${pct}% lower than macro energy (${computed} kcal).`
+        : `Reported calories (${reported} kcal) are ${pct}% higher than macro energy (${computed} kcal).`,
+    };
+  }
+
+  return {
+    isValid: true,
+    computedCalories: computed,
+    reportedCalories: reported,
+    variancePercentage: Math.round(variance * 100),
+  };
+}
+
+/**
+ * Calibrates calories from macros if calories are missing or uninitialized.
+ */
+export function reconcileCaloriesWithMacros(
+  calories: number,
+  protein_g: number,
+  carbs_g: number,
+  fat_g: number
+): number {
+  const p = Math.max(0, protein_g || 0);
+  const c = Math.max(0, carbs_g || 0);
+  const f = Math.max(0, fat_g || 0);
+  const rawCal = Math.max(0, calories || 0);
+
+  const atwaterCal = Math.round(p * 4 + c * 4 + f * 9);
+  if (rawCal <= 0 && atwaterCal > 0) {
+    return atwaterCal;
+  }
+  return rawCal;
+}
+

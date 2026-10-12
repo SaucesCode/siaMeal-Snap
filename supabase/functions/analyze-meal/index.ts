@@ -219,7 +219,7 @@ ${contextBlock}
 
 ━━ OUTPUT RULES ━━
 - Speak directly in first-person as Sia.
-- Never output headers, metadata tags, role labels, or prompt echoes.
+- Begin immediately with your spoken response. Never output headers, metadata tags, role labels (e.g. 'Tone:', 'User:', 'Sia:'), or prompt echoes.
 - Only discuss food, meals, hydration, body composition, and nutrition.`;
 
       function sanitizeCoachOutput(raw: string): string {
@@ -231,26 +231,45 @@ ${contextBlock}
 
         // If output contains a role split marker, take the text after the last one
         const markers = [
-          /(?:Direct Spoken Response(?: from Sia)?|Response from Sia|Sia's Response|Sia:\s*)/i,
-          /(?:Assistant:\s*|Model:\s*|Response:\s*|Output:\s*)/i,
+          /(?:Direct Spoken Response(?: from Sia)?|Response from Sia|Sia's Response|Sia's Direct Response)\s*[:#\n]/i,
+          /(?:Assistant Response|Model Response|Coach Response|Direct Response)\s*[:#\n]/i,
+          /(?:###?\s*(?:Response|Sia's Advice|Advice|Recommendations?|Coach))\s*\n/i,
         ];
         for (const m of markers) {
           if (m.test(text)) {
             const parts = text.split(m);
             const tail = parts[parts.length - 1]?.trim();
-            if (tail) text = tail;
+            if (tail && tail.length > 10) {
+              text = tail;
+              break;
+            }
           }
         }
 
-        // Filter out any metadata lines
-        text = text
-          .split("\n")
-          .filter((line) => !/^(?:[-*•]\s*)?(?:\*\*)?(?:User|Athlete|Tone|Status|Telemetry|Context|Goal|Calories|Protein|Carbs|Fat|Meals|Scope|Sia)(?:\*\*)?\s*:/i.test(line.trim()))
-          .filter((line) => !/^(?:ATHLETE|INTERNAL CONTEXT|OUTPUT RULES|CONVERSATIONAL)/i.test(line.trim()))
-          .join("\n")
-          .trim();
+        // Filter out metadata and template echo lines
+        const metadataPattern = /^(?:[-*•#>]+\s*)?(?:\*\*)?(?:User(?:\s*Name|\s*Message|\s*Profile|\s*Goal)?|Athlete(?:\s*Name|\s*Message|\s*Stats|\s*Goal)?|Fitness\s*Objective|Diet\s*Style|Diet\s*Type|Daily\s*Calorie\s*Target|Protein\s*Target|Carbs\s*Target|Fat\s*Target|Meals\s*Logged\s*Today|Tone(?:\s*Summary)?|Persona|Thinking\s*Process|Reasoning|Internal\s*Context|Current\s*Status|Telemetry|Objective|Scope|Context|Direct\s*Spoken\s*Response|Response|Output|Sia)(?:\*\*)?\s*[:#-]/i;
 
-        text = text.replace(/^(?:Sia\s*\([^)]*\)|Sia|Assistant|Coach|Model)\s*:\s*/i, "").trim();
+        const lines = text.split("\n");
+        const cleanLines: string[] = [];
+        let skippingHeaderBlock = true;
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            if (!skippingHeaderBlock) cleanLines.push("");
+            continue;
+          }
+
+          if (metadataPattern.test(trimmed)) continue;
+          if (/^(?:#{1,6}\s*(?:ATHLETE|INTERNAL CONTEXT|OUTPUT RULES|CONVERSATIONAL|TELEMETRY|LIVE STATS))/i.test(trimmed)) continue;
+          if (/^(?:ATHLETE['’]?S\s*CURRENT\s*STATS|INTERNAL\s*CONTEXT|OUTPUT\s*RULES|CONVERSATIONAL\s*DYNAMICS|LIVE\s*USER\s*TELEMETRY|CURRENT\s*STATUS)/i.test(trimmed)) continue;
+
+          skippingHeaderBlock = false;
+          cleanLines.push(line);
+        }
+
+        text = cleanLines.join("\n").trim();
+        text = text.replace(/^(?:#{1,6}\s*)?(?:Sia\s*\([^)]*\)|Sia|Assistant|Coach|Model)\s*:\s*/i, "").trim();
         return text;
       }
 
@@ -313,10 +332,9 @@ ${contextBlock}
                 14000
               );
 
-              // Attempt 2: Single-turn fallback if multi-turn rejected
+              // Attempt 2: Clean single-turn with system_instruction (if multi-turn was rejected)
               if (!resp.ok) {
                 const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hi Sia!";
-                const singlePrompt = `${coachSystemPrompt}\n\nAthlete says: "${lastUserText}"\n\nRespond directly as Sia:`;
 
                 resp = await fetchWithTimeout(
                   `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
@@ -324,7 +342,8 @@ ${contextBlock}
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      contents: [{ parts: [{ text: singlePrompt }] }],
+                      system_instruction: { parts: [{ text: coachSystemPrompt }] },
+                      contents: [{ role: "user", parts: [{ text: lastUserText }] }],
                       generationConfig: { temperature: 0.7, maxOutputTokens: 450 },
                     }),
                   },
