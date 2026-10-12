@@ -37,6 +37,7 @@ import { FelineMilestoneCelebrationModal } from '../../components/FelineMileston
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import { FelineEmptyState } from '../../components/FelineEmptyState';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
+import { WhiskerDivider } from '../../components/feline';
 
 interface CategoryHeaderConfig {
   type: MealType;
@@ -450,11 +451,9 @@ export default function DashboardScreen() {
           loggedMeals={meals}
         />
 
-        {/* Categorized Meal Feed */}
+        {/* Categorized Meal Feed with Feline Whisker Divider */}
         <View className="mb-2">
-          <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-3.5 px-0.5">
-            Today's Logged Meals
-          </Text>
+          <WhiskerDivider label="Today's Catches" />
 
           {meals.length === 0 ? (
             <FelineEmptyState

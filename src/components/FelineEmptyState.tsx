@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import SiaCatMascot, { SiaMood } from './SiaCatMascot';
+import { SiaMascotHero } from './feline/SiaMascotHero';
+import { SiaMood } from './SiaCatMascot';
 
 interface FelineEmptyStateProps {
   title?: string;
@@ -56,7 +57,12 @@ export function FelineEmptyState({
   return (
     <View className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-6 items-center text-center my-3 shadow-sm shadow-black">
       <View className="mb-3.5">
-        <SiaCatMascot size={68} mood={resolvedMood} withGlow={true} />
+        <SiaMascotHero
+          size={82}
+          pose={resolvedMood === 'scanning' ? 'scanner' : 'chef'}
+          badge={timeAware ? 'Sia on Prowl' : undefined}
+          withGlow={true}
+        />
       </View>
 
       <Text
