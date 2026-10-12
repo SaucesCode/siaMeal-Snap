@@ -9,6 +9,10 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType, BarcodeScanningResult } from 'expo-camera';
@@ -45,6 +49,8 @@ export default function CameraScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Sniffing out ingredients...');
   const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
+  const [manualModalVisible, setManualModalVisible] = useState(false);
+  const [manualBarcodeText, setManualBarcodeText] = useState('');
 
   const cameraRef = useRef<CameraView | null>(null);
   const router = useRouter();
@@ -209,13 +215,13 @@ export default function CameraScreen() {
     }
   };
 
-  const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
-    const rawData = result.data;
-    if (isProcessing || !rawData || rawData === lastScannedBarcode) return;
+  const processBarcode = async (barcode: string) => {
+    const rawData = barcode.trim();
+    if (!rawData) return;
 
-    setLastScannedBarcode(rawData);
     setIsProcessing(true);
-    setProcessingStatus(`Scanning barcode ${rawData}...`);
+    setProcessingStatus(`Inspecting barcode ${rawData}...`);
+    hapticFeedback.light();
 
     try {
       const product = await lookupBarcode(rawData);
@@ -231,16 +237,30 @@ export default function CameraScreen() {
           fat_g: product.fat_g,
           food_items: product.ingredients,
           image_url: product.imageUrl || null,
+          confidence_score: 1.0,
+          portion_notes: product.portion_notes || `Official label specs (${product.servingSize || '1 serving'})`,
+          dietary_tags: product.dietary_tags || ['Verified Barcode'],
+          feline_verdict: product.feline_verdict || `Sia verified the official package specs for ${product.productName}!`,
         });
 
+        if (manualModalVisible) {
+          setManualModalVisible(false);
+          setManualBarcodeText('');
+        }
         router.push('/review' as any);
       } else {
         hapticFeedback.error();
         Alert.alert(
           'Product Not Found',
-          `Barcode ${rawData} wasn't found in OpenFoodFacts database. You can take a photo of the food or nutrition label instead.`,
+          `Barcode ${rawData} wasn't found in Open Food Facts database. You can take a photo of the food or nutrition label instead.`,
           [
-            { text: 'Switch to Photo Mode', onPress: () => setScanMode('photo') },
+            {
+              text: 'Switch to Photo Mode',
+              onPress: () => {
+                if (manualModalVisible) setManualModalVisible(false);
+                setScanMode('photo');
+              },
+            },
             { text: 'OK', style: 'cancel' },
           ]
         );
@@ -251,9 +271,16 @@ export default function CameraScreen() {
       Alert.alert('Scan Error', 'Could not retrieve product information.');
     } finally {
       setIsProcessing(false);
-      // Reset scan debounce after 2 seconds
       setTimeout(() => setLastScannedBarcode(null), 2000);
     }
+  };
+
+  const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
+    const rawData = result.data;
+    if (isProcessing || !rawData || rawData === lastScannedBarcode) return;
+
+    setLastScannedBarcode(rawData);
+    await processBarcode(rawData);
   };
 
   const handlePickFromGallery = async () => {
@@ -528,13 +555,120 @@ export default function CameraScreen() {
             </View>
           </View>
         ) : (
-          <View className="pb-8 pt-4 items-center">
-            <Text className="text-zinc-400 text-xs font-medium">
+          <View className="pb-8 pt-4 items-center px-6">
+            <Text className="text-zinc-400 text-xs font-medium mb-3">
               Scanning barcodes automatically...
             </Text>
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                setManualModalVisible(true);
+              }}
+              activeOpacity={0.8}
+              className="bg-zinc-900 border border-emerald-500/40 px-5 py-2.5 rounded-full flex-row items-center gap-2 shadow-sm shadow-emerald-500/10"
+            >
+              <MaterialCommunityIcons name="keyboard-outline" size={16} color="#10b981" />
+              <Text className="text-white text-xs font-bold">Type Barcode Manually</Text>
+            </TouchableOpacity>
           </View>
         )}
       </SafeAreaView>
+
+      {/* Manual Barcode Entry Modal */}
+      <Modal
+        visible={manualModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setManualModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 justify-end bg-black/75"
+        >
+          <Pressable
+            className="flex-1"
+            onPress={() => setManualModalVisible(false)}
+          />
+          <View className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 shadow-2xl">
+            {/* Header */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-2.5">
+                <View className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 items-center justify-center">
+                  <MaterialCommunityIcons name="barcode-scan" size={16} color="#10b981" />
+                </View>
+                <View>
+                  <Text
+                    style={{ fontFamily: 'Outfit_700Bold' }}
+                    className="text-white text-base"
+                  >
+                    Enter Barcode Digits
+                  </Text>
+                  <Text className="text-zinc-400 text-[11px]">
+                    Found on packaging (EAN-13, UPC-A, 8–13 digits)
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setManualModalVisible(false)}
+                className="w-8 h-8 rounded-full bg-zinc-900 items-center justify-center"
+              >
+                <Ionicons name="close" size={18} color="#a1a1aa" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Input field */}
+            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-4 flex-row items-center">
+              <TextInput
+                value={manualBarcodeText}
+                onChangeText={setManualBarcodeText}
+                placeholder="e.g. 737628064502"
+                placeholderTextColor="#52525b"
+                keyboardType="numeric"
+                returnKeyType="search"
+                onSubmitEditing={() => {
+                  if (manualBarcodeText.trim()) {
+                    processBarcode(manualBarcodeText);
+                  }
+                }}
+                className="flex-1 text-white text-lg font-mono font-bold"
+                autoFocus
+              />
+              {manualBarcodeText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setManualBarcodeText('')}
+                  className="p-1"
+                >
+                  <Ionicons name="close-circle" size={18} color="#71717a" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Submit button */}
+            <TouchableOpacity
+              onPress={() => {
+                if (manualBarcodeText.trim()) {
+                  processBarcode(manualBarcodeText);
+                }
+              }}
+              disabled={!manualBarcodeText.trim() || isProcessing}
+              activeOpacity={0.8}
+              className={`py-3.5 rounded-2xl items-center justify-center flex-row gap-2 ${
+                manualBarcodeText.trim() && !isProcessing
+                  ? 'bg-emerald-500 shadow-md shadow-emerald-500/30'
+                  : 'bg-zinc-800 opacity-50'
+              }`}
+            >
+              <MaterialCommunityIcons name="magnify" size={18} color="#ffffff" />
+              <Text
+                style={{ fontFamily: 'Outfit_700Bold' }}
+                className="text-white text-sm"
+              >
+                Lookup Product Nutrition
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Loading Overlay with Sia Scanning Mascot */}
       {isProcessing && (
