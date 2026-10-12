@@ -30,6 +30,9 @@ import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import SiaCatMascot from '../../components/SiaCatMascot';
 import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFelineHunterRank, FelineHunterTier } from '../../utils/felineGamification';
+import { FelineMilestoneCelebrationModal } from '../../components/FelineMilestoneCelebrationModal';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import { FelineEmptyState } from '../../components/FelineEmptyState';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
@@ -123,6 +126,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [actionSheetCategory, setActionSheetCategory] = useState<CategoryHeaderConfig | null>(null);
+  const [unlockedMilestoneTier, setUnlockedMilestoneTier] = useState<FelineHunterTier | null>(null);
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -140,6 +144,31 @@ export default function DashboardScreen() {
       loadTodayWater(),
     ]);
     setRefreshing(false);
+  };
+
+  const streakDays = weeklySummary?.streakDays || 1;
+
+  // Check and trigger milestone celebration once per tier unlock
+  useEffect(() => {
+    if (streakDays > 0) {
+      const rank = getFelineHunterRank(streakDays);
+      if (rank.currentTier.tierNumber > 1) {
+        AsyncStorage.getItem('@siamessage_last_celebrated_tier')
+          .then((last) => {
+            if (last !== rank.currentTier.id) {
+              setUnlockedMilestoneTier(rank.currentTier);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [streakDays]);
+
+  const handleDismissMilestone = async () => {
+    if (unlockedMilestoneTier) {
+      await AsyncStorage.setItem('@siamessage_last_celebrated_tier', unlockedMilestoneTier.id).catch(() => {});
+      setUnlockedMilestoneTier(null);
+    }
   };
 
   // Compute consumed macros
@@ -174,7 +203,6 @@ export default function DashboardScreen() {
   const targetFat = profile?.target_fat_g || 65;
 
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Athlete';
-  const streakDays = weeklySummary?.streakDays || 1;
 
   // Real-Time Nutrition Coach User Context Payload
   const coachUserContext = useMemo(() => ({
@@ -200,15 +228,20 @@ export default function DashboardScreen() {
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
   const waterPercentage = Math.min(100, Math.round((todayMl / targetWaterMl) * 100));
 
-  // Quick hydration shortcut with Dynamic Toast HUD
+  // Quick hydration shortcut with Dynamic Toast HUD & Purr on Apex
   const handleQuickAddWater = async (amountMl = 250) => {
     hapticFeedback.medium();
+    const prevTotal = todayMl;
+    const newTotal = todayMl + amountMl;
     await addWater(amountMl);
-    const newTotal = (todayMl + amountMl) / 1000;
+    if (newTotal >= targetWaterMl && prevTotal < targetWaterMl) {
+      hapticFeedback.purr();
+    }
+    const newTotalL = (newTotal / 1000).toFixed(1);
     const goalL = (targetWaterMl / 1000).toFixed(1);
     setToast({
       title: 'Hydration Logged',
-      message: `+${amountMl} ml added • Today: ${newTotal.toFixed(1)}L / ${goalL}L`,
+      message: `+${amountMl} ml added • Today: ${newTotalL}L / ${goalL}L`,
       type: 'water',
     });
   };
@@ -585,6 +618,16 @@ export default function DashboardScreen() {
         userContext={coachUserContext}
         initialQuery={coachInitialQuery}
       />
+
+      {/* Feline Hunter Milestone Celebration Modal */}
+      {unlockedMilestoneTier && (
+        <FelineMilestoneCelebrationModal
+          visible={!!unlockedMilestoneTier}
+          tier={unlockedMilestoneTier}
+          streakDays={streakDays}
+          onClose={handleDismissMilestone}
+        />
+      )}
     </SafeAreaView>
   );
 }

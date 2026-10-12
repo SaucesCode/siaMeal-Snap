@@ -163,7 +163,7 @@ export default function WaterScreen() {
 
     // 1. Apex 100% Goal Reached
     if (newMl >= effectiveGoal && prevMl < effectiveGoal) {
-      hapticFeedback.success();
+      hapticFeedback.purr();
       setShowCelebration(true);
       celebrationAnim.setValue(0);
       particleAnim.setValue(0);
