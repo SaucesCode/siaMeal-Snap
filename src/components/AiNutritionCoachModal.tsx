@@ -11,6 +11,7 @@ import {
   Keyboard,
   StyleSheet,
   Alert,
+  LayoutAnimation,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -41,6 +42,13 @@ interface FormattedChatMessageProps {
   isUser: boolean;
   onLogMeal?: (meal: ParsedSuggestedMeal) => void;
   onCopy?: (text: string) => void;
+}
+
+interface ChatDateGroup {
+  dateKey: string;
+  label: string;
+  isToday: boolean;
+  messages: ChatMessage[];
 }
 
 /**
@@ -288,6 +296,64 @@ export function AiNutritionCoachModal({
   const scrollViewRef = useRef<ScrollView | null>(null);
   const lastSendTimeRef = useRef<number>(0);
 
+  // Expanded state for past date groups (minimized by default)
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDateGroup = useCallback((dateKey: string) => {
+    hapticFeedback.selection();
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch {
+      // ignore
+    }
+    setExpandedDates((prev) => ({
+      ...prev,
+      [dateKey]: !prev[dateKey],
+    }));
+  }, []);
+
+  // Group messages chronologically by calendar day
+  const dateGroups = useMemo<ChatDateGroup[]>(() => {
+    if (!messages.length) return [];
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const groups: ChatDateGroup[] = [];
+
+    for (const msg of messages) {
+      let dateKey = todayKey;
+      let label = 'Today';
+      let isToday = true;
+
+      if (msg.timestamp) {
+        try {
+          const d = new Date(msg.timestamp);
+          if (!isNaN(d.getTime())) {
+            dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            label = getDateDividerLabel(msg.timestamp);
+            isToday = dateKey === todayKey;
+          }
+        } catch {
+          // fallback to today
+        }
+      }
+
+      const currentGroup = groups[groups.length - 1];
+      if (currentGroup && currentGroup.dateKey === dateKey) {
+        currentGroup.messages.push(msg);
+      } else {
+        groups.push({
+          dateKey,
+          label,
+          isToday,
+          messages: [msg],
+        });
+      }
+    }
+
+    return groups;
+  }, [messages]);
+
   useEffect(() => {
     if (visible && initialQuery) {
       setInputText(initialQuery);
@@ -425,6 +491,7 @@ export function AiNutritionCoachModal({
           style: 'destructive',
           onPress: () => {
             hapticFeedback.error();
+            setExpandedDates({});
             clearHistory();
           },
         },
@@ -720,57 +787,139 @@ export function AiNutritionCoachModal({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 12 }}
         >
-          {messages.map((msg: ChatMessage, index: number) => {
-            // Compute whether this message begins a new calendar day
-            const prevMsg = index > 0 ? messages[index - 1] : null;
-            const msgDateStr = msg.timestamp ? new Date(msg.timestamp).toDateString() : '';
-            const prevDateStr = prevMsg?.timestamp ? new Date(prevMsg.timestamp).toDateString() : '';
-            const isNewDay = index === 0 || msgDateStr !== prevDateStr;
+          {dateGroups.map((group) => {
+            const isExpanded = group.isToday || !!expandedDates[group.dateKey];
 
             return (
-              <React.Fragment key={msg.id}>
-                {/* Calendar Date Divider Badge */}
-                {isNewDay && (
+              <View key={group.dateKey} className="mb-1">
+                {/* Calendar Date Divider Badge or Collapsible Accordion Header */}
+                {group.isToday ? (
                   <View className="items-center my-3">
                     <View className="bg-zinc-950/90 border border-zinc-800/90 px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm">
-                      <MaterialCommunityIcons name="calendar-today" size={10} color="#71717a" />
-                      <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
-                        {getDateDividerLabel(msg.timestamp)}
+                      <MaterialCommunityIcons name="calendar-today" size={10} color="#10b981" />
+                      <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                        Today
                       </Text>
                     </View>
                   </View>
-                )}
-
-                {/* Chat Message Bubble */}
-                <View
-                  className={`mb-3 flex-row ${
-                    msg.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {msg.role === 'assistant' && (
-                    <View className="mr-2 mt-0.5">
-                      <SiaCatMascot size={28} mood="idle" withGlow={false} />
-                    </View>
-                  )}
-
-                  <View
-                    className={`max-w-[84%] rounded-2xl p-3.5 ${
-                      msg.role === 'user'
-                        ? 'bg-emerald-600 rounded-tr-sm shadow-md shadow-emerald-600/20'
-                        : 'bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm'
+                ) : (
+                  <Pressable
+                    onPress={() => toggleDateGroup(group.dateKey)}
+                    style={({ pressed }) => [
+                      {
+                        transform: [{ scale: pressed ? 0.98 : 1 }],
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
+                    className={`my-2 p-2.5 rounded-2xl flex-row items-center justify-between border ${
+                      isExpanded
+                        ? 'bg-zinc-950/80 border-zinc-800/90'
+                        : 'bg-zinc-900/90 border-zinc-800 shadow-sm'
                     }`}
                   >
-                    <FormattedChatMessage
-                      content={msg.content}
-                      isUser={msg.role === 'user'}
-                      onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
-                      onCopy={msg.role === 'assistant' ? handleCopyMessage : undefined}
-                    />
-                  </View>
-                </View>
-              </React.Fragment>
+                    <View className="flex-row items-center gap-2.5">
+                      <View
+                        className={`w-7 h-7 rounded-full items-center justify-center border ${
+                          isExpanded
+                            ? 'bg-zinc-900 border-zinc-800'
+                            : 'bg-emerald-500/10 border-emerald-500/25'
+                        }`}
+                      >
+                        <MaterialCommunityIcons
+                          name="history"
+                          size={14}
+                          color={isExpanded ? '#a1a1aa' : '#10b981'}
+                        />
+                      </View>
+                      <View>
+                        <View className="flex-row items-center gap-1.5">
+                          <Text className="text-zinc-200 text-xs font-bold">
+                            {group.label}
+                          </Text>
+                          <View className="bg-zinc-800/80 px-1.5 py-0.5 rounded-md">
+                            <Text className="text-zinc-400 text-[10px] font-semibold">
+                              {group.messages.length} msg{group.messages.length !== 1 ? 's' : ''}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text className="text-zinc-500 text-[10px] mt-0.5">
+                          {isExpanded
+                            ? 'Tap to minimize previous conversation'
+                            : 'Minimized • Tap to expand previous chat'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View
+                      className={`flex-row items-center gap-1 px-2.5 py-1 rounded-full border ${
+                        isExpanded
+                          ? 'bg-zinc-900 border-zinc-800'
+                          : 'bg-emerald-500/10 border-emerald-500/30'
+                      }`}
+                    >
+                      <Text
+                        className={`text-[10px] font-bold ${
+                          isExpanded ? 'text-zinc-400' : 'text-emerald-400'
+                        }`}
+                      >
+                        {isExpanded ? 'Hide' : 'Expand'}
+                      </Text>
+                      <MaterialCommunityIcons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={14}
+                        color={isExpanded ? '#a1a1aa' : '#10b981'}
+                      />
+                    </View>
+                  </Pressable>
+                )}
+
+                {/* Render Messages for this Day (when expanded or when Today) */}
+                {isExpanded &&
+                  group.messages.map((msg: ChatMessage) => (
+                    <View
+                      key={msg.id}
+                      className={`mb-3 flex-row ${
+                        msg.role === 'user' ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      {msg.role === 'assistant' && (
+                        <View className="mr-2 mt-0.5">
+                          <SiaCatMascot size={28} mood="idle" withGlow={false} />
+                        </View>
+                      )}
+
+                      <View
+                        className={`max-w-[84%] rounded-2xl p-3.5 ${
+                          msg.role === 'user'
+                            ? 'bg-emerald-600 rounded-tr-sm shadow-md shadow-emerald-600/20'
+                            : 'bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm'
+                        }`}
+                      >
+                        <FormattedChatMessage
+                          content={msg.content}
+                          isUser={msg.role === 'user'}
+                          onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
+                          onCopy={msg.role === 'assistant' ? handleCopyMessage : undefined}
+                        />
+                      </View>
+                    </View>
+                  ))}
+              </View>
             );
           })}
+
+          {/* Friendly prompt if all history belongs to previous days and today is fresh */}
+          {dateGroups.length > 0 && dateGroups.every((g) => !g.isToday) && (
+            <View className="my-3 p-3 bg-zinc-950/60 border border-dashed border-zinc-800 rounded-2xl items-center flex-row gap-2.5">
+              <SiaCatMascot size={26} mood="happy" withGlow={false} />
+              <View className="flex-1">
+                <Text className="text-zinc-300 text-xs font-bold">New Day, Fresh Macros!</Text>
+                <Text className="text-zinc-500 text-[10px] leading-3 mt-0.5">
+                  Previous chats are tucked away above. Tap a quick chip below or ask Sia anything!
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Thinking / Typing State with Animated Mascot */}
           {isTyping && (
