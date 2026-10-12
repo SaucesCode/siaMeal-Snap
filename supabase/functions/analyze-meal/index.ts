@@ -442,25 +442,51 @@ ${contextBlock}
       );
     }
 
-    const systemPrompt = `You are an expert nutritional AI analyzer.
-Analyze the provided meal photo or text description and estimate the nutritional content.
-You MUST output ONLY a valid JSON object matching this exact schema:
-{
-  "meal_name": "A concise title of the dish",
-  "calories": number (total kcal),
-  "protein_g": number (grams of protein),
-  "carbs_g": number (grams of carbohydrates),
-  "fat_g": number (grams of fat),
-  "fiber_g": number (grams of dietary fiber, e.g. 5),
-  "sugar_g": number (grams of sugar, e.g. 3),
-  "sodium_mg": number (milligrams of sodium, e.g. 450),
-  "potassium_mg": number (milligrams of potassium, e.g. 380),
-  "ingredients": ["ingredient 1 with estimated portion", "ingredient 2 with estimated portion"],
-  "confidence_score": number (0.0 to 1.0 estimate of food recognition certainty),
-  "portion_notes": "A concise 1-sentence note explaining portion estimation basis, e.g. ~180g grilled chicken breast with 1 cup brown rice",
-  "dietary_tags": ["e.g. High Protein", "Lean", "Complex Carbs"],
-  "feline_verdict": "A brief 1-sentence encouraging nutritional comment from Sia the Siamese cat coach"
-}
+    const systemPrompt = `You are Sia, an expert feline nutritional AI vision analyzer and food verification engine.
+CRITICAL STEP 1: FOOD VERIFICATION
+Strictly inspect whether the image or text describes REAL, EDIBLE FOOD, MEALS, GROCERIES, SNACKS, OR BEVERAGES.
+- If it is NON-FOOD (e.g. laptop, computer, keyboard, phone, tablet, car, pet, dog, cat, animal, human person, clothing, shoe, furniture, electronic device, paper, notebook, wall, or an empty plate/table with zero food):
+  You MUST return:
+  {
+    "is_food": false,
+    "non_food_reason": "Sia detected a non-edible object! That's not on the menu 🐾 Please snap edible food or drinks.",
+    "meal_name": "Non-Food Object",
+    "calories": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 0,
+    "fiber_g": 0,
+    "sugar_g": 0,
+    "sodium_mg": 0,
+    "potassium_mg": 0,
+    "ingredients": [],
+    "confidence_score": 0.0,
+    "portion_notes": "Not food",
+    "dietary_tags": ["Non-Food"],
+    "feline_verdict": "Sia cannot eat that!"
+  }
+  NEVER invent ingredients (like silicon, plastic, metal) or estimate macros for non-food!
+
+- If it IS EDIBLE FOOD or BEVERAGE:
+  Set "is_food": true, "non_food_reason": null, and output a valid JSON object matching this schema:
+  {
+    "is_food": true,
+    "non_food_reason": null,
+    "meal_name": "A concise title of the dish",
+    "calories": number (total kcal),
+    "protein_g": number (grams of protein),
+    "carbs_g": number (grams of carbohydrates),
+    "fat_g": number (grams of fat),
+    "fiber_g": number (grams of dietary fiber, e.g. 5),
+    "sugar_g": number (grams of sugar, e.g. 3),
+    "sodium_mg": number (milligrams of sodium, e.g. 450),
+    "potassium_mg": number (milligrams of potassium, e.g. 380),
+    "ingredients": ["ingredient 1 with estimated portion", "ingredient 2 with estimated portion"],
+    "confidence_score": number (0.0 to 1.0 estimate of food recognition certainty),
+    "portion_notes": "A concise 1-sentence note explaining portion estimation basis, e.g. ~180g grilled chicken breast with 1 cup brown rice",
+    "dietary_tags": ["e.g. High Protein", "Lean", "Complex Carbs"],
+    "feline_verdict": "A brief 1-sentence encouraging nutritional comment from Sia the Siamese cat coach"
+  }
 Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code blocks.`;
 
     let parsedData: any = null;
@@ -597,12 +623,31 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
       }
     }
 
+    const isFood = parsedData?.is_food !== false;
+    const nonFoodReason = parsedData?.non_food_reason || null;
+
+    if (!isFood) {
+      return new Response(
+        JSON.stringify({
+          is_food: false,
+          error: nonFoodReason || "Sia inspected your scan, but that doesn't look like edible food! Please snap a meal or beverage.",
+          non_food_reason: nonFoodReason || "Sia inspected your scan, but that doesn't look like edible food! Please snap a meal or beverage.",
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const sanitizedResult = {
+      is_food: true,
       meal_name: String(parsedData?.meal_name || "Logged Meal"),
       calories: Math.max(0, Math.round(Number(parsedData?.calories) || 0)),
       protein_g: Math.max(0, Math.round(Number(parsedData?.protein_g) || 0)),
       carbs_g: Math.max(0, Math.round(Number(parsedData?.carbs_g) || 0)),
       fat_g: Math.max(0, Math.round(Number(parsedData?.fat_g) || 0)),
+      fiber_g: Math.max(0, Math.round(Number(parsedData?.fiber_g) || 0)),
+      sugar_g: Math.max(0, Math.round(Number(parsedData?.sugar_g) || 0)),
+      sodium_mg: Math.max(0, Math.round(Number(parsedData?.sodium_mg) || 0)),
+      potassium_mg: Math.max(0, Math.round(Number(parsedData?.potassium_mg) || 0)),
       ingredients: Array.isArray(parsedData?.ingredients)
         ? parsedData.ingredients.map(String)
         : [],

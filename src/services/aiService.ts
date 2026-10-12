@@ -89,6 +89,7 @@ async function extractErrorMessage(error: any): Promise<string> {
   if (error.context && typeof error.context.json === 'function') {
     try {
       const body = await error.context.json();
+      if (body.non_food_reason) return body.non_food_reason;
       if (body.error) return body.error;
       if (body.message) return body.message;
     } catch {
@@ -113,47 +114,35 @@ async function extractErrorMessage(error: any): Promise<string> {
 import { aiCircuitBreaker } from '../lib/circuitBreaker';
 
 /**
- * Sends compressed base64 image to Supabase Edge Function 'analyze-meal'
- * with circuit breaker protection and on-device graceful degradation.
+ * Sends compressed base64 image to Supabase Edge Function 'analyze-meal'.
+ * Strict food verification ensures non-food scans (laptops, pets, gadgets) are rejected
+ * rather than mocked with hallucinated ingredients.
  */
 export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMealResponse> {
-  return aiCircuitBreaker.execute(
-    async () => {
-      const { data, error } = await supabase.functions.invoke('analyze-meal', {
-        body: { imageBase64 },
-      });
+  const { data, error } = await supabase.functions.invoke('analyze-meal', {
+    body: { imageBase64 },
+  });
 
-      if (error) {
-        const detailedMessage = await extractErrorMessage(error);
-        console.error('Edge Function detailed error:', detailedMessage);
-        throw new Error(detailedMessage);
-      }
+  if (error) {
+    const detailedMessage = await extractErrorMessage(error);
+    console.error('Edge Function detailed error:', detailedMessage);
+    throw new Error(detailedMessage);
+  }
 
-      return {
-        ...data,
-        fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
-        sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
-        sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
-        potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
-      } as AnalyzeMealResponse;
-    },
-    () => ({
-      meal_name: 'Scanned Meal',
-      calories: 420,
-      protein_g: 25,
-      carbs_g: 45,
-      fat_g: 14,
-      fiber_g: 5,
-      sugar_g: 4,
-      sodium_mg: 450,
-      potassium_mg: 350,
-      ingredients: ['Meal photo (offline fallback — adjust in Review)'],
-      confidence_score: 0.85,
-      portion_notes: 'Estimated standard serving (offline mode)',
-      dietary_tags: ['Balanced Catch', 'Offline'],
-      feline_verdict: 'Sia caught your meal offline — verify portions in Review!',
-    })
-  );
+  if (data && data.is_food === false) {
+    throw new Error(
+      data.non_food_reason ||
+        "Sia inspected your scan, but that doesn't look like edible food! Please snap an edible meal or drink."
+    );
+  }
+
+  return {
+    ...data,
+    fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
+    sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
+    sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
+    potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
+  } as AnalyzeMealResponse;
 }
 
 /**

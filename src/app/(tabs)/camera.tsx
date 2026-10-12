@@ -25,6 +25,7 @@ import { hapticFeedback } from '../../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MealType } from '../../types';
 import SiaCatMascot from '../../components/SiaCatMascot';
+import { SiaMascotHero } from '../../components/feline';
 
 type ScanMode = 'photo' | 'barcode';
 
@@ -51,13 +52,17 @@ export default function CameraScreen() {
   const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
   const [manualModalVisible, setManualModalVisible] = useState(false);
   const [manualBarcodeText, setManualBarcodeText] = useState('');
+  const [nonFoodModalText, setNonFoodModalText] = useState<string | null>(null);
 
   const cameraRef = useRef<CameraView | null>(null);
   const router = useRouter();
   const setDraftMeal = useMealStore((state) => state.setDraftMeal);
 
-  // Barcode Laser Sweep Animation
+  // Active HUD Animations
   const scanLineAnim = useRef(new Animated.Value(0)).current;
+  const reticlePulseAnim = useRef(new Animated.Value(1)).current;
+  const bracketGlowAnim = useRef(new Animated.Value(0.6)).current;
+  const processingProgressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (params.mode === 'barcode') {
@@ -67,28 +72,90 @@ export default function CameraScreen() {
     }
   }, [params.mode]);
 
+  // Live Continuous Viewfinder Animations
   useEffect(() => {
-    if (scanMode === 'barcode') {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(scanLineAnim, {
-            toValue: 1,
-            duration: 1800,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(scanLineAnim, {
-            toValue: 0,
-            duration: 1800,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      loop.start();
-      return () => loop.stop();
+    // 1. Continuous Laser Sweep Animation (active for both photo & barcode)
+    const scanLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanLineAnim, {
+          toValue: 1,
+          duration: scanMode === 'photo' ? 2400 : 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanLineAnim, {
+          toValue: 0,
+          duration: scanMode === 'photo' ? 2400 : 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    scanLoop.start();
+
+    // 2. Shutter Aperture Breathing Loop
+    const reticleLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(reticlePulseAnim, {
+          toValue: 1.15,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(reticlePulseAnim, {
+          toValue: 1.0,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    reticleLoop.start();
+
+    // 3. Viewfinder Corner Brackets Glow Loop
+    const bracketLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bracketGlowAnim, {
+          toValue: 1.0,
+          duration: 1400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bracketGlowAnim, {
+          toValue: 0.45,
+          duration: 1400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    bracketLoop.start();
+
+    return () => {
+      scanLoop.stop();
+      reticleLoop.stop();
+      bracketLoop.stop();
+    };
+  }, [scanMode]);
+
+  // Active progress animation while AI is analyzing
+  useEffect(() => {
+    if (isProcessing) {
+      processingProgressAnim.setValue(0);
+      Animated.timing(processingProgressAnim, {
+        toValue: 0.92,
+        duration: 6500,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(processingProgressAnim, {
+        toValue: 1.0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
     }
-  }, [scanMode, scanLineAnim]);
+  }, [isProcessing]);
 
   if (!permission) {
     return (
@@ -163,7 +230,12 @@ export default function CameraScreen() {
     } catch (err: any) {
       hapticFeedback.error();
       console.error('Error analyzing image:', err);
-      Alert.alert('Analysis Error', err.message || 'Could not analyze the photo. Please try again.');
+      const errMsg = err?.message || 'Could not analyze the photo. Please try again.';
+      if (/not edible|not on the menu|not food|laptop|computer|phone|gadget|non-food/i.test(errMsg)) {
+        setNonFoodModalText(errMsg);
+      } else {
+        Alert.alert('Analysis Error', errMsg);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -436,26 +508,55 @@ export default function CameraScreen() {
         {/* Center Scanner Reticle (Photo vs Barcode modes) */}
         {scanMode === 'photo' ? (
           <View className="items-center justify-center px-8 pointer-events-none">
-            <View className="w-72 h-72 rounded-3xl border border-dashed border-emerald-500/40 items-center justify-center bg-black/10 relative">
-              {/* Corner L-Brackets with Rounded Corners */}
-              <View className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
-              <View className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
-              <View className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
-              <View className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+            <View className="w-72 h-72 rounded-3xl border border-dashed border-emerald-500/40 items-center justify-center bg-black/10 relative overflow-hidden">
+              {/* Corner L-Brackets with Pulsing Glow */}
+              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg shadow-sm shadow-emerald-400" />
+              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg shadow-sm shadow-emerald-400" />
+              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg shadow-sm shadow-emerald-400" />
+              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg shadow-sm shadow-emerald-400" />
 
-              {/* Center Crosshair Aperture Ring */}
-              <View className="w-12 h-12 rounded-full border border-emerald-500/30 items-center justify-center">
-                <View className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
-              </View>
+              {/* Animated Laser Scanning Beam Across Food Frame */}
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  height: 2.5,
+                  backgroundColor: '#10b981',
+                  shadowColor: '#10b981',
+                  shadowOpacity: 0.95,
+                  shadowRadius: 8,
+                  elevation: 6,
+                  transform: [
+                    {
+                      translateY: scanLineAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 240],
+                      }),
+                    },
+                  ],
+                }}
+              />
+
+              {/* Center Crosshair Aperture Ring with Shutter Breathing */}
+              <Animated.View
+                style={{
+                  transform: [{ scale: reticlePulseAnim }],
+                }}
+                className="w-14 h-14 rounded-full border border-emerald-400/50 items-center justify-center bg-emerald-500/10 shadow-sm shadow-emerald-400/40"
+              >
+                <View className="w-3 h-3 rounded-full bg-emerald-400 shadow-md shadow-emerald-400" />
+              </Animated.View>
 
               {/* Sia Center Reticle Tag */}
-              <View className="absolute bottom-3 bg-black/80 px-3.5 py-1.5 rounded-full border border-emerald-500/40 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20">
+              <View className="absolute bottom-3 bg-black/85 px-3.5 py-1.5 rounded-full border border-emerald-500/40 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20">
                 <MaterialCommunityIcons name="camera-iris" size={13} color="#10b981" />
                 <Text
                   style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-[11px] tracking-wide"
+                  className="text-emerald-400 text-[11px] tracking-wide"
                 >
-                  Sia Vision Viewfinder
+                  Sia Vision Active
                 </Text>
               </View>
             </View>
@@ -670,35 +771,98 @@ export default function CameraScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Loading Overlay with Sia Scanning Mascot */}
+      {/* Loading Overlay with Animated Sia Scanning Mascot & Moving Bar */}
       {isProcessing && (
         <View
           style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}
-          className="bg-black/90 items-center justify-center px-8"
+          className="bg-black/92 items-center justify-center px-8"
         >
-          <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/20">
-            {/* Animated Sia Scanning Mascot */}
-            <View className="mb-4">
-              <SiaCatMascot size={78} mood="scanning" withGlow={true} />
+          <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/30">
+            {/* Animated Sia Scanner Hero */}
+            <View className="mb-2">
+              <SiaMascotHero
+                size={92}
+                pose="scanner"
+                badge="AI SCANNING"
+                withGlow={true}
+              />
             </View>
 
             <Text
               style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-white text-base text-center"
+              className="text-white text-base text-center mt-1"
             >
               {processingStatus}
             </Text>
 
             <Text className="text-emerald-400 text-xs mt-1.5 text-center font-bold">
-              🐾 Sia's vision eye is inspecting nutrients...
+              🐾 Sia's aperture eye is calculating macros...
             </Text>
 
-            <View className="mt-4 w-full bg-zinc-950/80 rounded-full h-1 overflow-hidden">
-              <View className="h-full bg-emerald-500 w-2/3 rounded-full" />
+            {/* Active Moving Progress Bar */}
+            <View className="mt-4 w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-zinc-800">
+              <Animated.View
+                style={{
+                  width: processingProgressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['5%', '100%'],
+                  }),
+                }}
+                className="h-full bg-emerald-400 rounded-full"
+              />
             </View>
           </View>
         </View>
       )}
+
+      {/* Playful Non-Food Feline Rejection Modal */}
+      <Modal
+        visible={!!nonFoodModalText}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNonFoodModalText(null)}
+      >
+        <View className="flex-1 bg-black/85 items-center justify-center px-6">
+          <View className="bg-zinc-900 border border-rose-500/40 p-6 rounded-3xl items-center w-full max-w-sm shadow-2xl shadow-rose-500/25">
+            <View className="mb-2">
+              <SiaMascotHero
+                size={88}
+                pose="chef"
+                badge="NOT EDIBLE"
+                withGlow={false}
+              />
+            </View>
+
+            <Text
+              style={{ fontFamily: 'Outfit_800ExtraBold' }}
+              className="text-white text-lg text-center mt-2"
+            >
+              Sia Can't Eat That! 🐾
+            </Text>
+
+            <Text className="text-zinc-300 text-xs text-center leading-relaxed mt-2 px-2">
+              {nonFoodModalText}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                setNonFoodModalText(null);
+              }}
+              activeOpacity={0.8}
+              className="mt-5 w-full bg-emerald-500 active:bg-emerald-600 py-3.5 rounded-2xl items-center justify-center flex-row gap-2 shadow-md shadow-emerald-500/30"
+            >
+              <Ionicons name="camera" size={16} color="#ffffff" />
+              <Text
+                style={{ fontFamily: 'Outfit_700Bold' }}
+                className="text-white text-sm font-bold uppercase tracking-wider"
+              >
+                Scan Actual Food
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -54,33 +54,65 @@ export default function SiaCatMascot({
       anim.start();
       return () => anim.stop();
     } else if (mood === 'scanning') {
-      // Continuous smooth rotation for scanning aperture
+      // Faster, high-energy rotation for scanning aperture with subtle pulse
       const anim = Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 2500,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
+        Animated.parallel([
+          Animated.timing(rotateAnim, {
+            toValue: 1,
+            duration: 1400,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.06,
+              duration: 700,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 700,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
       );
       anim.start();
       return () => anim.stop();
     } else {
-      // Gentle idle breathing
+      // Clearly visible, gentle idle feline breathing & floating
       const anim = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.03,
-            duration: 1600,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1600,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1.08,
+              duration: 1300,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(bounceAnim, {
+              toValue: -4,
+              duration: 1300,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 1300,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(bounceAnim, {
+              toValue: 0,
+              duration: 1300,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
         ])
       );
       anim.start();

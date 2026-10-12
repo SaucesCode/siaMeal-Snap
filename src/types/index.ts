@@ -60,4 +60,6 @@ export interface AnalyzeMealResponse {
   portion_notes?: string;
   dietary_tags?: string[];
   feline_verdict?: string;
+  is_food?: boolean;
+  non_food_reason?: string;
 }

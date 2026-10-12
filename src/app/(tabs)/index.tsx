@@ -369,6 +369,40 @@ export default function DashboardScreen() {
         {/* Smart Feline Notification Opt-In Prompt */}
         <NotificationPermissionBanner />
 
+        {/* Animated Sia Companion Banner with Live Feline Reaction */}
+        <Pressable
+          onPress={() => {
+            hapticFeedback.purr();
+            setCoachModalVisible(true);
+          }}
+          style={({ pressed }) => [
+            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.9 : 1 },
+          ]}
+          className="bg-zinc-900/90 border border-emerald-500/25 rounded-2xl px-4 py-2.5 mb-3.5 flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
+        >
+          <View className="flex-row items-center gap-3">
+            <SiaCatMascot size={38} mood={consumedTotals.protein_g >= targetProtein ? 'celebrating' : 'happy'} withGlow={true} />
+            <View>
+              <View className="flex-row items-center gap-1.5">
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
+                  Sia Nutrition Companion
+                </Text>
+                <View className="bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                  <Text className="text-emerald-400 text-[9px] font-bold">LIVE</Text>
+                </View>
+              </View>
+              <Text className="text-zinc-400 text-[11px] mt-0.5">
+                {consumedTotals.protein_g >= targetProtein
+                  ? '🎉 Protein target smashed! Purring with pride.'
+                  : (targetCalories - consumedTotals.calories) > 0
+                  ? `🐾 ${Math.max(0, targetCalories - consumedTotals.calories)} kcal left to stalk today. Tap to chat!`
+                  : '✨ Calories locked for today! Stay hydrated.'}
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color="#10b981" />
+        </Pressable>
+
         {/* 1. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
         <DailyMacroSummary
           targetCalories={targetCalories}
