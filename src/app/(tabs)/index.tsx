@@ -29,7 +29,7 @@ import { compressImage, analyzeMealPhoto } from '../../services/aiService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
-import SiaCatMascot from '../../components/SiaCatMascot';
+import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
 import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFelineHunterRank, FelineHunterTier } from '../../utils/felineGamification';
@@ -251,6 +251,30 @@ export default function DashboardScreen() {
     todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
   }), [displayName, profile, targetCalories, targetProtein, targetCarbs, targetFat, consumedTotals, meals]);
 
+  // Dynamic Feline Companion Mood & Telemetry Speech
+  const companionMood = useMemo<SiaMood>(() => {
+    if (consumedTotals.protein_g >= targetProtein) return 'celebrating';
+    if (consumedTotals.calories > targetCalories) return 'thinking';
+    if (consumedTotals.calories === 0) return 'idle';
+    if (targetCalories - consumedTotals.calories < 400) return 'happy';
+    return 'scanning';
+  }, [consumedTotals, targetCalories, targetProtein]);
+
+  const companionSpeech = useMemo(() => {
+    if (consumedTotals.protein_g >= targetProtein) {
+      return '🎉 Protein goal pounced! Lean muscle is locked in.';
+    }
+    if (consumedTotals.calories > targetCalories) {
+      return `⚠️ Energy budget locked (+${Math.round(consumedTotals.calories - targetCalories)} kcal). Focus on pure hydration!`;
+    }
+    if (consumedTotals.calories === 0) {
+      return '🐾 Fresh hunt ahead! What prey are we stalking for breakfast?';
+    }
+    const remainingCal = Math.max(0, targetCalories - consumedTotals.calories);
+    const remainingProt = Math.max(0, targetProtein - consumedTotals.protein_g);
+    return `🐾 ${remainingCal} kcal & ${remainingProt}g protein left today. Tap to chat with Sia!`;
+  }, [consumedTotals, targetCalories, targetProtein]);
+
   // Hydration metrics
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
   const waterPercentage = Math.min(100, Math.round((todayMl / targetWaterMl) * 100));
@@ -369,38 +393,41 @@ export default function DashboardScreen() {
         {/* Smart Feline Notification Opt-In Prompt */}
         <NotificationPermissionBanner />
 
-        {/* Animated Sia Companion Banner with Live Feline Reaction */}
+        {/* Elevated Sia Mascot Hero Stage */}
         <Pressable
           onPress={() => {
             hapticFeedback.purr();
             setCoachModalVisible(true);
           }}
           style={({ pressed }) => [
-            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.9 : 1 },
+            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.92 : 1 },
           ]}
-          className="bg-zinc-900/90 border border-emerald-500/25 rounded-2xl px-4 py-2.5 mb-3.5 flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
+          className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 mb-4 shadow-sm shadow-emerald-500/10 flex-row items-center gap-3 relative overflow-hidden"
         >
-          <View className="flex-row items-center gap-3">
-            <SiaCatMascot size={38} mood={consumedTotals.protein_g >= targetProtein ? 'celebrating' : 'happy'} withGlow={true} />
-            <View>
+          {/* Feline Mascot with Glow */}
+          <View className="items-center justify-center">
+            <SiaCatMascot size={48} mood={companionMood} withGlow={true} />
+          </View>
+
+          {/* Feline Speech Bubble Container */}
+          <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl px-3 py-2.5">
+            <View className="flex-row items-center justify-between mb-0.5">
               <View className="flex-row items-center gap-1.5">
                 <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
                   Sia Nutrition Companion
                 </Text>
-                <View className="bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
-                  <Text className="text-emerald-400 text-[9px] font-bold">LIVE</Text>
+                <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-full border border-emerald-500/30">
+                  <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                    LIVE
+                  </Text>
                 </View>
               </View>
-              <Text className="text-zinc-400 text-[11px] mt-0.5">
-                {consumedTotals.protein_g >= targetProtein
-                  ? '🎉 Protein target smashed! Purring with pride.'
-                  : (targetCalories - consumedTotals.calories) > 0
-                  ? `🐾 ${Math.max(0, targetCalories - consumedTotals.calories)} kcal left to stalk today. Tap to chat!`
-                  : '✨ Calories locked for today! Stay hydrated.'}
-              </Text>
+              <Ionicons name="chatbubble-ellipses" size={13} color="#10b981" />
             </View>
+            <Text className="text-zinc-300 text-[11px] font-medium leading-4">
+              {companionSpeech}
+            </Text>
           </View>
-          <Ionicons name="chatbubble-ellipses-outline" size={16} color="#10b981" />
         </Pressable>
 
         {/* 1. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
@@ -567,18 +594,18 @@ export default function DashboardScreen() {
                           style={({ pressed }) => [
                             { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.85 : 1 },
                           ]}
-                          className="bg-zinc-900/40 border border-dashed border-zinc-800/80 rounded-2xl p-3 flex-row items-center justify-between"
+                          className="bg-zinc-900/60 border border-zinc-800/90 rounded-2xl p-3 flex-row items-center justify-between"
                         >
                           <View className="flex-row items-center gap-3 flex-1 pr-2">
                             <View
-                              className={`w-8 h-8 rounded-xl ${section.badgeBg} items-center justify-center border`}
+                              className={`w-9 h-9 rounded-xl ${section.badgeBg} items-center justify-center border`}
                             >
-                              <MaterialCommunityIcons name={section.icon} size={15} color={section.color} />
+                              <MaterialCommunityIcons name={section.icon} size={17} color={section.color} />
                             </View>
                             <View className="flex-1">
                               <Text
                                 style={{ fontFamily: 'Outfit_700Bold' }}
-                                className="text-zinc-300 text-xs"
+                                className="text-zinc-200 text-xs"
                                 numberOfLines={1}
                               >
                                 {emptyInfo.prompt}
@@ -590,15 +617,15 @@ export default function DashboardScreen() {
                           </View>
 
                           <View
-                            style={{ borderColor: section.color + '40', backgroundColor: section.color + '15' }}
-                            className="px-2.5 py-1 rounded-xl border flex-row items-center gap-1"
+                            style={{ borderColor: section.color + '45', backgroundColor: section.color + '18' }}
+                            className="px-3 py-1.5 rounded-xl border flex-row items-center gap-1.5"
                           >
-                            <Ionicons name="add" size={13} color={section.color} />
+                            <Ionicons name="paw" size={12} color={section.color} />
                             <Text
-                              style={{ fontFamily: 'Outfit_700Bold', color: section.color }}
+                              style={{ fontFamily: 'Outfit_800ExtraBold', color: section.color }}
                               className="text-[11px]"
                             >
-                              Log
+                              Pounce
                             </Text>
                           </View>
                         </Pressable>

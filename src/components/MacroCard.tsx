@@ -13,6 +13,45 @@ interface DailySummaryCardProps {
   fat: { consumed: number; target: number };
 }
 
+function CatEarTabs({ borderColor = '#27272a' }: { borderColor?: string }) {
+  return (
+    <>
+      {/* Left Feline Ear Silhouette Tab */}
+      <View style={{ position: 'absolute', top: -10, left: 20, zIndex: 2 }}>
+        <Svg width={24} height={11} viewBox="0 0 24 11" fill="none">
+          <Path
+            d="M2 11 L10 2 C11.5 0.5, 12.5 0.5, 14 2 L22 11"
+            fill="#18181b"
+            stroke={borderColor}
+            strokeWidth={1.5}
+          />
+          <Path
+            d="M7 11 L11 4 C11.5 3.5, 12.5 3.5, 13 4 L17 11"
+            fill="#f43f5e"
+            fillOpacity={0.2}
+          />
+        </Svg>
+      </View>
+      {/* Right Feline Ear Silhouette Tab */}
+      <View style={{ position: 'absolute', top: -10, right: 20, zIndex: 2 }}>
+        <Svg width={24} height={11} viewBox="0 0 24 11" fill="none">
+          <Path
+            d="M2 11 L10 2 C11.5 0.5, 12.5 0.5, 14 2 L22 11"
+            fill="#18181b"
+            stroke={borderColor}
+            strokeWidth={1.5}
+          />
+          <Path
+            d="M7 11 L11 4 C11.5 3.5, 12.5 3.5, 13 4 L17 11"
+            fill="#f43f5e"
+            fillOpacity={0.2}
+          />
+        </Svg>
+      </View>
+    </>
+  );
+}
+
 export function DailyMacroSummary({
   targetCalories,
   consumedCalories,
@@ -75,12 +114,15 @@ export function DailyMacroSummary({
 
   return (
     <View
-      className={`rounded-3xl p-5 mb-4 border ${
+      className={`relative rounded-3xl p-5 mb-4 border ${
         isOverCalories
           ? 'bg-zinc-900/95 border-rose-500/40 shadow-xl shadow-rose-500/10'
           : 'bg-zinc-900/95 border-zinc-800/90 shadow-xl shadow-black/50'
       }`}
     >
+      {/* Sleek Feline Ear Silhouette Tabs */}
+      <CatEarTabs borderColor={isOverCalories ? 'rgba(244,63,94,0.45)' : 'rgba(16,185,129,0.3)'} />
+
       {/* Top Header Tag Row */}
       <View className="flex-row items-center justify-between mb-1 px-1">
         <View className="flex-row items-center gap-2">
@@ -214,6 +256,13 @@ export function DailyMacroSummary({
                 ? `+${Math.round(overCaloriesAmount)}`
                 : Math.round(remainingCalories).toLocaleString()}
             </Text>
+
+            {/* Micro Whisker Detail */}
+            <View className="flex-row items-center gap-1 my-0.5 opacity-60">
+              <View className="w-3 h-px bg-zinc-600" />
+              <View className="w-1 h-1 rounded-full bg-emerald-400" />
+              <View className="w-3 h-px bg-zinc-600" />
+            </View>
 
             <Text className="text-zinc-500 text-[10px] font-bold mt-0.5">
               {calPct}% of {Math.round(targetCalories)} kcal
