@@ -3,7 +3,7 @@
 ## Project Overview
 We are building a high-performance, precision mobile AI Calorie Tracker and Nutrition Intelligence platform with a cloud backend. Users calculate their daily macro targets, snap photos of meals, and an AI Vision engine estimates the macronutrients. The application code and UI copy must be concise, intentional, and strictly avoid generic "AI slop" or boilerplate filler.
 
-*   **Framework:** React Native (Expo SDK 57 Managed Workflow)
+*   **Framework:** React Native (Expo SDK 58 Managed Workflow)
 *   **Styling:** NativeWind / Tailwind CSS (Dark-Tech Obsidian Theme)
 *   **Brand & Mascot Theme:** "SiaMeal Cat" — Charming, minimalist 2D Siamese cartoon cat mascot fusing camera-lens visual scanning with healthy nutrition & emerald macro intelligence.
 *   **Navigation:** Expo Router (Tabs: Dashboard, Water, Camera, Analytics/History, Profile)

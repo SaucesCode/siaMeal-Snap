@@ -37,7 +37,7 @@ export function TextLogModal({
 }: TextLogModalProps) {
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const textInputRef = useRef<TextInput | null>(null);
+  const textInputRef = useRef<any>(null);
 
   const setDraftMeal = useMealStore((state) => state.setDraftMeal);
 

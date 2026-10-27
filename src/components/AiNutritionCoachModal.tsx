@@ -293,7 +293,7 @@ export function AiNutritionCoachModal({
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [toast, setToast] = useState<ToastConfig | null>(null);
-  const scrollViewRef = useRef<ScrollView | null>(null);
+  const scrollViewRef = useRef<any>(null);
   const lastSendTimeRef = useRef<number>(0);
 
   // Expanded state for past date groups (minimized by default)
