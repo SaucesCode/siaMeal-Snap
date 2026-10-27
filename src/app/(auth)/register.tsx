@@ -18,6 +18,7 @@ import { BrandLogo } from '../../components/BrandLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticFeedback } from '../../utils/haptics';
 import SiaCatMascot from '../../components/SiaCatMascot';
+import { CatEarCard, WhiskerDivider } from '../../components/feline';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -29,6 +30,9 @@ export default function RegisterScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const router = useRouter();
   const fetchProfile = useAuthStore((state) => state.fetchProfile);
+
+  const isFormFilled =
+    email.trim().length > 0 && password.length >= 6 && confirmPassword.length >= 6;
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword) {
@@ -113,18 +117,23 @@ export default function RegisterScreen() {
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        className="px-6 py-10"
+        className="px-5 py-8"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Brand Header */}
-        <View className="mb-6">
+        <View className="mb-5 items-center">
           <BrandLogo size="lg" />
         </View>
 
         {/* Sia Mascot Pride Invite Pod */}
-        <View className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 flex-row items-center gap-3.5 mb-5 shadow-sm shadow-emerald-500/10">
+        <View className="bg-zinc-900/90 border border-emerald-500/25 rounded-3xl p-3.5 flex-row items-center gap-3.5 mb-5 shadow-sm shadow-emerald-500/10">
           <View className="items-center justify-center">
-            <SiaCatMascot size={46} mood="scanning" withGlow={true} />
+            <SiaCatMascot
+              size={46}
+              mood={isFormFilled ? 'happy' : 'scanning'}
+              withGlow={true}
+            />
           </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-1.5 mb-0.5">
@@ -135,7 +144,9 @@ export default function RegisterScreen() {
                 Join Sia's Pride!
               </Text>
               <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
-                <Text className="text-emerald-400 text-[9px] font-extrabold uppercase tracking-wider">🐾 AI Powered</Text>
+                <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                  🐾 AI Coach
+                </Text>
               </View>
             </View>
             <Text className="text-zinc-400 text-[11px] font-medium leading-4">
@@ -144,21 +155,19 @@ export default function RegisterScreen() {
           </View>
         </View>
 
-        {/* Form Card */}
-        <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-6 shadow-sm shadow-black">
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className="text-xl text-white mb-5"
-          >
-            Create Athlete Account
-          </Text>
-
+        {/* Form Container Wrapped in CatEarCard */}
+        <CatEarCard
+          title="Create Athlete Account"
+          badge="🐾 JOIN"
+          borderColor="#27272a"
+          className="mb-5"
+        >
           {/* Google OAuth Button */}
           <TouchableOpacity
             onPress={handleGoogleSignUp}
             disabled={googleLoading || loading}
             activeOpacity={0.8}
-            className="bg-zinc-950 border border-zinc-700/80 active:bg-zinc-800 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-3 mb-5"
+            className="bg-zinc-950 border border-zinc-800 active:bg-zinc-800/80 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-3 mb-4"
           >
             {googleLoading ? (
               <ActivityIndicator color="#ffffff" size="small" />
@@ -175,20 +184,21 @@ export default function RegisterScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View className="flex-row items-center gap-3 mb-5">
-            <View className="flex-1 h-px bg-zinc-800" />
-            <Text className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider">Or with email</Text>
-            <View className="flex-1 h-px bg-zinc-800" />
-          </View>
+          {/* Feline Whisker Divider */}
+          <WhiskerDivider label="OR SIGN UP WITH EMAIL" color="#71717a" />
 
           {/* Email Field */}
-          <View className="mb-4">
+          <View className="mb-4 mt-2">
             <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
               Email Address
             </Text>
             <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-1">
-              <Ionicons name="mail-outline" size={18} color="#71717a" style={{ marginRight: 10 }} />
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color="#71717a"
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -196,7 +206,7 @@ export default function RegisterScreen() {
                 placeholderTextColor="#52525b"
                 autoCapitalize="none"
                 keyboardType="email-address"
-                className="text-white text-base font-semibold flex-1 py-3"
+                className="text-white text-base font-semibold flex-1 py-2.5"
               />
             </View>
           </View>
@@ -207,14 +217,19 @@ export default function RegisterScreen() {
               Password
             </Text>
             <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-1">
-              <Ionicons name="lock-closed-outline" size={18} color="#71717a" style={{ marginRight: 10 }} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color="#71717a"
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Minimum 6 characters"
                 placeholderTextColor="#52525b"
                 secureTextEntry={!showPassword}
-                className="text-white text-base font-semibold flex-1 py-3"
+                className="text-white text-base font-semibold flex-1 py-2.5"
               />
               <TouchableOpacity
                 onPress={() => {
@@ -234,19 +249,24 @@ export default function RegisterScreen() {
           </View>
 
           {/* Confirm Password Field */}
-          <View className="mb-6">
+          <View className="mb-5">
             <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
               Confirm Password
             </Text>
             <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-1">
-              <Ionicons name="lock-closed-outline" size={18} color="#71717a" style={{ marginRight: 10 }} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color="#71717a"
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder="Re-enter password"
                 placeholderTextColor="#52525b"
                 secureTextEntry={!showConfirmPassword}
-                className="text-white text-base font-semibold flex-1 py-3"
+                className="text-white text-base font-semibold flex-1 py-2.5"
               />
               <TouchableOpacity
                 onPress={() => {
@@ -265,12 +285,12 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Sign Up CTA */}
+          {/* Sign Up CTA Button */}
           <TouchableOpacity
             onPress={handleRegister}
             disabled={loading || googleLoading}
             activeOpacity={0.85}
-            className="bg-emerald-500 active:bg-emerald-600 rounded-2xl py-4 items-center justify-center flex-row gap-2 shadow-sm shadow-emerald-500/20"
+            className="bg-emerald-500 active:bg-emerald-600 rounded-2xl py-4 items-center justify-center flex-row gap-2 shadow-lg shadow-emerald-500/25"
           >
             {loading ? (
               <ActivityIndicator color="#ffffff" />
@@ -278,19 +298,19 @@ export default function RegisterScreen() {
               <>
                 <Ionicons name="paw" size={16} color="#ffffff" />
                 <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white font-bold text-base"
+                  style={{ fontFamily: 'Outfit_800ExtraBold' }}
+                  className="text-white text-base"
                 >
-                  Create Account
+                  Join the Pride
                 </Text>
               </>
             )}
           </TouchableOpacity>
-        </View>
+        </CatEarCard>
 
-        {/* Footer */}
+        {/* Footer Link */}
         <View className="flex-row justify-center items-center">
-          <Text className="text-zinc-400 text-sm">Already have an account? </Text>
+          <Text className="text-zinc-400 text-sm">Already a Hunter? </Text>
           <Link href="/(auth)/login" asChild>
             <TouchableOpacity
               onPress={() => hapticFeedback.light()}
@@ -298,7 +318,7 @@ export default function RegisterScreen() {
             >
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-emerald-400 font-bold text-sm ml-1"
+                className="text-emerald-400 text-sm ml-0.5"
               >
                 Sign In
               </Text>
