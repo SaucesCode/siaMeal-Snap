@@ -15,15 +15,15 @@ interface SiaMascotHeroProps {
 }
 
 const MASCOT_IMAGES: Record<MascotPose, any> = {
-  scanner: require('../../../assets/images/mascot-scanner.jpg'),
-  chef: require('../../../assets/images/mascot-chef.jpg'),
-  water: require('../../../assets/images/mascot-water.jpg'),
-  logo: require('../../../assets/images/logo.jpg'),
+  scanner: require('../../../assets/images/mascot-scanner.png'),
+  chef: require('../../../assets/images/mascot-chef.png'),
+  water: require('../../../assets/images/mascot-water.png'),
+  logo: require('../../../assets/images/logo.png'),
 };
 
 /**
  * SiaMascotHero - Signature character hero displaying Sia in customized poses
- * with gentle floating physics, speech bubble, and emerald ring glow.
+ * with transparent native integration, speech bubble, and subtle emerald ambient glow.
  */
 export function SiaMascotHero({
   pose = 'chef',
@@ -67,36 +67,35 @@ export function SiaMascotHero({
         </View>
       )}
 
-      {/* Stable Mascot Avatar (Calm, no pounding/bouncing loops) */}
+      {/* Seamless Integrated Character Illustration (No white background, no circular crop) */}
       <Pressable
         onPress={handlePress}
         style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
       >
         <View className="relative items-center justify-center">
-          {/* Glow backdrop disc */}
-          <View
-            style={{
-              width: size + 12,
-              height: size + 12,
-              borderRadius: (size + 12) / 2,
-              shadowColor: '#10b981',
-              shadowOpacity: withGlow ? 0.45 : 0,
-              shadowRadius: 18,
-              elevation: withGlow ? 12 : 0,
-            }}
-            className="items-center justify-center bg-zinc-950 border-2 border-emerald-500/35 overflow-hidden"
-          >
-            {/* Mascot Image */}
-            <Image
-              source={imageSource}
+          {/* Soft ambient emerald backlight */}
+          {withGlow && (
+            <View
               style={{
-                width: size,
-                height: size,
-                borderRadius: size / 2,
+                position: 'absolute',
+                width: size * 0.85,
+                height: size * 0.85,
+                borderRadius: (size * 0.85) / 2,
+                backgroundColor: pose === 'water' ? '#06b6d4' : '#10b981',
+                opacity: 0.12,
               }}
-              resizeMode="cover"
             />
-          </View>
+          )}
+
+          {/* Transparent Character Illustration */}
+          <Image
+            source={imageSource}
+            style={{
+              width: size,
+              height: size,
+            }}
+            resizeMode="contain"
+          />
 
           {/* Optional Badge Overlap */}
           {badge && (

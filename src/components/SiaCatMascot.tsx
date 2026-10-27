@@ -14,44 +14,47 @@ export interface SiaCatMascotProps {
   style?: StyleProp<ViewStyle>;
   /** Whether to show outer emerald halo glow */
   withGlow?: boolean;
+  /** Whether to render as an uncropped, standalone character integrated directly into the surface */
+  standalone?: boolean;
 }
 
 /**
- * Resolves the appropriate mascot illustration based on context/mood
+ * Resolves the appropriate transparent mascot illustration based on context/mood
  */
 function getMascotImageSource(mood: SiaMood) {
   switch (mood) {
     case 'scanning':
     case 'scanner':
-      return require('../../assets/images/mascot-scanner.jpg');
+      return require('../../assets/images/mascot-scanner.png');
     case 'chef':
     case 'thinking':
-      return require('../../assets/images/mascot-chef.jpg');
+      return require('../../assets/images/mascot-chef.png');
     case 'water':
     case 'hydrated':
-      return require('../../assets/images/mascot-water.jpg');
+      return require('../../assets/images/mascot-water.png');
     case 'celebrating':
     case 'happy':
     case 'idle':
     default:
-      return require('../../assets/images/logo.jpg');
+      return require('../../assets/images/logo.png');
   }
 }
 
 /**
  * SiaCatMascot - The official 2D cartoon mascot for SiaMeal Snap.
- * Calm, stable, high-contrast character presentation without distracting bounce/pulse loops.
+ * Pure transparent PNG illustrations seamlessly integrated into dark surfaces.
  */
 export default function SiaCatMascot({
   size = 64,
   mood = 'idle',
   style,
   withGlow = true,
+  standalone = false,
 }: SiaCatMascotProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (mood === 'scanning') {
+    if (mood === 'scanning' && !standalone) {
       const anim = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
@@ -65,7 +68,7 @@ export default function SiaCatMascot({
     } else {
       rotateAnim.setValue(0);
     }
-  }, [mood, rotateAnim]);
+  }, [mood, standalone, rotateAnim]);
 
   const badgeSize = Math.max(16, Math.round(size * 0.32));
   const spinInterpolate = rotateAnim.interpolate({
@@ -74,6 +77,42 @@ export default function SiaCatMascot({
   });
 
   const imageSource = getMascotImageSource(mood);
+
+  if (standalone) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            width: size,
+            height: size,
+          },
+          style,
+        ]}
+      >
+        {withGlow && (
+          <View
+            style={{
+              position: 'absolute',
+              width: size * 0.8,
+              height: size * 0.8,
+              borderRadius: (size * 0.8) / 2,
+              backgroundColor: mood === 'celebrating' ? '#34d399' : '#10b981',
+              opacity: 0.15,
+            }}
+          />
+        )}
+        <Image
+          source={imageSource}
+          style={{
+            width: size,
+            height: size,
+          }}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -106,11 +145,10 @@ export default function SiaCatMascot({
         <Image
           source={imageSource}
           style={{
-            width: size - 4,
-            height: size - 4,
-            borderRadius: (size - 4) / 2,
+            width: size - 6,
+            height: size - 6,
           }}
-          resizeMode="cover"
+          resizeMode="contain"
         />
 
         {/* Subtle Scanning Reticle Overlay (Only when actively scanning) */}

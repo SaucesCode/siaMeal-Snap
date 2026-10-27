@@ -311,7 +311,7 @@ export default function ReviewScreen() {
           <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-3 shadow-sm shadow-black">
             <View className="flex-row items-center gap-3.5">
               <View className="items-center justify-center">
-                <SiaCatMascot size={48} mood={macroFit.mood} withGlow={true} />
+                <SiaCatMascot size={56} mood={macroFit.mood} withGlow={true} standalone={true} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1">

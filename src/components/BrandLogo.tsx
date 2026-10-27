@@ -15,7 +15,7 @@ export function BrandLogo({ size = 'md', showTagline = true }: BrandLogoProps) {
     <View className="items-center">
       {/* SiaMeal Cat Mascot Icon Avatar */}
       <View className="mb-3 items-center justify-center">
-        <SiaCatMascot size={imageDimension} mood="happy" withGlow={true} />
+        <SiaCatMascot size={imageDimension} mood="happy" withGlow={true} standalone={true} />
       </View>
 
       {/* Styled Brand Title */}

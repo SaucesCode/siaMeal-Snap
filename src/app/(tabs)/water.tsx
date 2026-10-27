@@ -580,11 +580,12 @@ export default function WaterScreen() {
 
               {/* Central Radial Mascot & Typography */}
               <View className="items-center justify-center">
-                <View className="mb-1">
+                <View className="mb-0.5">
                   <SiaCatMascot
-                    size={40}
+                    size={52}
                     mood={getSiaHydrationMood(percentage)}
                     withGlow={percentage >= 100}
+                    standalone={true}
                   />
                 </View>
                 <Text

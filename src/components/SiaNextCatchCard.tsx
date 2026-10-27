@@ -91,13 +91,14 @@ export function SiaNextCatchCard({ targets, consumed, loggedMeals }: SiaNextCatc
         )}
       </View>
 
-      {/* Main Content Area: Mascot + Catch Title & Tag */}
-      <View className="flex-row items-center gap-3.5 mb-3.5">
-        <View className="w-13 h-13 rounded-2xl bg-zinc-950/80 border border-emerald-500/20 items-center justify-center p-1">
+      {/* Main Content Area: Seamlessly Integrated Chef Mascot + Catch Title & Tag */}
+      <View className="flex-row items-center gap-3 mb-3.5">
+        <View className="items-center justify-center">
           <SiaCatMascot
-            size={48}
+            size={58}
             mood="chef"
-            withGlow={false}
+            standalone={true}
+            withGlow={true}
           />
         </View>
 

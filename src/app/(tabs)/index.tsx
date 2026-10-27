@@ -404,9 +404,9 @@ export default function DashboardScreen() {
           ]}
           className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 mb-4 shadow-sm shadow-emerald-500/10 flex-row items-center gap-3 relative overflow-hidden"
         >
-          {/* Feline Mascot with Glow */}
+          {/* Seamlessly Integrated Feline Mascot */}
           <View className="items-center justify-center">
-            <SiaCatMascot size={48} mood={companionMood} withGlow={true} />
+            <SiaCatMascot size={54} mood={companionMood} withGlow={true} standalone={true} />
           </View>
 
           {/* Feline Speech Bubble Container */}
