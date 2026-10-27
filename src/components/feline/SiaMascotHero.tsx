@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Image, Animated, Easing, Pressable, StyleProp, ViewStyle } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import React from 'react';
+import { View, Text, Image, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { hapticFeedback } from '../../utils/haptics';
 
 export type MascotPose = 'scanner' | 'chef' | 'water' | 'logo';
@@ -35,29 +34,6 @@ export function SiaMascotHero({
   withGlow = true,
   style,
 }: SiaMascotHeroProps) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: -6,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [floatAnim]);
-
   const handlePress = () => {
     hapticFeedback.purr();
     onPress?.();
@@ -91,17 +67,12 @@ export function SiaMascotHero({
         </View>
       )}
 
-      {/* Floating Animated Mascot Avatar */}
+      {/* Stable Mascot Avatar (Calm, no pounding/bouncing loops) */}
       <Pressable
         onPress={handlePress}
         style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
       >
-        <Animated.View
-          style={{
-            transform: [{ translateY: floatAnim }],
-          }}
-          className="relative items-center justify-center"
-        >
+        <View className="relative items-center justify-center">
           {/* Glow backdrop disc */}
           <View
             style={{
@@ -135,7 +106,7 @@ export function SiaMascotHero({
               </Text>
             </View>
           )}
-        </Animated.View>
+        </View>
       </Pressable>
     </View>
   );

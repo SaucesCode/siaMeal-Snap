@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { hapticFeedback } from '../utils/haptics';
 import Svg, { Path } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 
 interface FloatingCoachWidgetProps {
   onPress: () => void;
   hasUnread?: boolean;
 }
 
-const WIDGET_SIZE = 58;
+const WIDGET_SIZE = 56;
 
 export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoachWidgetProps) {
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -30,7 +31,6 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
 
   const pan = useRef(new Animated.ValueXY({ x: INITIAL_X, y: INITIAL_Y })).current;
   const currentPos = useRef({ x: INITIAL_X, y: INITIAL_Y });
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Track position updates
   useEffect(() => {
@@ -42,27 +42,7 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
     };
   }, [pan]);
 
-  // Subtle breathing pulse animation
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.06,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1.0,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
-
-  // 2D Drag PanResponder with edge-snapping and tap detection
+  // 2D Drag PanResponder with edge-snapping and tap detection (Calm, no pulsing)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -70,45 +50,48 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
         Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
 
       onPanResponderGrant: () => {
+        hapticFeedback.light();
         pan.setOffset({
           x: currentPos.current.x,
           y: currentPos.current.y,
         });
         pan.setValue({ x: 0, y: 0 });
-        hapticFeedback.light();
       },
 
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
 
-      onPanResponderRelease: (_, gesture) => {
+      onPanResponderRelease: (_, gestureState) => {
         pan.flattenOffset();
 
-        // Tap detected (< 6px movement)
-        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
+        // If the finger hardly moved, count as a tap to open Sia Coach
+        if (Math.abs(gestureState.dx) < 6 && Math.abs(gestureState.dy) < 6) {
           hapticFeedback.medium();
           onPress();
           return;
         }
 
-        // Calculate snap-to-edge target X
-        const midPoint = SCREEN_WIDTH / 2 - WIDGET_SIZE / 2;
-        const targetX = currentPos.current.x < midPoint ? MIN_X : MAX_X;
+        // Clamp inside safe screen bounds
+        let targetX = currentPos.current.x;
+        let targetY = currentPos.current.y;
 
-        // Clamp target Y within safe bounds
-        const targetY = Math.max(MIN_Y, Math.min(MAX_Y, currentPos.current.y));
+        // Magnetic snap to nearest edge (Left or Right)
+        if (targetX < SCREEN_WIDTH / 2 - WIDGET_SIZE / 2) {
+          targetX = MIN_X;
+        } else {
+          targetX = MAX_X;
+        }
 
-        // Spring snap to edge
+        targetY = Math.max(MIN_Y, Math.min(MAX_Y, targetY));
+
+        hapticFeedback.selection();
         Animated.spring(pan, {
           toValue: { x: targetX, y: targetY },
           useNativeDriver: false,
-          friction: 6,
-          tension: 40,
+          tension: 75,
+          friction: 9,
         }).start();
-
-        currentPos.current = { x: targetX, y: targetY };
-        hapticFeedback.selection();
       },
     })
   ).current;
@@ -118,31 +101,38 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
       {...panResponder.panHandlers}
       style={{
         position: 'absolute',
-        left: pan.x,
-        top: pan.y,
+        left: 0,
+        top: 0,
         zIndex: 9999,
         elevation: 9999,
+        transform: [{ translateX: pan.x }, { translateY: pan.y }],
       }}
     >
-      <Animated.View
-        style={{
-          transform: [{ scale: pulseAnim }],
-          alignItems: 'center',
-        }}
-      >
-        {/* Vector Cat Ears perched on top */}
-        <View style={{ width: WIDGET_SIZE, height: 12, position: 'relative', marginBottom: -2, zIndex: 1 }}>
-          <Svg width={WIDGET_SIZE} height={12} viewBox="0 0 58 12">
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        {/* Sleek Feline Ears Topping the FAB */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -10,
+            width: WIDGET_SIZE,
+            height: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+        >
+          <Svg width={WIDGET_SIZE} height={12} viewBox={`0 0 ${WIDGET_SIZE} 12`}>
             {/* Left Ear */}
-            <Path d="M 8 12 L 14 1 L 22 12 Z" fill="#09090B" stroke="#10B981" strokeWidth="1.5" strokeLinejoin="round" />
-            <Path d="M 11 11 L 14 3 L 19 11 Z" fill="#10B981" opacity={0.3} />
+            <Path d="M 6 12 L 14 1 L 20 12 Z" fill="#09090B" stroke="#10B981" strokeWidth="1.5" strokeLinejoin="round" />
+            <Path d="M 9 11 L 14 3 L 17 11 Z" fill="#10B981" opacity={0.3} />
             {/* Right Ear */}
             <Path d="M 36 12 L 44 1 L 50 12 Z" fill="#09090B" stroke="#10B981" strokeWidth="1.5" strokeLinejoin="round" />
             <Path d="M 39 11 L 44 3 L 47 11 Z" fill="#10B981" opacity={0.3} />
           </Svg>
         </View>
 
-        {/* Main Circular Mascot Bubble */}
+        {/* Main Circular Sports AI FAB Bubble */}
         <View
           style={{
             width: WIDGET_SIZE,
@@ -154,35 +144,26 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
             borderWidth: 1.5,
             borderColor: '#10b981',
             shadowColor: '#10b981',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.45,
-            shadowRadius: 10,
-            elevation: 14,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.35,
+            shadowRadius: 8,
+            elevation: 10,
           }}
         >
-          {/* Inner Glowing Disc with Sia Mascot */}
+          {/* Inner Disc with Glowing AI Sparkles Icon */}
           <View
             style={{
-              width: WIDGET_SIZE - 10,
-              height: WIDGET_SIZE - 10,
-              borderRadius: (WIDGET_SIZE - 10) / 2,
-              backgroundColor: '#09090b',
+              width: WIDGET_SIZE - 12,
+              height: WIDGET_SIZE - 12,
+              borderRadius: (WIDGET_SIZE - 12) / 2,
+              backgroundColor: '#18181b',
               alignItems: 'center',
               justifyContent: 'center',
-              overflow: 'hidden',
-              borderWidth: 1.5,
-              borderColor: '#10b981',
+              borderWidth: 1,
+              borderColor: 'rgba(16, 185, 129, 0.4)',
             }}
           >
-            <Animated.Image
-              source={require('../../assets/images/logo.jpg')}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: (WIDGET_SIZE - 10) / 2,
-              }}
-              resizeMode="cover"
-            />
+            <Ionicons name="sparkles" size={20} color="#10b981" />
           </View>
 
           {/* Active Status Badge Dot */}
@@ -192,9 +173,9 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
                 position: 'absolute',
                 top: 2,
                 right: 2,
-                width: 12,
-                height: 12,
-                borderRadius: 6,
+                width: 10,
+                height: 10,
+                borderRadius: 5,
                 backgroundColor: '#34d399',
                 borderWidth: 2,
                 borderColor: '#09090b',
@@ -202,8 +183,7 @@ export function FloatingCoachWidget({ onPress, hasUnread = true }: FloatingCoach
             />
           )}
         </View>
-      </Animated.View>
+      </View>
     </Animated.View>
   );
 }
-

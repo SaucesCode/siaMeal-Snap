@@ -96,7 +96,7 @@ export function SiaNextCatchCard({ targets, consumed, loggedMeals }: SiaNextCatc
         <View className="w-13 h-13 rounded-2xl bg-zinc-950/80 border border-emerald-500/20 items-center justify-center p-1">
           <SiaCatMascot
             size={48}
-            mood={forecast.isGoalMet ? 'celebrating' : 'happy'}
+            mood="chef"
             withGlow={false}
           />
         </View>

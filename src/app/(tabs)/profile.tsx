@@ -34,11 +34,11 @@ import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
 import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
 
 export const CAT_AVATARS: { id: string; mood: SiaMood; label: string }[] = [
-  { id: 'cat_happy', mood: 'happy', label: 'Purring Sia' },
-  { id: 'cat_celebrating', mood: 'celebrating', label: 'Champion Sia' },
   { id: 'cat_scanning', mood: 'scanning', label: 'Vision Eye Sia' },
-  { id: 'cat_thinking', mood: 'thinking', label: 'Scholar Sia' },
-  { id: 'cat_idle', mood: 'idle', label: 'Zen Sia' },
+  { id: 'cat_chef', mood: 'chef', label: 'Chef Sia' },
+  { id: 'cat_water', mood: 'water', label: 'Hydra Sia' },
+  { id: 'cat_celebrating', mood: 'celebrating', label: 'Champion Sia' },
+  { id: 'cat_happy', mood: 'happy', label: 'Purring Sia' },
 ];
 
 const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [

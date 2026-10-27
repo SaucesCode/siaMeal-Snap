@@ -161,7 +161,7 @@ export default function ReviewScreen() {
     const remainingKcal = Math.max(0, targetCalories - totalCalAfter);
     const remainingProt = Math.max(0, targetProtein - totalProtAfter);
     return {
-      mood: 'happy' as const,
+      mood: 'scanner' as const,
       badgeText: '🐾 Fits Daily Budget',
       badgeColor: '#10b981',
       badgeBg: 'bg-emerald-500/15 border-emerald-500/30',

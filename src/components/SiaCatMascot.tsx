@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Image, Animated, StyleProp, ViewStyle, StyleSheet, Easing } from 'react-native';
-import Svg, { Circle, Path, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
-export type SiaMood = 'idle' | 'celebrating' | 'scanning' | 'happy' | 'thinking' | string;
+export type SiaMood = 'idle' | 'celebrating' | 'scanning' | 'happy' | 'thinking' | 'chef' | 'water' | string;
 
 export interface SiaCatMascotProps {
   /** Diameter of the mascot avatar in pixels. Default: 64 */
@@ -17,8 +17,30 @@ export interface SiaCatMascotProps {
 }
 
 /**
+ * Resolves the appropriate mascot illustration based on context/mood
+ */
+function getMascotImageSource(mood: SiaMood) {
+  switch (mood) {
+    case 'scanning':
+    case 'scanner':
+      return require('../../assets/images/mascot-scanner.jpg');
+    case 'chef':
+    case 'thinking':
+      return require('../../assets/images/mascot-chef.jpg');
+    case 'water':
+    case 'hydrated':
+      return require('../../assets/images/mascot-water.jpg');
+    case 'celebrating':
+    case 'happy':
+    case 'idle':
+    default:
+      return require('../../assets/images/logo.jpg');
+  }
+}
+
+/**
  * SiaCatMascot - The official 2D cartoon mascot for SiaMeal Snap.
- * Fuses feline personality with AI vision scanning & emerald macro intelligence.
+ * Calm, stable, high-contrast character presentation without distracting bounce/pulse loops.
  */
 export default function SiaCatMascot({
   size = 64,
@@ -26,122 +48,45 @@ export default function SiaCatMascot({
   style,
   withGlow = true,
 }: SiaCatMascotProps) {
-  // Animation refs
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (mood === 'celebrating') {
-      // Bouncy celebratory animation loop
+    if (mood === 'scanning') {
       const anim = Animated.loop(
-        Animated.sequence([
-          Animated.timing(bounceAnim, {
-            toValue: -8,
-            duration: 380,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(bounceAnim, {
-            toValue: 0,
-            duration: 380,
-            easing: Easing.bounce,
-            useNativeDriver: true,
-          }),
-          Animated.delay(800),
-        ])
-      );
-      anim.start();
-      return () => anim.stop();
-    } else if (mood === 'scanning') {
-      // Faster, high-energy rotation for scanning aperture with subtle pulse
-      const anim = Animated.loop(
-        Animated.parallel([
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 1400,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(pulseAnim, {
-              toValue: 1.06,
-              duration: 700,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseAnim, {
-              toValue: 1,
-              duration: 700,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
       );
       anim.start();
       return () => anim.stop();
     } else {
-      // Clearly visible, gentle idle feline breathing & floating
-      const anim = Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(pulseAnim, {
-              toValue: 1.08,
-              duration: 1300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(bounceAnim, {
-              toValue: -4,
-              duration: 1300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.parallel([
-            Animated.timing(pulseAnim, {
-              toValue: 1,
-              duration: 1300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(bounceAnim, {
-              toValue: 0,
-              duration: 1300,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-      anim.start();
-      return () => anim.stop();
+      rotateAnim.setValue(0);
     }
-  }, [mood, bounceAnim, pulseAnim, rotateAnim]);
+  }, [mood, rotateAnim]);
 
-  const badgeSize = Math.max(18, Math.round(size * 0.34));
+  const badgeSize = Math.max(16, Math.round(size * 0.32));
   const spinInterpolate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
+  const imageSource = getMascotImageSource(mood);
+
   return (
-    <Animated.View
+    <View
       style={[
         styles.container,
         {
           width: size,
           height: size,
-          transform: [
-            { translateY: bounceAnim },
-            { scale: pulseAnim },
-          ],
         },
         style,
       ]}
     >
-      {/* Outer Glow Disc */}
+      {/* Outer Halo Disc */}
       <View
         style={[
           styles.mascotDisc,
@@ -150,16 +95,16 @@ export default function SiaCatMascot({
             height: size,
             borderRadius: size / 2,
             shadowColor: mood === 'celebrating' ? '#34d399' : '#10b981',
-            shadowOpacity: withGlow ? 0.45 : 0,
-            shadowRadius: size * 0.25,
-            elevation: withGlow ? 12 : 0,
+            shadowOpacity: withGlow ? 0.35 : 0,
+            shadowRadius: size * 0.2,
+            elevation: withGlow ? 8 : 0,
             borderColor: mood === 'celebrating' ? '#34d399' : '#10b981',
           },
         ]}
       >
-        {/* Mascot Face / Avatar Image */}
+        {/* Mascot Face / Contextual Avatar Image */}
         <Image
-          source={require('../../assets/images/logo.jpg')}
+          source={imageSource}
           style={{
             width: size - 4,
             height: size - 4,
@@ -168,7 +113,7 @@ export default function SiaCatMascot({
           resizeMode="cover"
         />
 
-        {/* Scanning Reticle Overlay */}
+        {/* Subtle Scanning Reticle Overlay (Only when actively scanning) */}
         {mood === 'scanning' && (
           <Animated.View
             style={[
@@ -186,8 +131,8 @@ export default function SiaCatMascot({
                 cy="50"
                 r="46"
                 stroke="#10b981"
-                strokeWidth="3"
-                strokeDasharray="18 12"
+                strokeWidth="2.5"
+                strokeDasharray="16 12"
                 fill="none"
               />
             </Svg>
@@ -260,11 +205,10 @@ export default function SiaCatMascot({
             },
           ]}
         >
-          {/* Organic Nutrition Sprout Leaf */}
           <Ionicons name="leaf" size={Math.round(badgeSize * 0.55)} color="#10b981" />
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -278,11 +222,11 @@ const styles = StyleSheet.create({
   },
   mascotDisc: {
     backgroundColor: '#09090b',
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
   },
   moodBadge: {
     position: 'absolute',

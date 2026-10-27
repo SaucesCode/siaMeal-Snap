@@ -41,10 +41,7 @@ const GOAL_OPTIONS = [2000, 2500, 3000, 3500, 4000];
 
 const getSiaHydrationMood = (pct: number): SiaMood => {
   if (pct >= 100) return 'celebrating';
-  if (pct >= 75) return 'happy';
-  if (pct >= 40) return 'happy';
-  if (pct > 0) return 'idle';
-  return 'thinking';
+  return 'water';
 };
 
 const getHydrationStatus = (pct: number, remaining: number) => {
