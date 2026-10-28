@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="walkLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7EE058" />
+      <stop offset="100%" stop-color="#4EB338" />
+    </linearGradient>
+    <linearGradient id="walkIris" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38F8A6" />
+      <stop offset="100%" stop-color="#0CAE6B" />
+    </linearGradient>
+    <linearGradient id="walkTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#35ECC4" />
+      <stop offset="100%" stop-color="#0EA88A" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. S-CURVED SIAMESE TAIL (SWAYING BEHIND LEFT) -->
+  <path
+    d="M 68 148 C 44 140 50 104 46 84 C 43 70 26 72 28 86 C 30 100 38 112 36 128 C 34 144 46 156 64 158 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+  <!-- Tail Motion Arcs -->
+  <path d="M 55 72 Q 59 80 57 88" stroke="#2A1810" stroke-width="3" stroke-linecap="round" fill="none" />
+  <path d="M 19 82 Q 21 90 26 96" stroke="#2A1810" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- 2. FAR PAIR OF STRIDING LEGS -->
+  <!-- Far Back Leg (Stepping Back) -->
+  <g>
+    <path
+      d="M 68 164 L 54 192 C 51 200 66 204 70 195 L 82 166 Z"
+      fill="#E5CDB4"
+      stroke="#2A1810"
+      stroke-width="4.5"
+    />
+    <path
+      d="M 58 184 C 63 183 69 185 73 188 L 70 195 C 66 204 51 200 54 192 Z"
+      fill="#3D2820"
+      stroke="#2A1810"
+      stroke-width="4.2"
+    />
+  </g>
+  <!-- Far Front Leg (Raised Forward Step!) -->
+  <g>
+    <path
+      d="M 136 160 L 158 176 C 166 181 158 194 148 188 L 126 168 Z"
+      fill="#E5CDB4"
+      stroke="#2A1810"
+      stroke-width="4.5"
+    />
+    <path
+      d="M 148 169 C 152 172 156 176 158 176 C 166 181 158 194 148 188 L 141 182 Z"
+      fill="#3D2820"
+      stroke="#2A1810"
+      stroke-width="4.2"
+    />
+  </g>
+
+  <!-- 3. WALKING TORSO -->
+  <path
+    d="M 62 142 C 58 158 64 172 86 174 L 138 174 C 154 172 158 154 148 136 C 136 122 76 124 62 142 Z"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+  <!-- Emerald Tech Collar -->
+  <path
+    d="M 118 136 C 126 148 138 152 149 144"
+    stroke="#10B981"
+    stroke-width="5"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <circle cx="139" cy="150" r="5" fill="#28F59C" stroke="#2A1810" stroke-width="2.5" />
+
+  <!-- 4. NEAR PAIR OF STRIDING LEGS -->
+  <!-- Near Back Leg (Forward Stride) -->
+  <g>
+    <path
+      d="M 78 165 L 84 196 C 85 204 102 204 102 195 L 96 165 Z"
+      fill="#F7EBD6"
+      stroke="#2A1810"
+      stroke-width="4.5"
+    />
+    <path
+      d="M 82 184 C 87 182 95 182 100 184 L 102 195 C 102 204 85 204 84 196 Z"
+      fill="#4B3329"
+      stroke="#2A1810"
+      stroke-width="4.2"
+    />
+  </g>
+  <!-- Near Front Leg (Planted Stride) -->
+  <g>
+    <path
+      d="M 122 165 L 116 196 C 115 204 132 205 134 196 L 140 165 Z"
+      fill="#F7EBD6"
+      stroke="#2A1810"
+      stroke-width="4.5"
+    />
+    <path
+      d="M 118 184 C 123 182 131 182 136 184 L 134 196 C 132 205 115 204 116 196 Z"
+      fill="#4B3329"
+      stroke="#2A1810"
+      stroke-width="4.2"
+    />
+  </g>
+
+  <!-- 5. POINTED EARS & TOP SPROUT -->
+  <!-- Left Ear -->
+  <path
+    d="M 80 86 C 76 56 81 34 90 31 C 99 29 115 46 123 60 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linejoin="round"
+  />
+  <path d="M 86 80 C 84 58 87 41 93 39 C 99 38 110 50 116 61 Z" fill="#7D5243" />
+
+  <!-- Right Ear -->
+  <path
+    d="M 179 86 C 183 56 178 34 169 31 C 160 29 144 46 136 60 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linejoin="round"
+  />
+  <path d="M 173 80 C 175 58 172 41 166 39 C 160 38 149 50 143 61 Z" fill="#7D5243" />
+
+  <!-- Top Sprout -->
+  <g>
+    <path d="M 130 54 L 130 42" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+    <path
+      d="M 130 45 C 118 46 113 38 114 31 C 122 30 129 35 130 45 Z"
+      fill="url(#walkLeaf)"
+      stroke="#2A1810"
+      stroke-width="3.2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M 130 45 C 131 34 139 28 148 29 C 148 39 141 46 130 45 Z"
+      fill="url(#walkLeaf)"
+      stroke="#2A1810"
+      stroke-width="3.2"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- 6. HEAD & CONTOURED SIAMESE MASK -->
+  <ellipse
+    cx="130"
+    cy="95"
+    rx="52"
+    ry="41"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="5"
+  />
+  <!-- Peaked Siamese Mask -->
+  <path
+    d="M 88 102 C 88 86 102 80 115 74 C 123 68 126 64 130 64 C 134 64 137 68 145 74 C 158 80 172 86 172 102 C 172 118 153 123 143 128 C 136 132 133 134 130 134 C 127 134 124 132 117 128 C 107 123 88 118 88 102 Z"
+    fill="#4B3329"
+  />
+
+  <!-- 7. LEFT EYE (GLOSSY TEAL) & RIGHT EYE (6-BLADE SHUTTER) -->
+  <!-- Left Eye -->
+  <g>
+    <ellipse cx="108" cy="99" rx="11.5" ry="10.5" fill="url(#walkTeal)" stroke="#2A1810" stroke-width="3" />
+    <ellipse cx="110" cy="100" rx="6.8" ry="7.2" fill="#084C41" />
+    <circle cx="106" cy="95" r="3" fill="#FFFFFF" />
+    <circle cx="113" cy="104" r="1.4" fill="#FFFFFF" />
+  </g>
+
+  <!-- Right Eye (6-Blade Camera Shutter) -->
+  <g>
+    <circle cx="153" cy="99" r="14" fill="#28F59C" opacity="0.3" />
+    <circle cx="153" cy="99" r="12" fill="url(#walkIris)" stroke="#141F1A" stroke-width="2.5" />
+    <polygon
+      points="153,93 158,96 158,102 153,105 148,102 148,96"
+      fill="#141F1A"
+    />
+    <line x1="153" y1="93" x2="160" y2="88" stroke="#141F1A" stroke-width="2.2" />
+    <line x1="158" y1="96" x2="165" y2="99" stroke="#141F1A" stroke-width="2.2" />
+    <line x1="158" y1="102" x2="160" y2="110" stroke="#141F1A" stroke-width="2.2" />
+    <line x1="153" y1="105" x2="146" y2="110" stroke="#141F1A" stroke-width="2.2" />
+    <line x1="148" y1="102" x2="141" y2="99" stroke="#141F1A" stroke-width="2.2" />
+    <line x1="148" y1="96" x2="146" y2="88" stroke="#141F1A" stroke-width="2.2" />
+  </g>
+
+  <!-- 8. NOSE, HAPPY MOUTH & WHISKERS -->
+  <path d="M 126 108 C 126 105 136 105 136 108 C 136 112 131 114 131 114 Z" fill="#2A1810" />
+  <path
+    d="M 122 114 C 124 126 138 126 140 114 Z"
+    fill="#331812"
+    stroke="#2A1810"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <ellipse cx="131" cy="121" rx="5" ry="2.8" fill="#F77E8B" />
+  <path
+    d="M 119 112 C 123 117 129 117 131 112 C 133 117 139 117 143 112"
+    stroke="#2A1810"
+    stroke-width="3.6"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Whiskers -->
+  <line x1="69" y1="106" x2="85" y2="105" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="72" y1="115" x2="86" y2="111" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="191" y1="106" x2="175" y2="105" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="188" y1="115" x2="174" y2="111" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+</svg>

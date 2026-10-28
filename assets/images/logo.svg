@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%">
+  <defs>
+    <radialGradient id="shutterGlow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#28F59C" stop-opacity="0.55" />
+      <stop offset="65%" stop-color="#10B981" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="shutterIris" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38F8A6" />
+      <stop offset="100%" stop-color="#0CAE6B" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#68D458" />
+      <stop offset="100%" stop-color="#43AA38" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. LEFT EAR -->
+  <path
+    d="M 48 116 C 43 76 50 44 61 37 C 71 31 95 54 109 73 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 55 108 C 52 78 57 53 64 48 C 72 44 90 62 101 76 Z"
+    fill="#5E4136"
+  />
+  <path
+    d="M 62 50 C 70 64 78 78 83 89"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- 2. RIGHT EAR -->
+  <path
+    d="M 192 116 C 197 76 190 44 179 37 C 169 31 145 54 131 73 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 185 108 C 188 78 183 53 176 48 C 168 44 150 62 139 76 Z"
+    fill="#5E4136"
+  />
+  <path
+    d="M 178 50 C 170 64 162 78 157 89"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- 3. TOP NUTRITION SPROUT -->
+  <g>
+    <path
+      d="M 120 70 L 120 55"
+      stroke="#25853E"
+      stroke-width="5"
+      stroke-linecap="round"
+    />
+    <!-- Left Leaf -->
+    <path
+      d="M 120 60 C 106 60 99 50 100 41 C 110 40 119 47 120 60 Z"
+      fill="url(#leafGrad)"
+      stroke="#1E6F35"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M 120 60 C 114 53 109 48 105 45"
+      stroke="#1E6F35"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      fill="none"
+    />
+    <!-- Right Leaf -->
+    <path
+      d="M 120 58 C 121 41 132 33 145 34 C 145 48 135 58 120 58 Z"
+      fill="url(#leafGrad)"
+      stroke="#1E6F35"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M 120 58 C 126 49 132 43 138 39"
+      stroke="#1E6F35"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      fill="none"
+    />
+  </g>
+
+  <!-- 4. HEAD SILHOUETTE WITH CHEEK TUFTS -->
+  <path
+    d="M 48 112 C 42 128 38 147 36 154 L 44 157 L 39 164 C 54 192 84 206 120 206 C 156 206 186 192 201 164 L 196 157 L 204 154 C 202 147 198 128 192 112 C 176 78 150 68 120 68 C 90 68 64 78 48 112 Z"
+    fill="#F5E8D0"
+    stroke="#2A1810"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <!-- Lower Chin Warm Shading -->
+  <path
+    d="M 46 166 C 62 190 88 202 120 202 C 152 202 178 190 194 166 C 176 184 150 193 120 193 C 90 193 64 184 46 166 Z"
+    fill="#E6D2B5"
+  />
+
+  <!-- 5. SIAMESE DARK BROWN FACE MASK -->
+  <path
+    d="M 56 136 C 56 106 82 90 120 90 C 158 90 184 106 184 136 C 184 158 164 172 146 181 C 134 187 127 189 120 189 C 113 189 106 187 94 181 C 76 172 56 158 56 136 Z"
+    fill="#4B3329"
+  />
+
+  <!-- 6. LEFT EYE (HAPPY WINK ARCH) -->
+  <path
+    d="M 73 139 C 79 121 96 121 102 139"
+    stroke="#2A1810"
+    stroke-width="6.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- 7. RIGHT EYE (6-BLADE CAMERA APERTURE SHUTTER + VIEWFINDER TICKS) -->
+  <g>
+    <!-- Soft Outer Emerald Glow -->
+    <circle cx="151" cy="134" r="30" fill="url(#shutterGlow)" />
+
+    <!-- 4 Viewfinder Reticle Ticks -->
+    <line x1="151" y1="103" x2="151" y2="108" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="151" y1="160" x2="151" y2="165" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="120" y1="134" x2="125" y2="134" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="177" y1="134" x2="182" y2="134" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- Outer Dark Camera Ring -->
+    <circle cx="151" cy="134" r="21" fill="#141F1A" />
+    <!-- Glowing Mint-Emerald Iris -->
+    <circle cx="151" cy="134" r="17" fill="url(#shutterIris)" />
+
+    <!-- 6 Camera Shutter Blade Lines + Center Hex Aperture -->
+    <polygon
+      points="151,126 158,130 158,138 151,142 144,138 144,130"
+      fill="#141F1A"
+    />
+    <line x1="151" y1="126" x2="161" y2="118" stroke="#141F1A" stroke-width="3" />
+    <line x1="158" y1="130" x2="168" y2="134" stroke="#141F1A" stroke-width="3" />
+    <line x1="158" y1="138" x2="161" y2="150" stroke="#141F1A" stroke-width="3" />
+    <line x1="151" y1="142" x2="141" y2="150" stroke="#141F1A" stroke-width="3" />
+    <line x1="144" y1="138" x2="134" y2="134" stroke="#141F1A" stroke-width="3" />
+    <line x1="144" y1="130" x2="141" y2="118" stroke="#141F1A" stroke-width="3" />
+  </g>
+
+  <!-- 8. PINK NOSE & CAT SMILE -->
+  <path
+    d="M 111 148 C 111 144 129 144 129 148 C 129 153 123 158 120 158 C 117 158 111 153 111 148 Z"
+    fill="#F77E8B"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 101 163 C 106 173 118 171 120 158 C 122 171 134 173 139 163"
+    stroke="#2A1810"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>

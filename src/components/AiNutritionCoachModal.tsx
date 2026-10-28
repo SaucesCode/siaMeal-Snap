@@ -28,6 +28,7 @@ import { useMealStore } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import SiaCatMascot from './SiaCatMascot';
+import { SiaWalkingLoader } from './feline/SiaWalkingLoader';
 import { ToastBanner, ToastConfig } from './ToastBanner';
 
 interface AiNutritionCoachModalProps {
@@ -921,15 +922,15 @@ export function AiNutritionCoachModal({
             </View>
           )}
 
-          {/* Thinking / Typing State with Animated Mascot */}
+          {/* Thinking / Typing State with Animated Walking Mascot */}
           {isTyping && (
             <View className="flex-row items-center gap-2 mb-3">
-              <SiaCatMascot size={32} mood="thinking" withGlow={true} />
-              <View className="bg-zinc-950 border border-zinc-800/90 px-3.5 py-3 rounded-2xl flex-row items-center gap-2 shadow-sm">
-                <ActivityIndicator size="small" color="#10b981" />
-                <Text className="text-zinc-400 text-xs font-semibold">
-                  Sia is crafting your nutrition advice...
-                </Text>
+              <View className="bg-zinc-950 border border-emerald-500/30 px-3.5 py-2.5 rounded-2xl shadow-sm">
+                <SiaWalkingLoader
+                  compact={true}
+                  size={40}
+                  label="Sia is crafting your nutrition advice..."
+                />
               </View>
             </View>
           )}

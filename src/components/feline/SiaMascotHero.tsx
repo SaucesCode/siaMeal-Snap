@@ -1,8 +1,20 @@
 import React from 'react';
-import { View, Text, Image, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { hapticFeedback } from '../../utils/haptics';
+import {
+  SiaVectorCat,
+  SiaVectorMood,
+  SiaAnimationMode,
+} from './SiaVectorCat';
 
-export type MascotPose = 'scanner' | 'chef' | 'water' | 'logo';
+export type MascotPose =
+  | 'scanner'
+  | 'chef'
+  | 'water'
+  | 'logo'
+  | 'walking'
+  | 'celebrating'
+  | 'thinking';
 
 interface SiaMascotHeroProps {
   pose?: MascotPose;
@@ -11,19 +23,23 @@ interface SiaMascotHeroProps {
   badge?: string;
   onPress?: () => void;
   withGlow?: boolean;
+  animation?: SiaAnimationMode;
   style?: StyleProp<ViewStyle>;
 }
 
-const MASCOT_IMAGES: Record<MascotPose, any> = {
-  scanner: require('../../../assets/images/mascot-scanner.png'),
-  chef: require('../../../assets/images/mascot-chef.png'),
-  water: require('../../../assets/images/mascot-water.png'),
-  logo: require('../../../assets/images/logo.png'),
+const POSE_TO_MOOD: Record<MascotPose, SiaVectorMood> = {
+  scanner: 'scanning',
+  chef: 'chef',
+  water: 'water',
+  logo: 'happy',
+  walking: 'walking',
+  celebrating: 'celebrating',
+  thinking: 'thinking',
 };
 
 /**
- * SiaMascotHero - Signature character hero displaying Sia in customized poses
- * with transparent native integration, speech bubble, and subtle emerald ambient glow.
+ * SiaMascotHero - Signature 100% vector character hero displaying Sia in customized poses
+ * with UI-thread animations, speech bubble, and subtle ambient glow.
  */
 export function SiaMascotHero({
   pose = 'chef',
@@ -32,6 +48,7 @@ export function SiaMascotHero({
   badge,
   onPress,
   withGlow = true,
+  animation = 'auto',
   style,
 }: SiaMascotHeroProps) {
   const handlePress = () => {
@@ -39,7 +56,7 @@ export function SiaMascotHero({
     onPress?.();
   };
 
-  const imageSource = MASCOT_IMAGES[pose] || MASCOT_IMAGES.logo;
+  const resolvedMood = POSE_TO_MOOD[pose] || 'idle';
 
   return (
     <View style={style} className="items-center my-2">
@@ -67,40 +84,29 @@ export function SiaMascotHero({
         </View>
       )}
 
-      {/* Seamless Integrated Character Illustration (No white background, no circular crop) */}
+      {/* Native Vector Character Illustration */}
       <Pressable
         onPress={handlePress}
-        style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+        hitSlop={8}
+        style={({ pressed }) => [
+          {
+            transform: [{ scale: pressed ? 0.96 : 1 }],
+            opacity: pressed ? 0.92 : 1,
+          },
+        ]}
       >
         <View className="relative items-center justify-center">
-          {/* Soft ambient emerald backlight */}
-          {withGlow && (
-            <View
-              style={{
-                position: 'absolute',
-                width: size * 0.85,
-                height: size * 0.85,
-                borderRadius: (size * 0.85) / 2,
-                backgroundColor: pose === 'water' ? '#06b6d4' : '#10b981',
-                opacity: 0.12,
-              }}
-            />
-          )}
-
-          {/* Transparent Character Illustration */}
-          <Image
-            source={imageSource}
-            style={{
-              width: size,
-              height: size,
-            }}
-            resizeMode="contain"
+          <SiaVectorCat
+            size={size}
+            mood={resolvedMood}
+            animation={animation}
+            withGlow={withGlow}
           />
 
           {/* Optional Badge Overlap */}
           {badge && (
-            <View className="absolute -bottom-1 bg-emerald-500 border border-zinc-950 px-2.5 py-0.5 rounded-full shadow-sm">
-              <Text className="text-zinc-950 text-[10px] font-black uppercase tracking-wider">
+            <View className="mt-1 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
+              <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
                 {badge}
               </Text>
             </View>
@@ -110,5 +116,3 @@ export function SiaMascotHero({
     </View>
   );
 }
-
-export default SiaMascotHero;

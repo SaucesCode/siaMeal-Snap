@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="chefEye" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#35ECC4" />
+      <stop offset="100%" stop-color="#0EA88A" />
+    </linearGradient>
+    <linearGradient id="chefLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7EE058" />
+      <stop offset="100%" stop-color="#4EB338" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. S-CURVED SIAMESE TAIL (RIGHT) -->
+  <path
+    d="M 164 195 C 188 189 175 154 176 132 C 177 118 194 114 196 127 C 198 140 189 148 189 162 C 189 182 183 200 165 202 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- 2. TORSO & RIGHT ARM HOLDING SILVER FORK -->
+  <!-- Lower Body Base -->
+  <path
+    d="M 74 140 C 66 164 68 198 84 203 L 154 203 C 168 198 164 164 148 138 Z"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+  <!-- Neck / Chest Shadow -->
+  <path
+    d="M 88 136 C 102 146 124 146 140 136 L 136 154 L 92 154 Z"
+    fill="#E5CDB4"
+  />
+
+  <!-- Silver 3-Prong Fork -->
+  <g>
+    <path
+      d="M 69 176 L 55 144 C 50 142 46 136 44 128 L 48 126 L 52 135 L 54 134 L 50 125 L 54 123 L 58 132 L 60 131 L 56 122 L 60 120 C 64 128 64 135 61 140 L 74 173 Z"
+      fill="#DCE3EA"
+      stroke="#2A1810"
+      stroke-width="3.5"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- Right Arm & Dark Brown Paw Gripping Fork -->
+  <path
+    d="M 86 141 C 76 152 72 162 64 162 C 56 162 54 150 64 148"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="4.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <ellipse
+    cx="63"
+    cy="159"
+    rx="10"
+    ry="9"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="4"
+  />
+
+  <!-- 3. WHITE CHEF APRON WITH POCKET & SIDE BOW -->
+  <!-- Apron Tie & Bow on Right Hip -->
+  <path
+    d="M 145 170 L 164 160 C 169 156 173 162 167 166 L 171 170 C 174 174 168 178 163 172 L 145 176 Z"
+    fill="#FFFFFF"
+    stroke="#2A1810"
+    stroke-width="3.8"
+    stroke-linejoin="round"
+  />
+  <!-- Apron Bib & Skirt -->
+  <path
+    d="M 86 138 L 93 155 L 125 155 L 141 136 L 147 139 L 131 158 L 135 198 C 115 202 98 201 84 196 L 91 158 L 81 141 Z"
+    fill="#FFFFFF"
+    stroke="#2A1810"
+    stroke-width="4.2"
+    stroke-linejoin="round"
+  />
+  <!-- Apron Buttons -->
+  <circle cx="96" cy="159" r="2" fill="#2A1810" />
+  <circle cx="122" cy="159" r="2" fill="#2A1810" />
+  <!-- Apron Front Pocket -->
+  <path
+    d="M 97 177 L 119 177 L 119 187 C 119 194 97 194 97 187 Z"
+    fill="#F2F6FA"
+    stroke="#2A1810"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- 4. LEFT ARM & FRONT PAW -->
+  <path
+    d="M 136 144 C 145 160 144 184 140 198 L 125 198 C 124 184 126 164 129 154"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 124 192 C 124 185 141 185 141 192 L 141 201 C 141 206 124 206 124 201 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="4"
+  />
+
+  <!-- 5. BACK PAWS WITH PINK TOE BEANS -->
+  <!-- Left Foot -->
+  <g transform="translate(73, 194)">
+    <ellipse cx="0" cy="0" rx="13" ry="12" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+    <ellipse cx="0" cy="4" rx="5.2" ry="4.2" fill="#A56E63" />
+    <circle cx="-5.5" cy="-3.5" r="2.3" fill="#A56E63" />
+    <circle cx="0" cy="-5" r="2.3" fill="#A56E63" />
+    <circle cx="5.5" cy="-3.5" r="2.3" fill="#A56E63" />
+  </g>
+  <!-- Right Foot -->
+  <g transform="translate(157, 194)">
+    <ellipse cx="0" cy="0" rx="13" ry="12" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+    <ellipse cx="0" cy="4" rx="5.2" ry="4.2" fill="#A56E63" />
+    <circle cx="-5.5" cy="-3.5" r="2.3" fill="#A56E63" />
+    <circle cx="0" cy="-5" r="2.3" fill="#A56E63" />
+    <circle cx="5.5" cy="-3.5" r="2.3" fill="#A56E63" />
+  </g>
+
+  <!-- 6. POINTED EARS & TOP SPROUT -->
+  <!-- Left Ear -->
+  <path
+    d="M 59 92 C 55 62 60 39 69 36 C 78 34 94 50 102 64 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linejoin="round"
+  />
+  <path d="M 65 86 C 63 64 66 46 72 44 C 78 43 89 55 95 66 Z" fill="#7D5243" />
+
+  <!-- Right Ear -->
+  <path
+    d="M 161 92 C 165 62 160 39 151 36 C 142 34 126 50 118 64 Z"
+    fill="#4B3329"
+    stroke="#2A1810"
+    stroke-width="5"
+    stroke-linejoin="round"
+  />
+  <path d="M 155 86 C 157 64 154 46 148 44 C 142 43 131 55 125 66 Z" fill="#7D5243" />
+
+  <!-- Top Sprout -->
+  <g>
+    <path d="M 110 58 L 110 46" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+    <path
+      d="M 110 49 C 98 50 93 42 94 35 C 102 34 109 39 110 49 Z"
+      fill="url(#chefLeaf)"
+      stroke="#2A1810"
+      stroke-width="3.2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M 110 49 C 111 38 119 32 128 33 C 128 43 121 50 110 49 Z"
+      fill="url(#chefLeaf)"
+      stroke="#2A1810"
+      stroke-width="3.2"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- 7. HEAD & CONTOURED SIAMESE MASK -->
+  <ellipse
+    cx="110"
+    cy="101"
+    rx="54"
+    ry="43"
+    fill="#F7EBD6"
+    stroke="#2A1810"
+    stroke-width="5"
+  />
+  <!-- Peaked Siamese Mask -->
+  <path
+    d="M 66 108 C 66 92 80 86 94 80 C 103 74 106 68 110 68 C 114 68 117 74 126 80 C 140 86 154 92 154 108 C 154 124 134 129 124 134 C 117 138 114 140 110 140 C 106 140 103 138 96 134 C 86 129 66 124 66 108 Z"
+    fill="#4B3329"
+  />
+
+  <!-- 8. BIG GLOSSY TEAL-EMERALD EYES -->
+  <!-- Left Eye -->
+  <g>
+    <ellipse cx="86" cy="103" rx="12.5" ry="11.5" fill="url(#chefEye)" stroke="#2A1810" stroke-width="3.2" />
+    <ellipse cx="88" cy="104" rx="7.5" ry="8" fill="#084C41" />
+    <circle cx="84" cy="99" r="3.4" fill="#FFFFFF" />
+    <circle cx="92" cy="108" r="1.5" fill="#FFFFFF" />
+  </g>
+  <!-- Right Eye -->
+  <g>
+    <ellipse cx="134" cy="103" rx="12.5" ry="11.5" fill="url(#chefEye)" stroke="#2A1810" stroke-width="3.2" />
+    <ellipse cx="132" cy="104" rx="7.5" ry="8" fill="#084C41" />
+    <circle cx="129" cy="99" r="3.4" fill="#FFFFFF" />
+    <circle cx="137" cy="108" r="1.5" fill="#FFFFFF" />
+  </g>
+
+  <!-- 9. NOSE, OPEN HAPPY MOUTH & WHISKERS -->
+  <path d="M 105 113 C 105 110 115 110 115 113 C 115 117 110 119 110 119 Z" fill="#2A1810" />
+  <path
+    d="M 101 119 C 103 132 117 132 119 119 Z"
+    fill="#331812"
+    stroke="#2A1810"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <ellipse cx="110" cy="126" rx="5.5" ry="3.2" fill="#F77E8B" />
+  <path
+    d="M 98 117 C 102 122 108 122 110 117 C 112 122 118 122 122 117"
+    stroke="#2A1810"
+    stroke-width="3.8"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Whiskers -->
+  <line x1="47" y1="112" x2="64" y2="111" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="50" y1="121" x2="65" y2="117" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="173" y1="112" x2="156" y2="111" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+  <line x1="170" y1="121" x2="155" y2="117" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
+</svg>
