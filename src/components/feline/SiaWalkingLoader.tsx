@@ -20,7 +20,7 @@ export interface SiaWalkingLoaderProps {
   sublabel?: string;
   /** Diameter of the walking mascot in pixels. Default: 112 */
   size?: number;
-  /** Duration in ms to walk from Point A to Point B. Default: 2100 */
+  /** Duration in ms to walk from Point A to Point B. Default: 2150 */
   traverseDuration?: number;
   /** Walk once from Point A to Point B (for startup launch) or repeat */
   oneShot?: boolean;
@@ -44,7 +44,31 @@ function PawPrintIcon({ size = 14, color = '#10b981' }: { size?: number; color?:
   );
 }
 
-const RUNWAY_HALF_SPAN = 88; // Point A (-88) to Point B (+88) = 176px travel
+const RUNWAY_HALF_SPAN = 92; // Point A (-92) to Point B (+92) = 184px smooth travel
+
+/**
+ * Smoothly interpolates footstep paw print opacity & scale as Sia walks past threshold `t0`.
+ */
+function computeFootstepStyle(progress: number, t0: number, offsetY: number) {
+  'worklet';
+  const entryWindow = 0.08;
+  const raw = (progress - t0) / entryWindow;
+  const reveal = Math.max(0, Math.min(1, raw));
+  const trailFade = progress > t0 + entryWindow
+    ? Math.max(0.32, 1 - (progress - (t0 + entryWindow)) * 0.65)
+    : reveal;
+  const opacity = 0.06 + trailFade * 0.88;
+  const scale = 0.68 + reveal * 0.36;
+
+  return {
+    opacity,
+    transform: [
+      { rotate: '78deg' },
+      { translateY: offsetY },
+      { scale },
+    ],
+  };
+}
 
 /**
  * SiaWalkingLoader - Sia walks smoothly from Point A (left) to Point B (right),
@@ -54,7 +78,7 @@ export function SiaWalkingLoader({
   label = 'Sia is on the prowl...',
   sublabel,
   size = 112,
-  traverseDuration = 2100,
+  traverseDuration = 2150,
   oneShot = false,
   compact = false,
   style,
@@ -74,20 +98,21 @@ export function SiaWalkingLoader({
 
     walkProgress.set(0);
 
-    const smoothCurve = Easing.bezier(0.32, 0.08, 0.24, 1);
+    // Steady stride-matched pace with soft start & arrival so paws never slide
+    const steadyWalkCurve = Easing.bezier(0.22, 0.14, 0.78, 0.86);
 
     if (oneShot) {
       walkProgress.set(
         withTiming(1, {
           duration: traverseDuration,
-          easing: smoothCurve,
+          easing: steadyWalkCurve,
         })
       );
     } else {
       walkProgress.set(
         withRepeat(
           withSequence(
-            withTiming(1, { duration: traverseDuration, easing: smoothCurve }),
+            withTiming(1, { duration: traverseDuration, easing: steadyWalkCurve }),
             withTiming(0, { duration: 0 })
           ),
           -1,
@@ -101,7 +126,7 @@ export function SiaWalkingLoader({
     };
   }, [reducedMotion, oneShot, traverseDuration]);
 
-  // Sia's horizontal traversal from Point A (-88) to Point B (+88)
+  // Sia's horizontal traversal from Point A (-92) to Point B (+92)
   const catTraverseStyle = useAnimatedStyle(() => {
     const p = walkProgress.get();
     const x = -RUNWAY_HALF_SPAN + p * (RUNWAY_HALF_SPAN * 2);
@@ -113,61 +138,19 @@ export function SiaWalkingLoader({
   // Compact mode for chat bubble thinking indicator
   const compactTraverseStyle = useAnimatedStyle(() => {
     const p = walkProgress.get();
-    const x = -12 + p * 24;
+    const x = -14 + p * 28;
     return {
       transform: [{ translateX: x }],
     };
   });
 
-  // Footstep paw print reveal styles as Sia steps past each threshold (0.10 .. 0.82)
-  const pawStep0 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.08;
-    return {
-      opacity: active ? Math.max(0.25, 1 - (p - 0.08) * 0.65) : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
-    };
-  });
-  const pawStep1 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.24;
-    return {
-      opacity: active ? Math.max(0.3, 1 - (p - 0.24) * 0.65) : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1 : 0.7 }],
-    };
-  });
-  const pawStep2 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.4;
-    return {
-      opacity: active ? Math.max(0.35, 1 - (p - 0.4) * 0.65) : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
-    };
-  });
-  const pawStep3 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.56;
-    return {
-      opacity: active ? Math.max(0.45, 1 - (p - 0.56) * 0.6) : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1 : 0.7 }],
-    };
-  });
-  const pawStep4 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.72;
-    return {
-      opacity: active ? Math.max(0.6, 1 - (p - 0.72) * 0.5) : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
-    };
-  });
-  const pawStep5 = useAnimatedStyle(() => {
-    const p = walkProgress.get();
-    const active = p >= 0.88;
-    return {
-      opacity: active ? 0.95 : 0.06,
-      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1.05 : 0.7 }],
-    };
-  });
+  // Smoothly revealed footstep paw prints along the runway
+  const pawStep0 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.08, 3));
+  const pawStep1 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.23, -3));
+  const pawStep2 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.38, 3));
+  const pawStep3 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.53, -3));
+  const pawStep4 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.68, 3));
+  const pawStep5 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.83, -3));
 
   if (compact) {
     return (
@@ -244,7 +227,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   runwayStage: {
-    width: 260,
+    width: 268,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -253,7 +236,7 @@ const styles = StyleSheet.create({
   footstepTrack: {
     position: 'absolute',
     bottom: 12,
-    width: 196,
+    width: 204,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
