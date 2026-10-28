@@ -251,16 +251,31 @@ export default function DashboardScreen() {
     todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
   }), [displayName, profile, targetCalories, targetProtein, targetCarbs, targetFat, consumedTotals, meals]);
 
-  // Dynamic Feline Companion Mood & Telemetry Speech
+  const [petCount, setPetCount] = useState(0);
+
+  // Dynamic Feline Companion Mood & Telemetry Speech (Cycles pose when petted!)
   const companionMood = useMemo<SiaMood>(() => {
+    if (petCount > 0) {
+      const poses: SiaMood[] = ['chef', 'scanner', 'water', 'walking', 'celebrating'];
+      return poses[(petCount - 1) % poses.length];
+    }
     if (consumedTotals.protein_g >= targetProtein) return 'celebrating';
-    if (consumedTotals.calories > targetCalories) return 'thinking';
-    if (consumedTotals.calories === 0) return 'idle';
-    if (targetCalories - consumedTotals.calories < 400) return 'happy';
-    return 'scanning';
-  }, [consumedTotals, targetCalories, targetProtein]);
+    if (consumedTotals.calories > targetCalories) return 'chef';
+    if (consumedTotals.calories === 0) return 'scanner';
+    if (targetCalories - consumedTotals.calories < 400) return 'water';
+    return 'scanner';
+  }, [petCount, consumedTotals, targetCalories, targetProtein]);
 
   const companionSpeech = useMemo(() => {
+    if (petCount > 0) {
+      const petLines = [
+        'Purrrr! Chef Sia says high-protein meals keep your metabolism roaring!',
+        'My aperture eye is locked onto your macro targets today!',
+        'Splash time! Keep sipping water between meals for peak recovery.',
+        'Prowling alongside you all day — let’s crush today’s nutrition goals!',
+      ];
+      return petLines[(petCount - 1) % petLines.length];
+    }
     if (consumedTotals.protein_g >= targetProtein) {
       return '🎉 Protein goal pounced! Lean muscle is locked in.';
     }
@@ -272,8 +287,8 @@ export default function DashboardScreen() {
     }
     const remainingCal = Math.max(0, targetCalories - consumedTotals.calories);
     const remainingProt = Math.max(0, targetProtein - consumedTotals.protein_g);
-    return `🐾 ${remainingCal} kcal & ${remainingProt}g protein left today. Tap to chat with Sia!`;
-  }, [consumedTotals, targetCalories, targetProtein]);
+    return `🐾 ${remainingCal} kcal & ${remainingProt}g protein left today. Tap bubble to chat!`;
+  }, [petCount, consumedTotals, targetCalories, targetProtein]);
 
   // Hydration metrics
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
@@ -393,42 +408,64 @@ export default function DashboardScreen() {
         {/* Smart Feline Notification Opt-In Prompt */}
         <NotificationPermissionBanner />
 
-        {/* Elevated Sia Mascot Hero Stage */}
-        <Pressable
-          onPress={() => {
-            hapticFeedback.purr();
-            setCoachModalVisible(true);
-          }}
-          style={({ pressed }) => [
-            { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.92 : 1 },
-          ]}
-          className="bg-zinc-900/90 border border-emerald-500/30 rounded-3xl p-3.5 mb-4 shadow-sm shadow-emerald-500/10 flex-row items-center gap-3 relative overflow-hidden"
+        {/* Borderless Living Sia Companion Stage (Perched Above Macro Card) */}
+        <View
+          style={{ marginBottom: -8, zIndex: 20 }}
+          className="flex-row items-end gap-2.5 px-1"
         >
-          {/* Seamlessly Integrated Feline Mascot */}
-          <View className="items-center justify-center">
-            <SiaCatMascot size={54} mood={companionMood} withGlow={true} standalone={true} />
-          </View>
+          {/* Free-Standing Interactive Animated Sia (Tap to Pet & Cycle Poses!) */}
+          <SiaCatMascot
+            size={86}
+            mood={companionMood}
+            withGlow={true}
+            interactive={true}
+            onPress={() => setPetCount((c) => c + 1)}
+          />
 
-          {/* Feline Speech Bubble Container */}
-          <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl px-3 py-2.5">
-            <View className="flex-row items-center justify-between mb-0.5">
+          {/* Floating Comic Speech Bubble with Left Tail Pointer */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.purr();
+              setCoachModalVisible(true);
+            }}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.92 : 1 },
+            ]}
+            className="flex-1 mb-3 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl px-3.5 py-2.5 shadow-md shadow-black relative"
+          >
+            {/* Comic Speech Tail Pointing to Sia */}
+            <View
+              style={{
+                position: 'absolute',
+                left: -6,
+                bottom: 14,
+                width: 12,
+                height: 12,
+                backgroundColor: '#18181b',
+                borderLeftWidth: 1,
+                borderBottomWidth: 1,
+                borderColor: 'rgba(16, 185, 129, 0.35)',
+                transform: [{ rotate: '45deg' }],
+              }}
+            />
+            <View className="flex-row items-center justify-between mb-1">
               <View className="flex-row items-center gap-1.5">
-                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
-                  Sia Nutrition Companion
+                <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-400 text-xs">
+                  Sia
                 </Text>
-                <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-full border border-emerald-500/30">
-                  <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                    LIVE
+                <View className="bg-emerald-500/15 px-1.5 py-0.5 rounded-full">
+                  <Text className="text-emerald-300 text-[9px] font-bold">
+                    TAP CAT TO PET 🐾
                   </Text>
                 </View>
               </View>
               <Ionicons name="chatbubble-ellipses" size={13} color="#10b981" />
             </View>
-            <Text className="text-zinc-300 text-[11px] font-medium leading-4">
+            <Text className="text-zinc-200 text-[11px] font-medium leading-4">
               {companionSpeech}
             </Text>
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
 
         {/* 1. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
         <DailyMacroSummary

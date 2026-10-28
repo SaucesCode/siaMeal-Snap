@@ -45,12 +45,13 @@ LogBox.ignoreLogs([
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+const WALK_DURATION_MS = 2150;
+
 export default function RootLayout() {
   const { isInitialized, initialize } = useAuthStore();
   const [minWalkDone, setMinWalkDone] = useState(false);
   const [launchHidden, setLaunchHidden] = useState(false);
 
-  const progressWidth = useSharedValue(8);
   const overlayOpacity = useSharedValue(1);
 
   const [fontsLoaded] = useFonts({
@@ -65,22 +66,14 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // Hide the static OS splash immediately so our animated walking mascot launch screen plays
+    // Hide the static OS splash immediately so our Point A -> Point B walking mascot plays
     SplashScreen.hideAsync().catch(() => {});
     initialize();
     const cleanupSync = initSyncQueue();
 
-    // Animate the launch progress bar while Sia walks
-    progressWidth.set(
-      withTiming(100, {
-        duration: 2100,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      })
-    );
-
     const timer = setTimeout(() => {
       setMinWalkDone(true);
-    }, 2200);
+    }, WALK_DURATION_MS);
 
     return () => {
       clearTimeout(timer);
@@ -101,10 +94,6 @@ export default function RootLayout() {
       return () => clearTimeout(fadeTimer);
     }
   }, [appReady, launchHidden]);
-
-  const progressFillStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.get()}%`,
-  }));
 
   const launchFadeStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.get(),
@@ -134,7 +123,7 @@ export default function RootLayout() {
         </Stack>
       )}
 
-      {/* Animated Walking Mascot App Startup Screen */}
+      {/* Point A -> Point B Walking Mascot App Startup Screen (No Loading Bar) */}
       {!launchHidden && (
         <Animated.View style={[styles.launchOverlay, launchFadeStyle]} pointerEvents="auto">
           <View style={styles.brandBadge}>
@@ -147,15 +136,12 @@ export default function RootLayout() {
           </View>
 
           <SiaWalkingLoader
-            size={140}
+            size={128}
+            traverseDuration={WALK_DURATION_MS}
+            oneShot={true}
             label="Sia is on the prowl..."
             sublabel="Calibrating your daily macro intelligence"
           />
-
-          {/* Progress Track */}
-          <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, progressFillStyle]} />
-          </View>
         </Animated.View>
       )}
     </View>
@@ -177,13 +163,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
   brandBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 18,
+    marginBottom: 20,
   },
   brandTitle: {
     color: '#ffffff',
@@ -207,20 +193,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-  },
-  progressTrack: {
-    width: 180,
-    height: 6,
-    backgroundColor: '#18181b',
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 18,
-    borderWidth: 1,
-    borderColor: '#27272a',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#10b981',
-    borderRadius: 999,
   },
 });

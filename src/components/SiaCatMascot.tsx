@@ -21,11 +21,15 @@ export interface SiaCatMascotProps {
   withGlow?: boolean;
   /** Kept for backwards compatibility — always renders as native uncropped SVG vector */
   standalone?: boolean;
+  /** Enable interactive tap-to-pet squash & heart reaction */
+  interactive?: boolean;
+  /** Optional callback when mascot is tapped */
+  onPress?: () => void;
 }
 
 /**
  * SiaCatMascot - Official 100% Native 2D Vector SVG Mascot for SiaMeal Snap.
- * Articulated and animated on the UI thread via Reanimated 4.
+ * Multi-part skeletal animation on the UI thread via Reanimated 4.
  */
 export default function SiaCatMascot({
   size = 64,
@@ -33,6 +37,8 @@ export default function SiaCatMascot({
   animation = 'auto',
   style,
   withGlow = true,
+  interactive = false,
+  onPress,
 }: SiaCatMascotProps) {
   return (
     <View style={[styles.container, { width: size, height: size }, style]}>
@@ -41,6 +47,8 @@ export default function SiaCatMascot({
         mood={mood}
         animation={animation}
         withGlow={withGlow}
+        interactive={interactive}
+        onPress={onPress}
       />
     </View>
   );

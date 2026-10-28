@@ -39,8 +39,7 @@ const QUICK_AMOUNTS: QuickAmountOption[] = [
 
 const GOAL_OPTIONS = [2000, 2500, 3000, 3500, 4000];
 
-const getSiaHydrationMood = (pct: number): SiaMood => {
-  if (pct >= 100) return 'celebrating';
+const getSiaHydrationMood = (_pct: number): SiaMood => {
   return 'water';
 };
 
@@ -582,10 +581,10 @@ export default function WaterScreen() {
               <View className="items-center justify-center">
                 <View className="mb-0.5">
                   <SiaCatMascot
-                    size={52}
-                    mood={getSiaHydrationMood(percentage)}
-                    withGlow={percentage >= 100}
-                    standalone={true}
+                    size={72}
+                    mood="water"
+                    withGlow={true}
+                    interactive={true}
                   />
                 </View>
                 <Text

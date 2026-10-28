@@ -155,7 +155,7 @@ export default function OnboardingScreen() {
         return {
           title: 'Daily Prowl Activity',
           subtitle: 'Physical Activity Level (PAL)',
-          mascotMood: 'thinking' as const,
+          mascotMood: 'walking' as const,
           speech: 'How active are your daily prowls? This multiplier scales your BMR into your Total Daily Energy Expenditure (TDEE).',
         };
       case 3:
@@ -169,7 +169,7 @@ export default function OnboardingScreen() {
         return {
           title: 'Macro Fuel Ratio',
           subtitle: 'Protein, Carbs & Healthy Fats',
-          mascotMood: 'happy' as const,
+          mascotMood: 'chef' as const,
           speech: 'What kind of prey fuels your engine best? Choose how we balance your calories across clean macros.',
         };
       case 5:
@@ -254,16 +254,29 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Sia Mascot Interactive Speech Bubble */}
-          <View className="bg-zinc-900/90 border border-emerald-500/25 rounded-3xl p-3.5 flex-row items-center gap-3.5 mb-5 shadow-sm shadow-emerald-500/5">
-            <View className="items-center justify-center">
-              <SiaCatMascot
-                size={48}
-                mood={stepMeta.mascotMood}
-                withGlow={step === 5 || step === 3}
+          {/* Borderless Free-Standing Sia Companion + Comic Speech Bubble */}
+          <View className="flex-row items-center gap-3 mb-5 px-1">
+            <SiaCatMascot
+              size={76}
+              mood={stepMeta.mascotMood}
+              withGlow={true}
+              interactive={true}
+            />
+            <View className="flex-1 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl p-3.5 relative shadow-md shadow-black">
+              <View
+                style={{
+                  position: 'absolute',
+                  left: -6,
+                  top: '45%',
+                  width: 12,
+                  height: 12,
+                  backgroundColor: '#18181b',
+                  borderLeftWidth: 1,
+                  borderBottomWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.35)',
+                  transform: [{ rotate: '45deg' }],
+                }}
               />
-            </View>
-            <View className="flex-1">
               <View className="flex-row items-center gap-1.5 mb-0.5">
                 <Text
                   style={{ fontFamily: 'Outfit_700Bold' }}
@@ -277,7 +290,7 @@ export default function OnboardingScreen() {
                   </Text>
                 </View>
               </View>
-              <Text className="text-zinc-400 text-[11px] font-medium leading-4">
+              <Text className="text-zinc-300 text-[11px] font-medium leading-4">
                 {stepMeta.speech}
               </Text>
             </View>

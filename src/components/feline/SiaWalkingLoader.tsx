@@ -7,7 +7,6 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  withDelay,
   Easing,
   useReducedMotion,
   cancelAnimation,
@@ -19,8 +18,12 @@ export interface SiaWalkingLoaderProps {
   label?: string;
   /** Optional secondary subtext */
   sublabel?: string;
-  /** Diameter of the walking mascot in pixels. Default: 84 */
+  /** Diameter of the walking mascot in pixels. Default: 112 */
   size?: number;
+  /** Duration in ms to walk from Point A to Point B. Default: 2100 */
+  traverseDuration?: number;
+  /** Walk once from Point A to Point B (for startup launch) or repeat */
+  oneShot?: boolean;
   /** Compact inline mode for chat bubbles or small cards */
   compact?: boolean;
   /** Optional container style */
@@ -31,9 +34,7 @@ function PawPrintIcon({ size = 14, color = '#10b981' }: { size?: number; color?:
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <G fill={color}>
-        {/* Main Pad */}
         <Circle cx="12" cy="15" r="4.5" />
-        {/* Toe Pads */}
         <Circle cx="6.5" cy="9.5" r="2.2" />
         <Circle cx="10.2" cy="7" r="2.2" />
         <Circle cx="14.5" cy="7" r="2.2" />
@@ -43,111 +44,149 @@ function PawPrintIcon({ size = 14, color = '#10b981' }: { size?: number; color?:
   );
 }
 
+const RUNWAY_HALF_SPAN = 88; // Point A (-88) to Point B (+88) = 176px travel
+
 /**
- * SiaWalkingLoader - Animated trotting Siamese cat loader with fading emerald paw prints.
- * Replaces generic ActivityIndicators with native brand personality.
+ * SiaWalkingLoader - Sia walks smoothly from Point A (left) to Point B (right),
+ * leaving a trail of glowing emerald paw prints in her footsteps with zero progress bar.
  */
 export function SiaWalkingLoader({
   label = 'Sia is on the prowl...',
   sublabel,
-  size = 84,
+  size = 112,
+  traverseDuration = 2100,
+  oneShot = false,
   compact = false,
   style,
 }: SiaWalkingLoaderProps) {
   const reducedMotion = useReducedMotion();
 
-  const paw1Opacity = useSharedValue(0.2);
-  const paw2Opacity = useSharedValue(0.2);
-  const paw3Opacity = useSharedValue(0.2);
-  const horizontalProwl = useSharedValue(0);
+  // Normalized walk progress from 0 (Point A) to 1 (Point B)
+  const walkProgress = useSharedValue(reducedMotion ? 0.5 : 0);
 
   useEffect(() => {
-    if (reducedMotion) return;
+    cancelAnimation(walkProgress);
 
-    // Subtle horizontal patrol drift
-    horizontalProwl.set(
-      withRepeat(
-        withSequence(
-          withTiming(6, { duration: 900, easing: Easing.inOut(Easing.quad) }),
-          withTiming(-6, { duration: 900, easing: Easing.inOut(Easing.quad) })
-        ),
-        -1,
-        true
-      )
-    );
+    if (reducedMotion) {
+      walkProgress.set(0.5);
+      return;
+    }
 
-    // Sequential paw print trail pulse
-    paw1Opacity.set(
-      withRepeat(
-        withSequence(
-          withTiming(0.95, { duration: 300 }),
-          withTiming(0.15, { duration: 600 })
-        ),
-        -1,
-        false
-      )
-    );
+    walkProgress.set(0);
 
-    paw2Opacity.set(
-      withDelay(
-        300,
+    const smoothCurve = Easing.bezier(0.32, 0.08, 0.24, 1);
+
+    if (oneShot) {
+      walkProgress.set(
+        withTiming(1, {
+          duration: traverseDuration,
+          easing: smoothCurve,
+        })
+      );
+    } else {
+      walkProgress.set(
         withRepeat(
           withSequence(
-            withTiming(0.95, { duration: 300 }),
-            withTiming(0.15, { duration: 600 })
+            withTiming(1, { duration: traverseDuration, easing: smoothCurve }),
+            withTiming(0, { duration: 0 })
           ),
           -1,
           false
         )
-      )
-    );
-
-    paw3Opacity.set(
-      withDelay(
-        600,
-        withRepeat(
-          withSequence(
-            withTiming(0.95, { duration: 300 }),
-            withTiming(0.15, { duration: 600 })
-          ),
-          -1,
-          false
-        )
-      )
-    );
+      );
+    }
 
     return () => {
-      cancelAnimation(horizontalProwl);
-      cancelAnimation(paw1Opacity);
-      cancelAnimation(paw2Opacity);
-      cancelAnimation(paw3Opacity);
+      cancelAnimation(walkProgress);
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, oneShot, traverseDuration]);
 
-  const catDriftStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: horizontalProwl.get() }],
-  }));
+  // Sia's horizontal traversal from Point A (-88) to Point B (+88)
+  const catTraverseStyle = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const x = -RUNWAY_HALF_SPAN + p * (RUNWAY_HALF_SPAN * 2);
+    return {
+      transform: [{ translateX: x }],
+    };
+  });
 
-  const paw1Style = useAnimatedStyle(() => ({ opacity: paw1Opacity.get() }));
-  const paw2Style = useAnimatedStyle(() => ({ opacity: paw2Opacity.get() }));
-  const paw3Style = useAnimatedStyle(() => ({ opacity: paw3Opacity.get() }));
+  // Compact mode for chat bubble thinking indicator
+  const compactTraverseStyle = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const x = -12 + p * 24;
+    return {
+      transform: [{ translateX: x }],
+    };
+  });
+
+  // Footstep paw print reveal styles as Sia steps past each threshold (0.10 .. 0.82)
+  const pawStep0 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.08;
+    return {
+      opacity: active ? Math.max(0.25, 1 - (p - 0.08) * 0.65) : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
+    };
+  });
+  const pawStep1 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.24;
+    return {
+      opacity: active ? Math.max(0.3, 1 - (p - 0.24) * 0.65) : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1 : 0.7 }],
+    };
+  });
+  const pawStep2 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.4;
+    return {
+      opacity: active ? Math.max(0.35, 1 - (p - 0.4) * 0.65) : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
+    };
+  });
+  const pawStep3 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.56;
+    return {
+      opacity: active ? Math.max(0.45, 1 - (p - 0.56) * 0.6) : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1 : 0.7 }],
+    };
+  });
+  const pawStep4 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.72;
+    return {
+      opacity: active ? Math.max(0.6, 1 - (p - 0.72) * 0.5) : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: 3 }, { scale: active ? 1 : 0.7 }],
+    };
+  });
+  const pawStep5 = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const active = p >= 0.88;
+    return {
+      opacity: active ? 0.95 : 0.06,
+      transform: [{ rotate: '78deg' }, { translateY: -3 }, { scale: active ? 1.05 : 0.7 }],
+    };
+  });
 
   if (compact) {
     return (
       <View style={[styles.compactContainer, style]}>
-        <Animated.View style={catDriftStyle}>
-          <SiaVectorCat size={size} mood="walking" animation="walk" withGlow={true} />
-        </Animated.View>
+        <View style={styles.compactRunway}>
+          <Animated.View style={compactTraverseStyle}>
+            <SiaVectorCat size={size} mood="walking" animation="walk" withGlow={true} />
+          </Animated.View>
+        </View>
         <View style={styles.compactTextWrap}>
           {!!label && <Text style={styles.compactLabel}>{label}</Text>}
           <View style={styles.pawRow}>
-            <Animated.View style={paw1Style}>
+            <Animated.View style={pawStep1}>
               <PawPrintIcon size={11} />
             </Animated.View>
-            <Animated.View style={paw2Style}>
+            <Animated.View style={pawStep3}>
               <PawPrintIcon size={11} />
             </Animated.View>
-            <Animated.View style={paw3Style}>
+            <Animated.View style={pawStep5}>
               <PawPrintIcon size={11} />
             </Animated.View>
           </View>
@@ -158,22 +197,32 @@ export function SiaWalkingLoader({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.stage}>
-        {/* Trailing Paw Prints Behind Sia */}
-        <View style={styles.trailTrack}>
-          <Animated.View style={[styles.trailPaw, paw1Style, { transform: [{ rotate: '75deg' }, { translateY: 3 }] }]}>
+      {/* Point A -> Point B Runway Stage */}
+      <View style={[styles.runwayStage, { height: size + 16 }]}>
+        {/* Footstep Paw Print Trail Along the Ground Between Point A & Point B */}
+        <View style={styles.footstepTrack}>
+          <Animated.View style={pawStep0}>
             <PawPrintIcon size={14} />
           </Animated.View>
-          <Animated.View style={[styles.trailPaw, paw2Style, { transform: [{ rotate: '75deg' }, { translateY: -3 }] }]}>
+          <Animated.View style={pawStep1}>
             <PawPrintIcon size={14} />
           </Animated.View>
-          <Animated.View style={[styles.trailPaw, paw3Style, { transform: [{ rotate: '75deg' }, { translateY: 2 }] }]}>
+          <Animated.View style={pawStep2}>
+            <PawPrintIcon size={14} />
+          </Animated.View>
+          <Animated.View style={pawStep3}>
+            <PawPrintIcon size={14} />
+          </Animated.View>
+          <Animated.View style={pawStep4}>
+            <PawPrintIcon size={14} />
+          </Animated.View>
+          <Animated.View style={pawStep5}>
             <PawPrintIcon size={14} />
           </Animated.View>
         </View>
 
-        {/* Trotting Vector Mascot */}
-        <Animated.View style={catDriftStyle}>
+        {/* Sia Physically Walking from Point A (Left) to Point B (Right) */}
+        <Animated.View style={catTraverseStyle}>
           <SiaVectorCat size={size} mood="walking" animation="walk" withGlow={true} />
         </Animated.View>
       </View>
@@ -190,28 +239,28 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '100%',
   },
-  stage: {
-    flexDirection: 'row',
+  runwayStage: {
+    width: 260,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    position: 'relative',
+    marginBottom: 8,
   },
-  trailTrack: {
+  footstepTrack: {
+    position: 'absolute',
+    bottom: 12,
+    width: 196,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginRight: 4,
-    marginTop: 22,
-  },
-  trailPaw: {
-    padding: 2,
+    justifyContent: 'space-between',
   },
   label: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Outfit_700Bold',
     textAlign: 'center',
     letterSpacing: 0.3,
@@ -226,8 +275,13 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     paddingVertical: 4,
+  },
+  compactRunway: {
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   compactTextWrap: {
     flexDirection: 'column',
@@ -241,6 +295,6 @@ const styles = StyleSheet.create({
   pawRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
 });
