@@ -5,7 +5,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
-import SiaCatMascot from './SiaCatMascot';
 import { getSiaForecastRecommendation } from '../utils/mealForecastEngine';
 
 interface SiaNextCatchCardProps {
@@ -85,20 +84,19 @@ export function SiaNextCatchCard({ targets, consumed, loggedMeals }: SiaNextCatc
             activeOpacity={0.7}
             className="flex-row items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800/80 active:bg-zinc-700/80 border border-zinc-700/60"
           >
-            <Ionicons name="refresh" size={11} color="#a1a1aa" />
-            <Text className="text-zinc-400 text-[11px] font-semibold">Paw another</Text>
+            <Ionicons name="shuffle" size={12} color="#a1a1aa" />
+            <Text className="text-zinc-400 text-[11px] font-semibold">Shuffle idea</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Main Content Area: Seamlessly Integrated Chef Mascot + Catch Title & Tag */}
+      {/* Main Content Area: Dish Icon + Title & Tag */}
       <View className="flex-row items-center gap-3 mb-3.5">
-        <View className="items-center justify-center">
-          <SiaCatMascot
-            size={58}
-            mood="chef"
-            standalone={true}
-            withGlow={true}
+        <View className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 items-center justify-center">
+          <MaterialCommunityIcons
+            name={forecast.isGoalMet ? 'trophy-outline' : 'food-apple-outline'}
+            size={22}
+            color={forecast.isGoalMet ? '#38bdf8' : '#10b981'}
           />
         </View>
 

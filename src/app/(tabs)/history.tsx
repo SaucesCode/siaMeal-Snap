@@ -12,16 +12,13 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMealStore } from '../../stores/mealStore';
+import { useMealStore, getLocalDateString } from '../../stores/mealStore';
 import { useAuthStore } from '../../stores/authStore';
 import { MealItemCard } from '../../components/MealItemCard';
 import { MealDetailModal } from '../../components/MealDetailModal';
 import { WeeklyAdherenceChart } from '../../components/WeeklyAdherenceChart';
-import { AiNutritionCoachModal } from '../../components/AiNutritionCoachModal';
-import { FloatingCoachWidget } from '../../components/FloatingCoachWidget';
+import { useCoachStore } from '../../stores/coachStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
-import { FelineEmptyState } from '../../components/FelineEmptyState';
-import SiaCatMascot from '../../components/SiaCatMascot';
 import {
   generateWeeklyCoachingInsights,
   calculateMacroEnergySplit,
@@ -63,8 +60,7 @@ export default function HistoryScreen() {
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [activeTipIndex, setActiveTipIndex] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [coachModalVisible, setCoachModalVisible] = useState(false);
-  const [coachInitialQuery, setCoachInitialQuery] = useState('');
+  const openCoach = useCoachStore((state) => state.openCoach);
 
   const targetCalories = profile?.target_calories || 2000;
   const targetProtein = profile?.target_protein_g || 150;
@@ -113,7 +109,7 @@ export default function HistoryScreen() {
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(now.getDate() - (i + weekOffset * 7));
-      const isoStr = d.toISOString().split('T')[0];
+      const isoStr = getLocalDateString(d);
       const label =
         weekOffset === 0 && i === 0
           ? 'Today'
@@ -564,16 +560,30 @@ export default function HistoryScreen() {
           </View>
 
           {meals.length === 0 ? (
-            <FelineEmptyState
-              title="No Catches on This Day"
-              description={`Sia has no hunting records for ${selectedDateLabel}. Tap any bar in the weekly chart above to inspect another day.`}
-              actionLabel="Return to Today"
-              onAction={() => {
-                hapticFeedback.light();
-                setSelectedDate(new Date().toISOString().split('T')[0]);
-              }}
-              mood="thinking"
-            />
+            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-2xl p-6 items-center my-2">
+              <View className="w-12 h-12 rounded-full bg-zinc-800/80 border border-zinc-700/60 items-center justify-center mb-2.5">
+                <Ionicons name="calendar-outline" size={22} color="#a1a1aa" />
+              </View>
+              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-sm mb-1 text-center">
+                No Meals Logged on This Day
+              </Text>
+              <Text className="text-zinc-400 text-xs text-center mb-4 leading-relaxed max-w-[260px]">
+                No nutrition records for {selectedDateLabel}. Tap any bar in the weekly chart above to inspect historical data.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  hapticFeedback.light();
+                  setSelectedDate(new Date().toISOString().split('T')[0]);
+                }}
+                activeOpacity={0.8}
+                className="bg-emerald-500/15 border border-emerald-500/35 px-4 py-2 rounded-xl flex-row items-center gap-1.5"
+              >
+                <Ionicons name="today-outline" size={15} color="#34d399" />
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-emerald-400 text-xs">
+                  Return to Today
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             mealSections.map((section) => {
               if (section.meals.length === 0) return null;
@@ -623,30 +633,12 @@ export default function HistoryScreen() {
           onClose={() => setSelectedMeal(null)}
           onAskCoach={(meal) => {
             setSelectedMeal(null);
-            setCoachInitialQuery(
+            openCoach(
               `I'm inspecting a logged catch from ${selectedDateLabel}: "${meal.name}" (${Math.round(meal.calories)} kcal, ${Math.round(meal.protein_g)}g protein, ${Math.round(meal.carbs_g)}g carbs, ${Math.round(meal.fat_g)}g fat). How did this meal contribute to my macro split and what suggestions do you have?`
             );
-            setCoachModalVisible(true);
           }}
         />
       )}
-
-      {/* Floating AI Coach Widget */}
-      <FloatingCoachWidget
-        onPress={() => {
-          hapticFeedback.medium();
-          setCoachInitialQuery('');
-          setCoachModalVisible(true);
-        }}
-      />
-
-      {/* AI Nutrition Coach Modal — always mounted so chat history persists */}
-      <AiNutritionCoachModal
-        visible={coachModalVisible}
-        onClose={() => setCoachModalVisible(false)}
-        userContext={coachUserContext}
-        initialQuery={coachInitialQuery}
-      />
     </SafeAreaView>
   );
 }

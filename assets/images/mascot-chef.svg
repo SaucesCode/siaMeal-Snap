@@ -176,13 +176,13 @@
 
   <!-- 8. BIG GLOSSY TEAL-EMERALD EYES -->
   <g>
-    <ellipse cx="86" cy="103" rx="12.5" ry="11.5" fill="url(#chefEye)" stroke="#2A1810" stroke-width="3.2" />
+    <ellipse cx="86" cy="103" rx="12.5" ry="11.5" fill="#1FD4AE" stroke="#2A1810" stroke-width="3.2" />
     <ellipse cx="88" cy="104" rx="7.5" ry="8" fill="#084C41" />
     <circle cx="84" cy="99" r="3.4" fill="#FFFFFF" />
     <circle cx="92" cy="108" r="1.5" fill="#FFFFFF" />
   </g>
   <g>
-    <ellipse cx="134" cy="103" rx="12.5" ry="11.5" fill="url(#chefEye)" stroke="#2A1810" stroke-width="3.2" />
+    <ellipse cx="134" cy="103" rx="12.5" ry="11.5" fill="#1FD4AE" stroke="#2A1810" stroke-width="3.2" />
     <ellipse cx="132" cy="104" rx="7.5" ry="8" fill="#084C41" />
     <circle cx="129" cy="99" r="3.4" fill="#FFFFFF" />
     <circle cx="137" cy="108" r="1.5" fill="#FFFFFF" />

@@ -325,40 +325,40 @@ export function getSiaForecastRecommendation({
 
   // Determine current meal time slot
   let targetSlot: MealType = 'snack';
-  let slotLabel = 'MIDDAY CATCH';
-  let statusBadge = '🐾 PROWLING FOR LUNCH';
+  let slotLabel = 'LUNCH SUGGESTION';
+  let statusBadge = 'LUNCH SUGGESTION';
   let statusIcon = 'restaurant-outline';
   let statusColor = '#10b981';
 
   if (currentHour >= 5 && currentHour < 10.5) {
     targetSlot = 'breakfast';
-    slotLabel = 'MORNING POUNCE';
-    statusBadge = '☀️ SUNRISE HUNT';
+    slotLabel = 'BREAKFAST';
+    statusBadge = 'BREAKFAST SUGGESTION';
     statusIcon = 'sunny-outline';
     statusColor = '#f59e0b';
   } else if (currentHour >= 10.5 && currentHour < 14.5) {
     targetSlot = 'lunch';
-    slotLabel = 'MIDDAY CATCH';
-    statusBadge = '🐾 PROWLING FOR LUNCH';
+    slotLabel = 'LUNCH';
+    statusBadge = 'LUNCH SUGGESTION';
     statusIcon = 'restaurant-outline';
     statusColor = '#10b981';
   } else if (currentHour >= 14.5 && currentHour < 17.5) {
     targetSlot = 'snack';
-    slotLabel = 'AFTERNOON POUNCE';
-    statusBadge = '⚡ MIDDAY POUNCE';
+    slotLabel = 'AFTERNOON SNACK';
+    statusBadge = 'AFTERNOON SNACK';
     statusIcon = 'nutrition-outline';
     statusColor = '#06b6d4';
   } else if (currentHour >= 17.5 && currentHour < 21.5) {
     targetSlot = 'dinner';
-    slotLabel = 'NIGHT PROWL';
-    statusBadge = '🌙 EVENING FEAST';
+    slotLabel = 'DINNER';
+    statusBadge = 'DINNER SUGGESTION';
     statusIcon = 'moon-outline';
     statusColor = '#818cf8';
   } else {
     // 21.5 to 5.0
     targetSlot = 'snack';
-    slotLabel = 'MIDNIGHT REST';
-    statusBadge = '💤 RECOVERY FUEL';
+    slotLabel = 'RECOVERY FUEL';
+    statusBadge = 'RECOVERY FUEL';
     statusIcon = 'bed-outline';
     statusColor = '#a78bfa';
   }
@@ -376,12 +376,12 @@ export function getSiaForecastRecommendation({
   if (isGoalMet) {
     return {
       slotLabel,
-      statusBadge: '🏆 GOALS CRUSHED',
+      statusBadge: 'DAILY GOALS ACHIEVED',
       statusIcon: 'checkmark-circle-outline',
       statusColor: '#10b981',
       isGoalMet: true,
       goalMetMessage:
-        "Purrfection achieved! You've met today's energy & macro targets. Rest those paws and stay hydrated with clean water.",
+        "Daily energy and macronutrient targets reached. Stay hydrated with fresh water.",
       catch: {
         id: 'goal-met-rest',
         name: 'Daily Target Complete — Pure Hydration',

@@ -7,9 +7,13 @@ const getCoachStorageKey = (userId?: string | null) =>
   userId ? `@siamessage_coach_history_${userId}` : '@siamessage_coach_history_guest';
 
 interface CoachState {
+  isOpen: boolean;
+  initialQuery: string;
   messages: ChatMessage[];
   isLoaded: boolean;
   currentUserId: string | null;
+  openCoach: (initialQuery?: string) => void;
+  closeCoach: () => void;
   loadHistory: (userId?: string) => Promise<void>;
   addMessage: (msg: ChatMessage) => Promise<void>;
   setMessages: (messages: ChatMessage[]) => Promise<void>;
@@ -18,9 +22,19 @@ interface CoachState {
 }
 
 export const useCoachStore = create<CoachState>((set, get) => ({
+  isOpen: false,
+  initialQuery: '',
   messages: [],
   isLoaded: false,
   currentUserId: null,
+
+  openCoach: (initialQuery = '') => {
+    set({ isOpen: true, initialQuery });
+  },
+
+  closeCoach: () => {
+    set({ isOpen: false, initialQuery: '' });
+  },
 
   loadHistory: async (userId?: string) => {
     try {
@@ -84,6 +98,6 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   },
 
   reset: () => {
-    set({ messages: [], isLoaded: false, currentUserId: null });
+    set({ messages: [], isLoaded: false, currentUserId: null, isOpen: false, initialQuery: '' });
   },
 }));

@@ -1,33 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%">
-  <!-- S-Curved Siamese Tail -->
+  <!-- S-Curved Siamese Tail (Behind Torso) -->
   <path d="M 68 146 C 40 138 46 106 40 86 C 36 72 20 76 24 90 C 28 104 36 114 34 130 C 32 144 44 155 64 156 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
 
-  <!-- Far Back Sock Paw (Tucked Under Torso Belly) -->
-  <g transform="rotate(-12 70 160)">
-    <path d="M 63 156 L 63 185 C 63 192 77 192 77 185 L 77 156 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
-    <path d="M 63 177 C 67 175 73 175 77 177 L 78 185 C 78 192 63 192 63 185 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
+  <!-- Far Hind Sock Paw (Behind Torso) -->
+  <g transform="rotate(-10 68 154)">
+    <path d="M 60 153 C 60 162 61 170 62 178 L 74 178 C 75 170 76 162 76 153 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
+    <path d="M 62 176 C 62 181 62 185 62 187 C 62 190 79 190 79 186 C 79 181 74 180 74 176 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
   </g>
 
-  <!-- Far Front Sock Paw (Tucked Under Torso Belly) -->
-  <g transform="rotate(12 122 160)">
-    <path d="M 115 156 L 115 185 C 115 192 129 192 129 185 L 129 156 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
-    <path d="M 115 177 C 119 175 125 175 129 177 L 130 185 C 130 192 115 192 115 185 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
+  <!-- Far Fore Sock Paw (Behind Torso) -->
+  <g transform="rotate(10 120 154)">
+    <path d="M 112 153 C 112 162 113 170 114 178 L 126 178 C 127 170 128 162 128 153 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
+    <path d="M 114 176 C 114 181 114 185 114 187 C 114 190 131 190 131 186 C 131 181 126 180 126 176 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
   </g>
 
-  <!-- Near Back Sock Paw (Tucked Under Torso Belly) -->
-  <g transform="rotate(12 84 160)">
-    <path d="M 77 156 L 77 187 C 77 194 92 194 92 187 L 92 156 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" />
-    <path d="M 77 178 C 81 176 88 176 92 178 L 93 187 C 93 194 77 194 77 187 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+  <!-- Feline Torso -->
+  <path d="M 58 144 C 55 158 63 167 80 167 L 136 167 C 152 166 158 150 148 134 C 134 120 72 120 58 144 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
+
+  <!-- Near Hind Leg (In Front of Torso — Seamless Haunch Fill + Open U Outline + Forward Mitten Paw) -->
+  <g transform="rotate(10 80 152)">
+    <path d="M 70 148 C 70 160 72 170 74 180 L 86 180 C 88 170 90 160 90 148 Z" fill="#F7EBD6" />
+    <path d="M 71 156 C 71 164 73 172 74 180 L 86 180 C 87 172 89 164 89 156" fill="none" stroke="#2A1810" stroke-width="4.4" stroke-linecap="round" />
+    <path d="M 74 178 C 74 183 74 187 74 189 C 74 192 91 192 91 188 C 91 183 86 182 86 178 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
   </g>
 
-  <!-- Near Front Sock Paw (Tucked Under Torso Belly) -->
-  <g transform="rotate(-12 136 160)">
-    <path d="M 129 156 L 129 187 C 129 194 144 194 144 187 L 144 156 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" />
-    <path d="M 129 178 C 133 176 140 176 144 178 L 145 187 C 145 194 129 194 129 187 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+  <!-- Near Fore Leg (In Front of Torso — Seamless Shoulder Fill + Open U Outline + Forward Mitten Paw) -->
+  <g transform="rotate(-10 134 152)">
+    <path d="M 125 148 C 125 160 127 170 128 180 L 140 180 C 141 170 143 160 143 148 Z" fill="#F7EBD6" />
+    <path d="M 126 156 C 126 164 127 172 128 180 L 140 180 C 141 172 142 164 142 156" fill="none" stroke="#2A1810" stroke-width="4.4" stroke-linecap="round" />
+    <path d="M 128 178 C 128 183 128 187 128 189 C 128 192 145 192 145 188 C 145 183 140 182 140 178 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
   </g>
-
-  <!-- Smooth Feline Torso (Covers Upper Leg Joints Cleanly) -->
-  <path d="M 58 144 C 56 158 64 168 82 168 L 138 168 C 154 167 158 150 148 134 C 134 120 72 120 58 144 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
 
   <!-- Emerald Nutrition Collar & Tag -->
   <path d="M 118 134 C 126 146 138 150 149 142" stroke="#10B981" stroke-width="5" stroke-linecap="round" fill="none" />
@@ -55,7 +57,6 @@
   <circle cx="113" cy="104" r="1.4" fill="#FFFFFF" />
 
   <!-- Right Camera Shutter Eye -->
-  <circle cx="153" cy="99" r="14" fill="#28F59C" opacity="0.3" />
   <circle cx="153" cy="99" r="12" fill="#22E592" stroke="#141F1A" stroke-width="2.5" />
   <polygon points="153,93 158,96 158,102 153,105 148,102 148,96" fill="#141F1A" />
   <line x1="153" y1="93" x2="160" y2="88" stroke="#141F1A" stroke-width="2.2" />

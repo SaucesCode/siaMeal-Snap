@@ -97,7 +97,7 @@ export function QuickLogActionSheet({
               </View>
             </View>
             <View className="bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/40">
-              <Text className="text-emerald-400 text-[10px] font-black uppercase tracking-wider">🐾 Fastest</Text>
+              <Text className="text-emerald-400 text-[10px] font-black uppercase tracking-wider">Fastest</Text>
             </View>
           </TouchableOpacity>
 
@@ -202,7 +202,7 @@ export function QuickLogActionSheet({
                     style={{ fontFamily: 'Outfit_700Bold' }}
                     className="text-white text-sm"
                   >
-                    🔁 Re-Pounce Recent Catch
+                    Duplicate Recent Meal
                   </Text>
                   <Text className="text-zinc-400 text-xs">Duplicate past meals from last 14 days</Text>
                 </View>

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,11 +18,11 @@ export interface SiaWalkingLoaderProps {
   label?: string;
   /** Optional secondary subtext */
   sublabel?: string;
-  /** Diameter of the walking mascot in pixels. Default: 112 */
+  /** Diameter of the walking mascot in pixels. Default: 116 */
   size?: number;
-  /** Duration in ms to walk from Point A to Point B. Default: 2150 */
+  /** Duration in ms to walk from Point A to Point B. Default: 2300 */
   traverseDuration?: number;
-  /** Walk once from Point A to Point B (for startup launch) or repeat */
+  /** Walk once from Point A to Point B (for startup launch) or repeat seamlessly */
   oneShot?: boolean;
   /** Compact inline mode for chat bubbles or small cards */
   compact?: boolean;
@@ -44,41 +44,51 @@ function PawPrintIcon({ size = 14, color = '#10b981' }: { size?: number; color?:
   );
 }
 
-const RUNWAY_HALF_SPAN = 92; // Point A (-92) to Point B (+92) = 184px smooth travel
+const RUNWAY_HALF_SPAN = 90; // Point A (-90) to Point B (+90) = 180px runway
 
 /**
- * Smoothly interpolates footstep paw print opacity & scale as Sia walks past threshold `t0`.
+ * Computes stamped footstep paw print opacity & elastic scale pop as Sia steps over `t0`.
  */
-function computeFootstepStyle(progress: number, t0: number, offsetY: number) {
+function computeFootstepStyle(progress: number, t0: number, offsetY: number, oneShot: boolean) {
   'worklet';
-  const entryWindow = 0.08;
-  const raw = (progress - t0) / entryWindow;
-  const reveal = Math.max(0, Math.min(1, raw));
-  const trailFade = progress > t0 + entryWindow
-    ? Math.max(0.32, 1 - (progress - (t0 + entryWindow)) * 0.65)
-    : reveal;
-  const opacity = 0.06 + trailFade * 0.88;
-  const scale = 0.68 + reveal * 0.36;
+  const stampWindow = 0.06;
+  const delta = progress - t0;
+
+  if (delta < 0) {
+    return {
+      opacity: 0.05,
+      transform: [{ rotate: '78deg' }, { translateY: offsetY }, { scale: 0.55 }],
+    };
+  }
+
+  // Elastic stamp pop right when Sia's paw hits `t0`
+  const stampProgress = Math.min(1, delta / stampWindow);
+  const popScale =
+    stampProgress < 0.65
+      ? 0.55 + (stampProgress / 0.65) * 0.62
+      : 1.17 - ((stampProgress - 0.65) / 0.35) * 0.17;
+
+  // Gently fade trail behind Sia, and fade out cleanly at the end of a repeating pass
+  const wakeFade = Math.max(0.28, 1 - Math.max(0, delta - stampWindow) * 0.72);
+  const endPassFade = !oneShot && progress > 0.88 ? Math.max(0, 1 - (progress - 0.88) / 0.12) : 1;
+  const opacity = (0.08 + stampProgress * wakeFade * 0.88) * endPassFade;
 
   return {
     opacity,
-    transform: [
-      { rotate: '78deg' },
-      { translateY: offsetY },
-      { scale },
-    ],
+    transform: [{ rotate: '78deg' }, { translateY: offsetY }, { scale: popScale }],
   };
 }
 
 /**
- * SiaWalkingLoader - Sia walks smoothly from Point A (left) to Point B (right),
- * leaving a trail of glowing emerald paw prints in her footsteps with zero progress bar.
+ * SiaWalkingLoader - Sia prowls smoothly from Point A (left) to Point B (right)
+ * on a grounded emerald horizon track with a reactive footfall shadow, stamped
+ * paw print trail, and zero-snap loop transitions.
  */
 export function SiaWalkingLoader({
   label = 'Sia is on the prowl...',
   sublabel,
-  size = 112,
-  traverseDuration = 2150,
+  size = 116,
+  traverseDuration = 2300,
   oneShot = false,
   compact = false,
   style,
@@ -98,21 +108,23 @@ export function SiaWalkingLoader({
 
     walkProgress.set(0);
 
-    // Steady stride-matched pace with soft start & arrival so paws never slide
-    const steadyWalkCurve = Easing.bezier(0.22, 0.14, 0.78, 0.86);
+    // Steady stride-matched linear-ease curve so paw velocity matches horizontal ground speed
+    const steadyStrideCurve = oneShot
+      ? Easing.bezier(0.22, 0.12, 0.78, 0.92)
+      : Easing.bezier(0.28, 0.18, 0.72, 0.82);
 
     if (oneShot) {
       walkProgress.set(
         withTiming(1, {
           duration: traverseDuration,
-          easing: steadyWalkCurve,
+          easing: steadyStrideCurve,
         })
       );
     } else {
       walkProgress.set(
         withRepeat(
           withSequence(
-            withTiming(1, { duration: traverseDuration, easing: steadyWalkCurve }),
+            withTiming(1, { duration: traverseDuration, easing: steadyStrideCurve }),
             withTiming(0, { duration: 0 })
           ),
           -1,
@@ -126,12 +138,48 @@ export function SiaWalkingLoader({
     };
   }, [reducedMotion, oneShot, traverseDuration]);
 
-  // Sia's horizontal traversal from Point A (-92) to Point B (+92)
+  // Sia's horizontal traversal with smooth stage entry/exit so looping never snaps
   const catTraverseStyle = useAnimatedStyle(() => {
     const p = walkProgress.get();
     const x = -RUNWAY_HALF_SPAN + p * (RUNWAY_HALF_SPAN * 2);
+
+    // Smooth entry fade-in (0.0 -> 0.10) & smooth exit fade-out on repeating loops (0.88 -> 1.0)
+    const entryFade = Math.min(1, p / 0.1);
+    const exitFade = oneShot ? 1 : p > 0.88 ? Math.max(0, 1 - (p - 0.88) / 0.12) : 1;
+    const stageOpacity = reducedMotion ? 1 : Math.min(entryFade, exitFade);
+    const stageScale = 0.94 + 0.06 * stageOpacity;
+
     return {
-      transform: [{ translateX: x }],
+      opacity: stageOpacity,
+      transform: [{ translateX: x }, { scale: stageScale }],
+    };
+  });
+
+  // Reactive ground shadow directly beneath Sia's paws (pulses with 4 steps per traverse)
+  const groundShadowStyle = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const x = -RUNWAY_HALF_SPAN + p * (RUNWAY_HALF_SPAN * 2);
+    const entryFade = Math.min(1, p / 0.1);
+    const exitFade = oneShot ? 1 : p > 0.88 ? Math.max(0, 1 - (p - 0.88) / 0.12) : 1;
+    const stageOpacity = reducedMotion ? 1 : Math.min(entryFade, exitFade);
+
+    // 4 footfall compressions across the runway
+    const stepWave = Math.cos(p * Math.PI * 8);
+    const shadowScaleX = 1 + stepWave * 0.08;
+
+    return {
+      opacity: stageOpacity * (0.65 + stepWave * 0.15),
+      transform: [{ translateX: x - 4 }, { scaleX: shadowScaleX }],
+    };
+  });
+
+  // Pulsing telemetry indicator dot
+  const pulseDotStyle = useAnimatedStyle(() => {
+    const p = walkProgress.get();
+    const pulse = (Math.sin(p * Math.PI * 6) + 1) * 0.5;
+    return {
+      opacity: 0.45 + pulse * 0.55,
+      transform: [{ scale: 0.88 + pulse * 0.24 }],
     };
   });
 
@@ -139,25 +187,28 @@ export function SiaWalkingLoader({
   const compactTraverseStyle = useAnimatedStyle(() => {
     const p = walkProgress.get();
     const x = -14 + p * 28;
+    const entryFade = Math.min(1, p / 0.12);
+    const exitFade = p > 0.88 ? Math.max(0, 1 - (p - 0.88) / 0.12) : 1;
     return {
+      opacity: reducedMotion ? 1 : Math.min(entryFade, exitFade),
       transform: [{ translateX: x }],
     };
   });
 
-  // Smoothly revealed footstep paw prints along the runway
-  const pawStep0 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.08, 3));
-  const pawStep1 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.23, -3));
-  const pawStep2 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.38, 3));
-  const pawStep3 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.53, -3));
-  const pawStep4 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.68, 3));
-  const pawStep5 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.83, -3));
+  // 6 alternating left/right paw prints stamped along the ground track
+  const pawStep0 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.11, 3, oneShot));
+  const pawStep1 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.25, -3, oneShot));
+  const pawStep2 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.39, 3, oneShot));
+  const pawStep3 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.53, -3, oneShot));
+  const pawStep4 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.67, 3, oneShot));
+  const pawStep5 = useAnimatedStyle(() => computeFootstepStyle(walkProgress.get(), 0.81, -3, oneShot));
 
   if (compact) {
     return (
       <View style={[styles.compactContainer, style]}>
         <View style={styles.compactRunway}>
           <Animated.View style={compactTraverseStyle}>
-            <SiaVectorCat size={size} mood="walking" animation="walk" withGlow={true} />
+            <SiaVectorCat size={size} mood="walking" animation="walk" />
           </Animated.View>
         </View>
         <View style={styles.compactTextWrap}>
@@ -178,12 +229,33 @@ export function SiaWalkingLoader({
     );
   }
 
+  // Align ground track & footsteps with Sia's anatomical ground plane (y = 190 in 240x240 viewBox)
+  const groundBottomOffset = Math.round(size * 0.17);
+  const shadowWidth = Math.round(size * 0.48);
+
   return (
     <View style={[styles.container, style]}>
-      {/* Point A -> Point B Runway Stage */}
-      <View style={[styles.runwayStage, { height: size + 16 }]}>
-        {/* Footstep Paw Print Trail Along the Ground Between Point A & Point B */}
-        <View style={styles.footstepTrack}>
+      {/* Point A -> Point B Grounded Runway Stage */}
+      <View style={[styles.runwayStage, { height: size + 12 }]}>
+        {/* Subtle Obsidian-Emerald Ground Horizon Line */}
+        <View style={[styles.horizonTrackWrap, { bottom: groundBottomOffset }]}>
+          <Svg width={224} height={6} viewBox="0 0 224 6">
+            <Line
+              x1="8"
+              y1="3"
+              x2="216"
+              y2="3"
+              stroke="#10b981"
+              strokeOpacity="0.18"
+              strokeWidth="1.5"
+              strokeDasharray="4, 6"
+              strokeLinecap="round"
+            />
+          </Svg>
+        </View>
+
+        {/* Stamped Emerald Paw Print Trail Along the Ground */}
+        <View style={[styles.footstepTrack, { bottom: groundBottomOffset - 5 }]}>
           <Animated.View style={pawStep0}>
             <PawPrintIcon size={14} />
           </Animated.View>
@@ -204,13 +276,34 @@ export function SiaWalkingLoader({
           </Animated.View>
         </View>
 
-        {/* Sia Physically Walking from Point A (Left) to Point B (Right) */}
+        {/* Reactive Elliptical Ground Shadow Beneath Sia's Paws */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.groundShadowWrap,
+            { bottom: groundBottomOffset - 4, width: shadowWidth },
+            groundShadowStyle,
+          ]}
+        >
+          <Svg width={shadowWidth} height={12} viewBox="0 0 60 12">
+            <Ellipse cx="30" cy="6" rx="28" ry="4.5" fill="#10b981" fillOpacity="0.16" />
+            <Ellipse cx="30" cy="6" rx="20" ry="3" fill="#000000" fillOpacity="0.55" />
+          </Svg>
+        </Animated.View>
+
+        {/* Sia Physically Prowling from Point A (Left) to Point B (Right) */}
         <Animated.View style={catTraverseStyle}>
-          <SiaVectorCat size={size} mood="walking" animation="walk" withGlow={true} />
+          <SiaVectorCat size={size} mood="walking" animation="walk" />
         </Animated.View>
       </View>
 
-      {!!label && <Text style={styles.label}>{label}</Text>}
+      {/* Telemetry Status Pill & Subtitle */}
+      {!!label && (
+        <View style={styles.statusPill}>
+          <Animated.View style={[styles.statusDot, pulseDotStyle]} />
+          <Text style={styles.label}>{label}</Text>
+        </View>
+      )}
       {!!sublabel && <Text style={styles.sublabel}>{sublabel}</Text>}
     </View>
   );
@@ -222,7 +315,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     width: '100%',
   },
@@ -231,29 +324,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  horizonTrackWrap: {
+    position: 'absolute',
+    width: 224,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footstepTrack: {
     position: 'absolute',
-    bottom: 12,
-    width: 204,
+    width: 196,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  groundShadowWrap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.24)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10b981',
+  },
   label: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Outfit_700Bold',
     textAlign: 'center',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   sublabel: {
     color: '#a1a1aa',
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_500Medium',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   compactContainer: {
     flexDirection: 'row',

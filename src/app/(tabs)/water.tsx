@@ -18,8 +18,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { hapticFeedback } from '../../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
-import { FelineEmptyState } from '../../components/FelineEmptyState';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -39,34 +37,30 @@ const QUICK_AMOUNTS: QuickAmountOption[] = [
 
 const GOAL_OPTIONS = [2000, 2500, 3000, 3500, 4000];
 
-const getSiaHydrationMood = (_pct: number): SiaMood => {
-  return 'water';
-};
-
 const getHydrationStatus = (pct: number, remaining: number) => {
   if (remaining <= 0 || pct >= 100) {
     return {
-      title: 'Goal Mastered 👑',
+      title: 'Goal Mastered',
       badgeColor: '#10b981',
       icon: 'paw' as const,
     };
   }
   if (pct >= 75) {
     return {
-      title: 'Almost Full 🐾',
+      title: 'Almost Full',
       badgeColor: '#38bdf8',
       icon: 'water' as const,
     };
   }
   if (pct >= 40) {
     return {
-      title: 'Purr-fect Pace 💧',
+      title: 'Purr-fect Pace',
       badgeColor: '#06b6d4',
       icon: 'water-outline' as const,
     };
   }
   return {
-    title: 'Bowl Needs Water 🥣',
+    title: 'Bowl Needs Water',
     badgeColor: '#a1a1aa',
     icon: 'water-alert-outline' as const,
   };
@@ -195,7 +189,7 @@ export default function WaterScreen() {
     else if (newPct >= 75 && prevPct < 75) {
       hapticFeedback.medium();
       setToast({
-        title: 'Almost Full Bowl! 🐾',
+        title: 'Almost Full Bowl',
         message: `75% milestone reached! Only ${(Math.max(0, effectiveGoal - newMl) / 1000).toFixed(1)}L left to apex hydration.`,
         type: 'water',
       });
@@ -204,7 +198,7 @@ export default function WaterScreen() {
     else if (newPct >= 50 && prevPct < 50) {
       hapticFeedback.medium();
       setToast({
-        title: 'Purr-fect Halfway! 💧',
+        title: 'Purr-fect Halfway',
         message: `50% milestone crushed! Sia is feeling hydrated and full of energy.`,
         type: 'water',
       });
@@ -213,7 +207,7 @@ export default function WaterScreen() {
     else if (newPct >= 25 && prevPct < 25) {
       hapticFeedback.light();
       setToast({
-        title: 'Prowl Kickoff 🐾',
+        title: 'Prowl Kickoff',
         message: `25% milestone hit! Great fluid momentum for the day.`,
         type: 'water',
       });
@@ -361,12 +355,14 @@ export default function WaterScreen() {
               </Animated.View>
             ))}
 
-            <SiaCatMascot size={76} mood="celebrating" style={{ marginBottom: 14 }} />
+            <View className="w-16 h-16 rounded-full bg-cyan-500/15 border border-cyan-400/40 items-center justify-center mb-3.5 shadow-lg shadow-cyan-500/20">
+              <MaterialCommunityIcons name="water-check" size={34} color="#38bdf8" />
+            </View>
             <Text style={{ fontFamily: 'Outfit_900Black', color: '#38bdf8', fontSize: 22, letterSpacing: -0.5, textAlign: 'center' }}>
-              Paws Fully Hydrated! 🏆
+              Hydration Goal Achieved
             </Text>
             <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 4, textAlign: 'center', fontWeight: '600', lineHeight: 18 }}>
-              Sia is purring with delight! Target reached!
+              Optimal fluid intake registered for today.
             </Text>
 
             <View
@@ -381,7 +377,7 @@ export default function WaterScreen() {
               }}
             >
               <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700' }}>
-                +10 Hydration Streak XP Active 🐾
+                +10 Hydration Streak XP Active
               </Text>
             </View>
 
@@ -577,19 +573,14 @@ export default function WaterScreen() {
                 />
               </Svg>
 
-              {/* Central Radial Mascot & Typography */}
+              {/* Central Radial Telemetry & Typography */}
               <View className="items-center justify-center">
-                <View className="mb-0.5">
-                  <SiaCatMascot
-                    size={72}
-                    mood="water"
-                    withGlow={true}
-                    interactive={true}
-                  />
+                <View className="w-11 h-11 rounded-full bg-cyan-500/10 border border-cyan-500/25 items-center justify-center mb-1">
+                  <MaterialCommunityIcons name="water" size={22} color="#06b6d4" />
                 </View>
                 <Text
                   style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
-                  className="text-3xl text-white tracking-tight leading-none mt-1"
+                  className="text-3xl text-white tracking-tight leading-none mt-0.5"
                 >
                   {(todayMl / 1000).toFixed(2)}
                 </Text>
@@ -715,7 +706,7 @@ export default function WaterScreen() {
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
-                  {percentage >= 100 ? '✓ Done' : percentage >= 75 ? 'Almost' : percentage >= 50 ? 'On Track' : 'Building'}
+                  {percentage >= 100 ? 'Done' : percentage >= 75 ? 'Almost' : percentage >= 50 ? 'On Track' : 'Building'}
                 </Text>
               </View>
 
@@ -723,28 +714,28 @@ export default function WaterScreen() {
           </View>
         </View>
 
-        {/* Sia Hydration Companion Banner */}
+        {/* Hydration Status Banner */}
         {percentage >= 100 ? (
-          <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-3xl p-4 mb-4 flex-row items-center gap-3.5 shadow-sm shadow-cyan-500/10">
-            <SiaCatMascot size={46} mood="celebrating" withGlow={false} />
+          <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3.5 mb-4 flex-row items-center gap-3 shadow-sm shadow-cyan-500/10">
+            <View className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 items-center justify-center">
+              <MaterialCommunityIcons name="trophy" size={20} color="#38bdf8" />
+            </View>
             <View className="flex-1">
-              <View className="flex-row items-center gap-1.5 mb-0.5">
-                <Text
-                  style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-cyan-400 text-sm"
-                >
-                  Paws Fully Hydrated! 🏆
-                </Text>
-              </View>
-              <Text className="text-zinc-300 text-xs leading-4">
-                Sia is purring with delight! Daily target of {(effectiveGoal / 1000).toFixed(1)}L smashed for today.
+              <Text
+                style={{ fontFamily: 'Outfit_800ExtraBold' }}
+                className="text-cyan-400 text-sm"
+              >
+                Daily Goal Complete
+              </Text>
+              <Text className="text-zinc-300 text-xs leading-4 mt-0.5">
+                Target of {(effectiveGoal / 1000).toFixed(1)}L reached. Fluid balance is fully restored.
               </Text>
             </View>
           </View>
         ) : (
           <View className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl px-4 py-3 mb-4 flex-row items-center gap-3">
             <View className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 items-center justify-center">
-              <MaterialCommunityIcons name="paw" size={16} color="#06b6d4" />
+              <MaterialCommunityIcons name="water-outline" size={16} color="#06b6d4" />
             </View>
             <View className="flex-1">
               <Text className="text-zinc-300 text-xs font-semibold leading-4">
@@ -828,13 +819,27 @@ export default function WaterScreen() {
           </View>
 
           {logs.length === 0 ? (
-            <FelineEmptyState
-              title="Sia's Water Bowl is Dry!"
-              description="Zero fluid logged yet today. Tap any vessel tile above to pour fresh water into Sia's bowl and hit your daily goal."
-              actionLabel="Add +250ml Bowl"
-              onAction={() => handleAddWater(250, 'Kitten Bowl')}
-              mood="thinking"
-            />
+            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-2xl p-6 items-center my-2">
+              <View className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 items-center justify-center mb-2.5">
+                <MaterialCommunityIcons name="water-outline" size={24} color="#06b6d4" />
+              </View>
+              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-sm mb-1 text-center">
+                No Hydration Logged Today
+              </Text>
+              <Text className="text-zinc-400 text-xs text-center mb-4 leading-relaxed max-w-[260px]">
+                Tap any vessel pod above to record water intake and track your fluid balance.
+              </Text>
+              <TouchableOpacity
+                onPress={() => handleAddWater(250, 'Glass')}
+                activeOpacity={0.8}
+                className="bg-cyan-500/15 border border-cyan-500/35 px-4 py-2 rounded-xl flex-row items-center gap-1.5"
+              >
+                <Ionicons name="add" size={16} color="#38bdf8" />
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-cyan-400 text-xs">
+                  Quick Add +250ml
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             logs.map((log) => (
               <View

@@ -99,9 +99,9 @@ export function FelineHunterRankBadge({ streakDays, compact = false }: FelineHun
         </View>
 
         <View className="flex-row items-center gap-3.5 mb-3">
-          <View className="w-14 h-14 rounded-2xl bg-zinc-950 border border-emerald-500/20 items-center justify-center p-1">
+          <View className="items-center justify-center">
             <SiaCatMascot
-              size={50}
+              size={54}
               mood={rank.streakDays >= 7 ? 'celebrating' : 'happy'}
               withGlow={false}
             />
@@ -117,7 +117,7 @@ export function FelineHunterRankBadge({ streakDays, compact = false }: FelineHun
               </Text>
               <View className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30">
                 <Text className="text-emerald-400 text-[10px] font-bold">
-                  🔥 {rank.streakDays} {rank.streakDays === 1 ? 'Day' : 'Days'}
+                  {rank.streakDays} {rank.streakDays === 1 ? 'Day' : 'Days'} Streak
                 </Text>
               </View>
             </View>
@@ -235,7 +235,7 @@ function MilestonesModal({ visible, onClose, currentStreak, rank }: MilestonesMo
                   </Text>
                 </View>
                 <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-400 text-xs">
-                  {currentStreak}d Velocity 🐾
+                  {currentStreak}d Consistency
                 </Text>
               </View>
 

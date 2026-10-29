@@ -196,8 +196,9 @@
 
   <!-- 7. LEFT EYE (GLOWING 6-BLADE CAMERA SHUTTER) -->
   <g>
-    <circle cx="85" cy="99" r="14.5" fill="#28F59C" opacity="0.35" />
-    <circle cx="85" cy="99" r="12.5" fill="url(#scannerIris)" stroke="#141F1A" stroke-width="2.5" />
+    <circle cx="85" cy="99" r="14" fill="#141F1A" />
+    <circle cx="85" cy="99" r="12.5" fill="#22E592" />
+    <circle cx="82.8" cy="96.8" r="8.5" fill="#38F8A6" opacity="0.45" />
     <polygon
       points="85,93 90,96 90,102 85,105 80,102 80,96"
       fill="#141F1A"

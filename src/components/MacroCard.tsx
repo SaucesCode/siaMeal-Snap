@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop, G, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -17,34 +17,36 @@ function CatEarTabs({ borderColor = '#27272a' }: { borderColor?: string }) {
   return (
     <>
       {/* Left Feline Ear Silhouette Tab */}
-      <View style={{ position: 'absolute', top: -10, left: 20, zIndex: 2 }}>
-        <Svg width={24} height={11} viewBox="0 0 24 11" fill="none">
+      <View style={{ position: 'absolute', top: -10, left: 24, zIndex: 2 }}>
+        <Svg width={26} height={12} viewBox="0 0 26 12" fill="none">
           <Path
-            d="M2 11 L10 2 C11.5 0.5, 12.5 0.5, 14 2 L22 11"
-            fill="#18181b"
+            d="M 2 12 L 11 2 C 12 1 14 1 15 2 L 24 12"
+            fill="#09090b"
             stroke={borderColor}
-            strokeWidth={1.5}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
           />
           <Path
-            d="M7 11 L11 4 C11.5 3.5, 12.5 3.5, 13 4 L17 11"
-            fill="#f43f5e"
-            fillOpacity={0.2}
+            d="M 7 12 L 12 4.5 C 12.5 4 13.5 4 14 4.5 L 19 12"
+            fill="#fda4af"
+            fillOpacity={0.25}
           />
         </Svg>
       </View>
       {/* Right Feline Ear Silhouette Tab */}
-      <View style={{ position: 'absolute', top: -10, right: 20, zIndex: 2 }}>
-        <Svg width={24} height={11} viewBox="0 0 24 11" fill="none">
+      <View style={{ position: 'absolute', top: -10, right: 24, zIndex: 2 }}>
+        <Svg width={26} height={12} viewBox="0 0 26 12" fill="none">
           <Path
-            d="M2 11 L10 2 C11.5 0.5, 12.5 0.5, 14 2 L22 11"
-            fill="#18181b"
+            d="M 2 12 L 11 2 C 12 1 14 1 15 2 L 24 12"
+            fill="#09090b"
             stroke={borderColor}
-            strokeWidth={1.5}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
           />
           <Path
-            d="M7 11 L11 4 C11.5 3.5, 12.5 3.5, 13 4 L17 11"
-            fill="#f43f5e"
-            fillOpacity={0.2}
+            d="M 7 12 L 12 4.5 C 12.5 4 13.5 4 14 4.5 L 19 12"
+            fill="#fda4af"
+            fillOpacity={0.25}
           />
         </Svg>
       </View>
@@ -59,32 +61,41 @@ export function DailyMacroSummary({
   carbs,
   fat,
 }: DailySummaryCardProps) {
-  const isOverCalories = consumedCalories > targetCalories;
-  const overCaloriesAmount = Math.max(0, consumedCalories - targetCalories);
-  const remainingCalories = Math.max(0, targetCalories - consumedCalories);
+  const safeTargetCal = Number(targetCalories) > 0 ? Number(targetCalories) : 2000;
+  const safeConsumedCal = Number(consumedCalories) || 0;
+  const safeProtConsumed = Number(protein?.consumed) || 0;
+  const safeProtTarget = Number(protein?.target) > 0 ? Number(protein?.target) : 150;
+  const safeCarbConsumed = Number(carbs?.consumed) || 0;
+  const safeCarbTarget = Number(carbs?.target) > 0 ? Number(carbs?.target) : 200;
+  const safeFatConsumed = Number(fat?.consumed) || 0;
+  const safeFatTarget = Number(fat?.target) > 0 ? Number(fat?.target) : 65;
 
-  const calPct = targetCalories > 0 ? Math.min(100, Math.round((consumedCalories / targetCalories) * 100)) : 0;
-  const protPct = protein.target > 0 ? Math.min(100, Math.round((protein.consumed / protein.target) * 100)) : 0;
-  const carbPct = carbs.target > 0 ? Math.min(100, Math.round((carbs.consumed / carbs.target) * 100)) : 0;
-  const fatPct = fat.target > 0 ? Math.min(100, Math.round((fat.consumed / fat.target) * 100)) : 0;
+  const isOverCalories = safeConsumedCal > safeTargetCal;
+  const overCaloriesAmount = Math.max(0, safeConsumedCal - safeTargetCal);
+  const remainingCalories = Math.max(0, safeTargetCal - safeConsumedCal);
+
+  const calPct = Math.max(0, Math.min(100, Math.round((safeConsumedCal / safeTargetCal) * 100))) || 0;
+  const protPct = Math.max(0, Math.min(100, Math.round((safeProtConsumed / safeProtTarget) * 100))) || 0;
+  const carbPct = Math.max(0, Math.min(100, Math.round((safeCarbConsumed / safeCarbTarget) * 100))) || 0;
+  const fatPct = Math.max(0, Math.min(100, Math.round((safeFatConsumed / safeFatTarget) * 100))) || 0;
 
   // Concentric Multi-Orbital Radii
-  const size = 210;
+  const size = 216;
   const center = size / 2;
 
-  // Outer Ring: Calories (Radius 92, Stroke 11)
-  const rCal = 92;
+  // Outer Ring: Calories (Radius 94, Stroke 11)
+  const rCal = 94;
   const strokeCal = 11;
   const cCal = 2 * Math.PI * rCal;
 
-  // Middle Ring: Protein (Radius 76, Stroke 7)
-  const rProt = 76;
-  const strokeProt = 7;
+  // Middle Ring: Protein (Radius 78, Stroke 7.5)
+  const rProt = 78;
+  const strokeProt = 7.5;
   const cProt = 2 * Math.PI * rProt;
 
-  // Inner Ring: Carbs (Radius 63, Stroke 6)
-  const rCarb = 63;
-  const strokeCarb = 6;
+  // Inner Ring: Carbs (Radius 64, Stroke 6.5)
+  const rCarb = 64;
+  const strokeCarb = 6.5;
   const cCarb = 2 * Math.PI * rCarb;
 
   // Animated Arcs
@@ -117,11 +128,11 @@ export function DailyMacroSummary({
       className={`relative rounded-3xl p-5 mb-4 border ${
         isOverCalories
           ? 'bg-zinc-900/95 border-rose-500/40 shadow-xl shadow-rose-500/10'
-          : 'bg-zinc-900/95 border-zinc-800/90 shadow-xl shadow-black/50'
+          : 'bg-zinc-900/95 border-zinc-800/90 shadow-xl shadow-black/60'
       }`}
     >
       {/* Sleek Feline Ear Silhouette Tabs */}
-      <CatEarTabs borderColor={isOverCalories ? 'rgba(244,63,94,0.45)' : 'rgba(16,185,129,0.3)'} />
+      <CatEarTabs borderColor={isOverCalories ? 'rgba(244,63,94,0.45)' : 'rgba(16,185,129,0.35)'} />
 
       {/* Top Header Tag Row */}
       <View className="flex-row items-center justify-between mb-1 px-1">
@@ -132,7 +143,7 @@ export function DailyMacroSummary({
             }`}
           />
           <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
-            {isOverCalories ? 'Energy Limit Exceeded' : 'Sia Bio-Aperture HUD'}
+            {isOverCalories ? 'Energy Limit Exceeded' : 'Sia Macro Aperture HUD'}
           </Text>
         </View>
 
@@ -159,7 +170,7 @@ export function DailyMacroSummary({
           <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#10b981" />
+                <Stop offset="0%" stopColor="#34d399" />
                 <Stop offset="100%" stopColor="#059669" />
               </LinearGradient>
               <LinearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -189,7 +200,7 @@ export function DailyMacroSummary({
               r={rCal}
               stroke={isOverCalories ? 'url(#roseGrad)' : 'url(#emeraldGrad)'}
               strokeWidth={strokeCal}
-              strokeDasharray={`${cCal} ${cCal}`}
+              strokeDasharray={[cCal, cCal]}
               strokeDashoffset={animCal}
               strokeLinecap="round"
               fill="transparent"
@@ -204,7 +215,7 @@ export function DailyMacroSummary({
               r={rProt}
               stroke="url(#skyGrad)"
               strokeWidth={strokeProt}
-              strokeDasharray={`${cProt} ${cProt}`}
+              strokeDasharray={[cProt, cProt]}
               strokeDashoffset={animProt}
               strokeLinecap="round"
               fill="transparent"
@@ -219,7 +230,7 @@ export function DailyMacroSummary({
               r={rCarb}
               stroke="url(#amberGrad)"
               strokeWidth={strokeCarb}
-              strokeDasharray={`${cCarb} ${cCarb}`}
+              strokeDasharray={[cCarb, cCarb]}
               strokeDashoffset={animCarb}
               strokeLinecap="round"
               fill="transparent"
@@ -247,7 +258,7 @@ export function DailyMacroSummary({
             </View>
 
             <Text
-              style={{ fontFamily: 'Outfit_900Black' }}
+              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
               className={`text-3xl tracking-tight ${
                 isOverCalories ? 'text-rose-400' : 'text-white'
               }`}
@@ -265,7 +276,7 @@ export function DailyMacroSummary({
             </View>
 
             <Text className="text-zinc-500 text-[10px] font-bold mt-0.5">
-              {calPct}% of {Math.round(targetCalories)} kcal
+              {calPct}% of {Math.round(safeTargetCal)} kcal
             </Text>
           </View>
         </View>
@@ -281,7 +292,7 @@ export function DailyMacroSummary({
             </Text>
           </View>
           <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-300 text-xs">
-            {Math.round(protein.consumed)}g ({protPct}%)
+            {Math.round(safeProtConsumed)}g ({protPct}%)
           </Text>
         </View>
       )}
@@ -297,8 +308,8 @@ export function DailyMacroSummary({
             </View>
             <Text className="text-zinc-400 text-[10px] font-bold">{protPct}%</Text>
           </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-white text-sm">
-            {Math.round(protein.consumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(protein.target)}g</Text>
+          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
+            {Math.round(safeProtConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeProtTarget)}g</Text>
           </Text>
           {/* Micro Progress Track */}
           <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
@@ -307,6 +318,9 @@ export function DailyMacroSummary({
               className="h-full bg-sky-400 rounded-full"
             />
           </View>
+          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
+            {safeProtConsumed >= safeProtTarget ? 'Target Met' : `${Math.round(Math.max(0, safeProtTarget - safeProtConsumed))}g left`}
+          </Text>
         </View>
 
         {/* Carbs Pod */}
@@ -318,8 +332,8 @@ export function DailyMacroSummary({
             </View>
             <Text className="text-zinc-400 text-[10px] font-bold">{carbPct}%</Text>
           </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-white text-sm">
-            {Math.round(carbs.consumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(carbs.target)}g</Text>
+          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
+            {Math.round(safeCarbConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeCarbTarget)}g</Text>
           </Text>
           {/* Micro Progress Track */}
           <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
@@ -328,6 +342,9 @@ export function DailyMacroSummary({
               className="h-full bg-amber-400 rounded-full"
             />
           </View>
+          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
+            {safeCarbConsumed >= safeCarbTarget ? 'Target Met' : `${Math.round(Math.max(0, safeCarbTarget - safeCarbConsumed))}g left`}
+          </Text>
         </View>
 
         {/* Fat Pod */}
@@ -339,8 +356,8 @@ export function DailyMacroSummary({
             </View>
             <Text className="text-zinc-400 text-[10px] font-bold">{fatPct}%</Text>
           </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-white text-sm">
-            {Math.round(fat.consumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(fat.target)}g</Text>
+          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
+            {Math.round(safeFatConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeFatTarget)}g</Text>
           </Text>
           {/* Micro Progress Track */}
           <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
@@ -349,6 +366,9 @@ export function DailyMacroSummary({
               className="h-full bg-rose-400 rounded-full"
             />
           </View>
+          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
+            {safeFatConsumed >= safeFatTarget ? 'Target Met' : `${Math.round(Math.max(0, safeFatTarget - safeFatConsumed))}g left`}
+          </Text>
         </View>
       </View>
     </View>

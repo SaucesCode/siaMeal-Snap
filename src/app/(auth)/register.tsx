@@ -158,7 +158,7 @@ export default function RegisterScreen() {
               </Text>
               <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
                 <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                  🐾 AI Coach
+                  AI Coach
                 </Text>
               </View>
             </View>
@@ -171,7 +171,7 @@ export default function RegisterScreen() {
         {/* Form Container Wrapped in CatEarCard */}
         <CatEarCard
           title="Create Athlete Account"
-          badge="🐾 JOIN"
+          badge="JOIN"
           borderColor="#27272a"
           className="mb-5"
         >

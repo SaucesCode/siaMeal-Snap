@@ -67,59 +67,14 @@ function getApiKeys(envName: string): string[] {
 }
 
 /**
- * In-memory model discovery cache.
- * Avoids making an external HTTP GET to Google's /models endpoint on EVERY request,
- * which causes 429 quota exhaustion and adds 400ms unnecessary latency per call.
+ * Ultra-fast direct candidate model list.
+ * Bypasses redundant remote discovery network hops to eliminate cold-start latency.
  */
-let cachedGeminiModels: { models: string[]; timestamp: number } | null = null;
-const MODEL_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-async function getCandidateGeminiModels(apiKey: string): Promise<string[]> {
-  const now = Date.now();
-  if (cachedGeminiModels && (now - cachedGeminiModels.timestamp) < MODEL_CACHE_TTL_MS) {
-    return cachedGeminiModels.models;
-  }
-
-  const defaultModels = [
-    "gemini-2.5-flash",
+async function getCandidateGeminiModels(_apiKey: string): Promise<string[]> {
+  return [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
   ];
-
-  try {
-    const listResp = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`,
-      {},
-      4000
-    );
-
-    if (listResp.ok) {
-      const listData = await listResp.json();
-      const discovered = (listData.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-        .map((m: any) => m.name.replace(/^models\//, ""))
-        .filter((name: string) => /flash|pro/.test(name));
-
-      if (discovered.length > 0) {
-        discovered.sort((a: string, b: string) => {
-          const aFlash = a.includes("flash");
-          const bFlash = b.includes("flash");
-          if (aFlash && !bFlash) return -1;
-          if (!aFlash && bFlash) return 1;
-          return b.localeCompare(a);
-        });
-
-        cachedGeminiModels = { models: discovered, timestamp: now };
-        return discovered;
-      }
-    }
-  } catch (e: any) {
-    console.warn("Gemini model discovery cached fallback:", e.message);
-  }
-
-  // Cache defaults for 15 minutes to prevent hammering on network failure
-  cachedGeminiModels = { models: defaultModels, timestamp: now - MODEL_CACHE_TTL_MS + (15 * 60 * 1000) };
-  return defaultModels;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -449,7 +404,7 @@ Strictly inspect whether the image or text describes REAL, EDIBLE FOOD, MEALS, G
   You MUST return:
   {
     "is_food": false,
-    "non_food_reason": "Sia detected a non-edible object! That's not on the menu 🐾 Please snap edible food or drinks.",
+    "non_food_reason": "Sia detected a non-edible object! That's not on the menu. Please snap edible food or drinks.",
     "meal_name": "Non-Food Object",
     "calories": 0,
     "protein_g": 0,
@@ -545,7 +500,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
                   temperature: 0.2,
                 },
               }),
-            }, 14000);
+            }, 7500);
 
             if (geminiResponse.ok) {
               const geminiData = await geminiResponse.json();
@@ -606,7 +561,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
               ],
               temperature: 0.2,
             }),
-          }, 14000);
+          }, 8500);
 
           if (openAiResponse.ok) {
             const openAiData = await openAiResponse.json();

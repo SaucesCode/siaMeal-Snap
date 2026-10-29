@@ -37,12 +37,6 @@ export function FelineMilestoneCelebrationModal({
         <Pressable className="absolute inset-0" onPress={onClose} />
 
         <View className="w-full max-w-sm bg-zinc-950 border border-emerald-500/30 rounded-3xl p-6 items-center shadow-2xl relative overflow-hidden">
-          {/* Subtle Ambient Glow Behind Mascot */}
-          <View
-            style={{ backgroundColor: tier.accentColor }}
-            className="absolute -top-12 w-48 h-48 rounded-full opacity-15 blur-2xl pointer-events-none"
-          />
-
           {/* Close button */}
           <TouchableOpacity
             onPress={onClose}

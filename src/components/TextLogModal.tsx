@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,6 +13,7 @@ import { analyzeMealText } from '../services/aiService';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import { MealType } from '../types';
+import { SiaContextualLoader } from './feline/SiaContextualLoader';
 
 interface TextLogModalProps {
   visible: boolean;
@@ -136,65 +136,72 @@ export function TextLogModal({
             Describe what you ate in natural language. The AI Vision & Text engine calculates portions and macros automatically.
           </Text>
 
-          {/* Text Input Area */}
-          <TextInput
-            ref={textInputRef}
-            value={text}
-            onChangeText={setText}
-            placeholder="e.g. 200g grilled salmon with steamed broccoli and 1 cup of brown rice"
-            placeholderTextColor="#52525b"
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl p-4 text-base min-h-[110px] mb-3.5 font-medium"
-            editable={!isAnalyzing}
-          />
-
-          {/* 1-Tap Quick Suggestions */}
-          <View className="mb-4">
-            <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-2">
-              Quick Suggestions (Tap to Fill)
-            </Text>
-            <View className="flex-row flex-wrap gap-1.5">
-              {QUICK_SUGGESTIONS.map((item, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => {
-                    hapticFeedback.selection();
-                    setText(item.text);
-                  }}
-                  className="bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5 rounded-xl"
-                >
-                  <Text className="text-zinc-300 text-[11px] font-medium">
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          {isAnalyzing ? (
+            <View className="py-4 items-center justify-center bg-zinc-950/80 border border-emerald-500/20 rounded-2xl">
+              <SiaContextualLoader
+                mode="chef"
+                size={104}
+                label="Chef Sia is evaluating your recipe..."
+                sublabel="Matching natural ingredients to verified macros"
+              />
             </View>
-          </View>
+          ) : (
+            <>
+              {/* Text Input Area */}
+              <TextInput
+                ref={textInputRef}
+                value={text}
+                onChangeText={setText}
+                placeholder="e.g. 200g grilled salmon with steamed broccoli and 1 cup of brown rice"
+                placeholderTextColor="#52525b"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl p-4 text-base min-h-[110px] mb-3.5 font-medium"
+                editable={!isAnalyzing}
+              />
 
-          {/* Action Button */}
-          <TouchableOpacity
-            onPress={() => handleAnalyze()}
-            disabled={isAnalyzing || !text.trim()}
-            activeOpacity={0.8}
-            className={`w-full rounded-2xl py-4 flex-row items-center justify-center gap-2 ${
-              text.trim()
-                ? 'bg-emerald-500 active:bg-emerald-600 shadow-lg shadow-emerald-500/25'
-                : 'bg-zinc-800 border border-zinc-700 opacity-60'
-            }`}
-          >
-            {isAnalyzing ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <>
+              {/* 1-Tap Quick Suggestions */}
+              <View className="mb-4">
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-2">
+                  Quick Suggestions (Tap to Fill)
+                </Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {QUICK_SUGGESTIONS.map((item, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => {
+                        hapticFeedback.selection();
+                        setText(item.text);
+                      }}
+                      className="bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5 rounded-xl"
+                    >
+                      <Text className="text-zinc-300 text-[11px] font-medium">
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Action Button */}
+              <TouchableOpacity
+                onPress={() => handleAnalyze()}
+                disabled={isAnalyzing || !text.trim()}
+                activeOpacity={0.8}
+                className={`w-full rounded-2xl py-4 flex-row items-center justify-center gap-2 ${
+                  text.trim()
+                    ? 'bg-emerald-500 active:bg-emerald-600 shadow-lg shadow-emerald-500/25'
+                    : 'bg-zinc-800 border border-zinc-700 opacity-60'
+                }`}
+              >
                 <Ionicons name="flash" size={18} color="#ffffff" />
                 <Text numberOfLines={1} className="text-white font-bold text-base">
                   Analyze & Calculate Macros
                 </Text>
-              </>
-            )}
-          </TouchableOpacity>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </View>

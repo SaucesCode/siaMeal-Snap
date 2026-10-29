@@ -140,7 +140,7 @@ export default function LoginScreen() {
               </Text>
               <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
                 <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                  🐾 Sia Ready
+                  Sia Ready
                 </Text>
               </View>
             </View>
@@ -153,7 +153,7 @@ export default function LoginScreen() {
         {/* Form Container Wrapped in CatEarCard */}
         <CatEarCard
           title="Athlete Sign In"
-          badge="🐾 SECURE"
+          badge="SECURE"
           borderColor="#27272a"
           className="mb-5"
         >

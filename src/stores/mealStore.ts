@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { uploadMealPhotoToSupabase } from '../lib/storage';
-import { enqueueMutation } from '../lib/syncQueue';
+import { enqueueMutation, getQueuedMutations } from '../lib/syncQueue';
 import { generateUUID } from '../utils/uuid';
 import { Meal, MealType } from '../types';
 
@@ -81,7 +81,40 @@ interface MealState {
   reset: () => void;
 }
 
-const getTodayString = () => new Date().toISOString().split('T')[0];
+/**
+ * Returns today's calendar date string (YYYY-MM-DD) in the user's local timezone.
+ */
+export const getTodayString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Converts any Date object to a local YYYY-MM-DD string.
+ */
+export const getLocalDateString = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Computes exact start-of-day and end-of-day timestamps in ISO UTC
+ * matching the user's local calendar day.
+ */
+export const getLocalDayBounds = (dateStr: string) => {
+  const parts = dateStr.split('-').map(Number);
+  const year = parts[0];
+  const month = parts[1] - 1;
+  const day = parts[2];
+  const startOfDay = new Date(year, month, day, 0, 0, 0, 0).toISOString();
+  const endOfDay = new Date(year, month, day, 23, 59, 59, 999).toISOString();
+  return { startOfDay, endOfDay };
+};
 
 export const useMealStore = create<MealState>((set, get) => ({
   meals: [],
@@ -120,8 +153,7 @@ export const useMealStore = create<MealState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      const startOfDay = new Date(`${targetDate}T00:00:00.000Z`).toISOString();
-      const endOfDay = new Date(`${targetDate}T23:59:59.999Z`).toISOString();
+      const { startOfDay, endOfDay } = getLocalDayBounds(targetDate);
 
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
@@ -145,13 +177,48 @@ export const useMealStore = create<MealState>((set, get) => ({
         return;
       }
 
-      const mealsData = (data as Meal[]) || [];
-      set({ meals: mealsData });
+      const serverMeals = (data as Meal[]) || [];
+
+      // Safe reconciliation: never discard optimistic local meals that haven't hit the server yet
+      const queued = await getQueuedMutations().catch(() => []);
+      const deletedIds = new Set(
+        queued.filter((q) => q.type === 'DELETE_MEAL' && q.payload?.id).map((q) => q.payload.id)
+      );
+
+      // Server meals minus any that were locally deleted
+      const validServerMeals = serverMeals.filter((m) => !deletedIds.has(m.id));
+      const serverIdSet = new Set(validServerMeals.map((m) => m.id));
+
+      // Local meals in current state that belong to this date range and haven't synced to server yet
+      const startMs = new Date(startOfDay).getTime();
+      const endMs = new Date(endOfDay).getTime();
+
+      const pendingLocalMeals = get().meals.filter((m) => {
+        if (serverIdSet.has(m.id) || deletedIds.has(m.id)) return false;
+        const mealTime = new Date(m.logged_at).getTime();
+        return mealTime >= startMs && mealTime <= endMs;
+      });
+
+      // Also recover any queued CREATE_MEAL items that might have been queued offline
+      const queuedCreateMeals = queued
+        .filter((q) => q.type === 'CREATE_MEAL' && q.payload?.id)
+        .map((q) => q.payload as Meal)
+        .filter((m) => {
+          if (serverIdSet.has(m.id) || deletedIds.has(m.id)) return false;
+          if (pendingLocalMeals.some((pl) => pl.id === m.id)) return false;
+          const mealTime = new Date(m.logged_at).getTime();
+          return mealTime >= startMs && mealTime <= endMs;
+        });
+
+      const merged = [...pendingLocalMeals, ...queuedCreateMeals, ...validServerMeals];
+      merged.sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
+
+      set({ meals: merged });
 
       if (isToday) {
-        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(mealsData)).catch(() => {});
+        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(merged)).catch(() => {});
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error in fetchMealsForDate:', err);
     } finally {
       set({ isLoading: false });
@@ -179,13 +246,13 @@ export const useMealStore = create<MealState>((set, get) => ({
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(now.getDate() - (i + weekOffset * 7));
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = getLocalDateString(d);
         const label = d.toLocaleDateString(undefined, { weekday: 'short' });
         past7Days.push({ dateStr, label, fullDate: d });
       }
 
-      const startDateIso = new Date(`${past7Days[0].dateStr}T00:00:00.000Z`).toISOString();
-      const endDateIso = new Date(`${past7Days[6].dateStr}T23:59:59.999Z`).toISOString();
+      const { startOfDay: startDateIso } = getLocalDayBounds(past7Days[0].dateStr);
+      const { endOfDay: endDateIso } = getLocalDayBounds(past7Days[6].dateStr);
 
       const startFormatted = past7Days[0].fullDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const endFormatted = past7Days[6].fullDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -312,7 +379,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       }
 
       return summary;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error in fetchWeeklyStats:', err);
       return null;
     }
@@ -352,9 +419,10 @@ export const useMealStore = create<MealState>((set, get) => ({
       created_at: new Date().toISOString(),
     };
 
-    // 1. Instant 0ms Optimistic UI Update
+    // 1. Instant 0ms Optimistic UI Update in store and cache
     set((state) => {
-      const updatedMeals = [newMeal, ...state.meals];
+      const filtered = state.meals.filter((m) => m.id !== newMeal.id);
+      const updatedMeals = [newMeal, ...filtered];
       if (state.selectedDate === getTodayString()) {
         AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(updatedMeals)).catch(() => {});
       }
@@ -364,10 +432,22 @@ export const useMealStore = create<MealState>((set, get) => ({
       };
     });
 
-    // 2. Enqueue persistent background mutation (Offline-First Resilience)
-    await enqueueMutation('CREATE_MEAL', newMeal);
+    // 2. Perform direct write with immediate confirmation, falling back to syncQueue on failure
+    try {
+      let res = await supabase.from('meals').upsert(newMeal, { onConflict: 'id' });
+      if (res.error && res.error.message?.toLowerCase().includes('column')) {
+        const { fiber_g, sugar_g, sodium_mg, potassium_mg, ...legacyPayload } = newMeal;
+        res = await supabase.from('meals').upsert(legacyPayload, { onConflict: 'id' });
+      }
+      if (res.error) {
+        throw res.error;
+      }
+    } catch (err: any) {
+      console.warn('Direct Supabase write failed, queuing for offline background sync:', err?.message || err);
+      await enqueueMutation('CREATE_MEAL', newMeal);
+    }
 
-    // Refresh weekly stats
+    // Refresh weekly stats in background
     get().fetchWeeklyStats().catch(() => {});
 
     return newMeal;
@@ -429,7 +509,7 @@ export const useMealStore = create<MealState>((set, get) => ({
         }
       }
       return result;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching yesterday meals:', err);
       return { breakfast: null, lunch: null, dinner: null, snack: null };
     }
@@ -472,7 +552,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       }
 
       return uniqueMeals;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching recent meals:', err);
       return [];
     }
@@ -496,7 +576,16 @@ export const useMealStore = create<MealState>((set, get) => ({
       };
     });
 
-    await enqueueMutation('UPDATE_MEAL', { id, updates });
+    try {
+      let res = await supabase.from('meals').update(updates).eq('id', id);
+      if (res.error && res.error.message?.toLowerCase().includes('column')) {
+        const { fiber_g, sugar_g, sodium_mg, potassium_mg, ...legacyUpdates } = updates;
+        res = await supabase.from('meals').update(legacyUpdates).eq('id', id);
+      }
+      if (res.error) throw res.error;
+    } catch {
+      await enqueueMutation('UPDATE_MEAL', { id, updates });
+    }
     get().fetchWeeklyStats().catch(() => {});
 
     return updatedMeal || (updates as Meal);
@@ -513,7 +602,12 @@ export const useMealStore = create<MealState>((set, get) => ({
       };
     });
 
-    await enqueueMutation('DELETE_MEAL', { id });
+    try {
+      const { error } = await supabase.from('meals').delete().eq('id', id);
+      if (error) throw error;
+    } catch {
+      await enqueueMutation('DELETE_MEAL', { id });
+    }
     get().fetchWeeklyStats().catch(() => {});
   },
 

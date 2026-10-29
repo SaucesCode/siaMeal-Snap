@@ -302,7 +302,7 @@ export default function OnboardingScreen() {
           {step === 1 && (
             <CatEarCard
               title="Athlete Biometrics"
-              badge="🐾 BMR CALC"
+              badge="BMR CALC"
               borderColor="#27272a"
               className="mb-4"
             >
@@ -649,7 +649,7 @@ export default function OnboardingScreen() {
           {step === 5 && targets && (
             <CatEarCard
               title="Daily Calorie Budget"
-              badge="🐾 TDEE CALIBRATED"
+              badge="TDEE CALIBRATED"
               borderColor="#10b981"
               className="mb-4"
             >

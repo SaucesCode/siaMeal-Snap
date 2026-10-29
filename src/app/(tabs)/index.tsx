@@ -2,19 +2,18 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
-  Image,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
   StatusBar,
   Alert,
-  Pressable
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../stores/authStore';
-import { useMealStore } from '../../stores/mealStore';
+import { useMealStore, getTodayString } from '../../stores/mealStore';
 import { useWaterStore } from '../../stores/waterStore';
 import { DailyMacroSummary } from '../../components/MacroCard';
 import { MealItemCard } from '../../components/MealItemCard';
@@ -22,22 +21,18 @@ import { MealDetailModal } from '../../components/MealDetailModal';
 import { TextLogModal } from '../../components/TextLogModal';
 import { QuickLogActionSheet } from '../../components/QuickLogActionSheet';
 import { RePounceSheet } from '../../components/RePounceSheet';
-import { AiNutritionCoachModal } from '../../components/AiNutritionCoachModal';
-import { FloatingCoachWidget } from '../../components/FloatingCoachWidget';
+import { useCoachStore } from '../../stores/coachStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { compressImage, analyzeMealPhoto } from '../../services/aiService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
-import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
 import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFelineHunterRank, FelineHunterTier } from '../../utils/felineGamification';
 import { FelineMilestoneCelebrationModal } from '../../components/FelineMilestoneCelebrationModal';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
-import { FelineEmptyState } from '../../components/FelineEmptyState';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
-import { WhiskerDivider } from '../../components/feline';
 
 interface CategoryHeaderConfig {
   type: MealType;
@@ -122,10 +117,9 @@ export default function DashboardScreen() {
     getYesterdayMeals,
   } = useMealStore();
   const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore();
+  const openCoach = useCoachStore((state) => state.openCoach);
 
   const [textModalVisible, setTextModalVisible] = useState(false);
-  const [coachModalVisible, setCoachModalVisible] = useState(false);
-  const [coachInitialQuery, setCoachInitialQuery] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<ToastConfig | null>(null);
@@ -139,7 +133,13 @@ export default function DashboardScreen() {
     snack: null,
   });
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getTodayString(), []);
+
+  const formattedDate = useMemo(() => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+    return `TODAY • ${now.toLocaleDateString('en-US', options).toUpperCase()}`;
+  }, []);
 
   useEffect(() => {
     fetchMealsForDate(todayStr);
@@ -164,7 +164,7 @@ export default function DashboardScreen() {
       hapticFeedback.pounce();
       await duplicateMeal(meal, targetType);
       setToast({
-        title: 'Re-Pounced Catch! 🐾',
+        title: 'Re-Pounced Catch',
         message: `Logged "${meal.name}" (${Math.round(meal.calories)} kcal) to today's hunt`,
         type: 'success',
       });
@@ -198,7 +198,7 @@ export default function DashboardScreen() {
     }
   };
 
-  // Compute consumed macros
+  // Compute consumed macros with safe numeric parsing
   const consumedTotals = useMemo(() => {
     return meals.reduce(
       (acc, meal) => ({
@@ -224,10 +224,10 @@ export default function DashboardScreen() {
     });
   }, [meals]);
 
-  const targetCalories = profile?.target_calories || 2000;
-  const targetProtein = profile?.target_protein_g || 150;
-  const targetCarbs = profile?.target_carbs_g || 200;
-  const targetFat = profile?.target_fat_g || 65;
+  const targetCalories = Number(profile?.target_calories) || 2000;
+  const targetProtein = Number(profile?.target_protein_g) || 150;
+  const targetCarbs = Number(profile?.target_carbs_g) || 200;
+  const targetFat = Number(profile?.target_fat_g) || 65;
 
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Athlete';
 
@@ -251,57 +251,24 @@ export default function DashboardScreen() {
     todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
   }), [displayName, profile, targetCalories, targetProtein, targetCarbs, targetFat, consumedTotals, meals]);
 
-  const [petCount, setPetCount] = useState(0);
-
-  // Dynamic Feline Companion Mood & Telemetry Speech (Cycles pose when petted!)
-  const companionMood = useMemo<SiaMood>(() => {
-    if (petCount > 0) {
-      const poses: SiaMood[] = ['chef', 'scanner', 'water', 'walking', 'celebrating'];
-      return poses[(petCount - 1) % poses.length];
-    }
-    if (consumedTotals.protein_g >= targetProtein) return 'celebrating';
-    if (consumedTotals.calories > targetCalories) return 'chef';
-    if (consumedTotals.calories === 0) return 'scanner';
-    if (targetCalories - consumedTotals.calories < 400) return 'water';
-    return 'scanner';
-  }, [petCount, consumedTotals, targetCalories, targetProtein]);
-
-  const companionSpeech = useMemo(() => {
-    if (petCount > 0) {
-      const petLines = [
-        'Purrrr! Chef Sia says high-protein meals keep your metabolism roaring!',
-        'My aperture eye is locked onto your macro targets today!',
-        'Splash time! Keep sipping water between meals for peak recovery.',
-        'Prowling alongside you all day — let’s crush today’s nutrition goals!',
-      ];
-      return petLines[(petCount - 1) % petLines.length];
-    }
-    if (consumedTotals.protein_g >= targetProtein) {
-      return '🎉 Protein goal pounced! Lean muscle is locked in.';
-    }
-    if (consumedTotals.calories > targetCalories) {
-      return `⚠️ Energy budget locked (+${Math.round(consumedTotals.calories - targetCalories)} kcal). Focus on pure hydration!`;
-    }
-    if (consumedTotals.calories === 0) {
-      return '🐾 Fresh hunt ahead! What prey are we stalking for breakfast?';
-    }
-    const remainingCal = Math.max(0, targetCalories - consumedTotals.calories);
-    const remainingProt = Math.max(0, targetProtein - consumedTotals.protein_g);
-    return `🐾 ${remainingCal} kcal & ${remainingProt}g protein left today. Tap bubble to chat!`;
-  }, [petCount, consumedTotals, targetCalories, targetProtein]);
-
-  // Hydration metrics
+  // Hydration metrics with bulletproof fallback
+  const safeTodayMl = Number(todayMl) || 0;
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
-  const waterPercentage = Math.min(100, Math.round((todayMl / targetWaterMl) * 100));
+  const waterPercentage = targetWaterMl > 0 ? Math.max(0, Math.min(100, Math.round((safeTodayMl / targetWaterMl) * 100))) || 0 : 0;
 
-  // Quick hydration shortcut with Dynamic Toast HUD & Purr on Apex
+  const handleOpenCoachWithPrompt = (prompt = '') => {
+    hapticFeedback.light();
+    openCoach(prompt);
+  };
+
+  // Quick hydration shortcut with Dynamic Toast HUD
   const handleQuickAddWater = async (amountMl = 250) => {
     hapticFeedback.medium();
-    const prevTotal = todayMl;
-    const newTotal = todayMl + amountMl;
+    const prevTotal = safeTodayMl;
+    const newTotal = safeTodayMl + amountMl;
     await addWater(amountMl);
     if (newTotal >= targetWaterMl && prevTotal < targetWaterMl) {
-      hapticFeedback.purr();
+      hapticFeedback.success();
     }
     const newTotalL = (newTotal / 1000).toFixed(1);
     const goalL = (targetWaterMl / 1000).toFixed(1);
@@ -375,99 +342,45 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-950">
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-zinc-950">
       <StatusBar barStyle="light-content" />
 
       {/* Floating Dynamic Island Toast HUD */}
       <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
 
-      {/* Header Bar */}
-      <View className="px-5 pt-3 pb-3 flex-row items-center justify-between">
+      {/* 1. Athletic Feline Command Header */}
+      <View className="px-5 pt-2 pb-3 flex-row items-center justify-between border-b border-zinc-900/60">
         <View>
-          <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">
-            Daily Dashboard
-          </Text>
+          <View className="flex-row items-center gap-1.5 mb-0.5">
+            <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <Text className="text-zinc-500 text-[10px] font-extrabold uppercase tracking-widest">
+              {formattedDate}
+            </Text>
+          </View>
           <Text
             style={{ fontFamily: 'Outfit_700Bold' }}
-            className="text-xl text-white tracking-tight mt-0.5"
+            className="text-xl text-white tracking-tight"
           >
             Hey, {displayName}
           </Text>
         </View>
+
+        {/* Apex Hunter Streak Badge */}
         <FelineHunterRankBadge streakDays={streakDays} compact={true} />
       </View>
 
       <ScrollView
-        className="flex-1 px-5 pt-4"
+        className="flex-1 px-5 pt-3.5"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
         }
       >
-        {/* Smart Feline Notification Opt-In Prompt */}
+        {/* Smart Notification Opt-In Prompt */}
         <NotificationPermissionBanner />
 
-        {/* Borderless Living Sia Companion Stage (Perched Above Macro Card) */}
-        <View
-          style={{ marginBottom: -8, zIndex: 20 }}
-          className="flex-row items-end gap-2.5 px-1"
-        >
-          {/* Free-Standing Interactive Animated Sia (Tap to Pet & Cycle Poses!) */}
-          <SiaCatMascot
-            size={86}
-            mood={companionMood}
-            withGlow={true}
-            interactive={true}
-            onPress={() => setPetCount((c) => c + 1)}
-          />
-
-          {/* Floating Comic Speech Bubble with Left Tail Pointer */}
-          <Pressable
-            onPress={() => {
-              hapticFeedback.purr();
-              setCoachModalVisible(true);
-            }}
-            style={({ pressed }) => [
-              { transform: [{ scale: pressed ? 0.98 : 1 }], opacity: pressed ? 0.92 : 1 },
-            ]}
-            className="flex-1 mb-3 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl px-3.5 py-2.5 shadow-md shadow-black relative"
-          >
-            {/* Comic Speech Tail Pointing to Sia */}
-            <View
-              style={{
-                position: 'absolute',
-                left: -6,
-                bottom: 14,
-                width: 12,
-                height: 12,
-                backgroundColor: '#18181b',
-                borderLeftWidth: 1,
-                borderBottomWidth: 1,
-                borderColor: 'rgba(16, 185, 129, 0.35)',
-                transform: [{ rotate: '45deg' }],
-              }}
-            />
-            <View className="flex-row items-center justify-between mb-1">
-              <View className="flex-row items-center gap-1.5">
-                <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-400 text-xs">
-                  Sia
-                </Text>
-                <View className="bg-emerald-500/15 px-1.5 py-0.5 rounded-full">
-                  <Text className="text-emerald-300 text-[9px] font-bold">
-                    TAP CAT TO PET 🐾
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chatbubble-ellipses" size={13} color="#10b981" />
-            </View>
-            <Text className="text-zinc-200 text-[11px] font-medium leading-4">
-              {companionSpeech}
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* 1. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
+        {/* 2. Hero Energy & Macronutrient Blueprint Card (Animated SVG Rings) */}
         <DailyMacroSummary
           targetCalories={targetCalories}
           consumedCalories={consumedTotals.calories}
@@ -476,68 +389,128 @@ export default function DashboardScreen() {
           fat={{ consumed: consumedTotals.fat_g, target: targetFat }}
         />
 
-        {/* Slim Hydration Chip */}
-        <Pressable
-          onPress={() => handleQuickAddWater(250)}
-          style={({ pressed }) => [
-            { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
-          ]}
-          className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl px-4 py-2.5 mb-4 flex-row items-center justify-between"
-        >
-          <View className="flex-row items-center gap-2.5">
-            <View className="w-7 h-7 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
-              <Ionicons name="water" size={14} color="#06b6d4" />
+        {/* 4. Athletic Feline Hydration Telemetry Pod */}
+        <View className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl p-3.5 mb-4 shadow-sm shadow-black">
+          <View className="flex-row items-center justify-between mb-2.5">
+            <View className="flex-row items-center gap-2.5">
+              <View className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
+                <Ionicons name="water" size={16} color="#06b6d4" />
+              </View>
+              <View>
+                <Text className="text-zinc-500 text-[9px] font-extrabold uppercase tracking-widest">
+                  Daily Hydration
+                </Text>
+                <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-xs">
+                  {(safeTodayMl / 1000).toFixed(1)}L <Text className="text-zinc-500 font-normal">/ {(targetWaterMl / 1000).toFixed(1)}L ({waterPercentage}%)</Text>
+                </Text>
+              </View>
             </View>
-            <Text style={{ fontFamily: 'Outfit_700Bold', fontVariant: ['tabular-nums'] }} className="text-white text-xs">
-              {(todayMl / 1000).toFixed(1)}L <Text className="text-zinc-500 font-normal">/ {(targetWaterMl / 1000).toFixed(1)}L</Text>
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-2">
-            <View className="h-1.5 w-16 bg-zinc-800 rounded-full overflow-hidden">
-              <View className="h-full bg-cyan-500 rounded-full" style={{ width: `${waterPercentage}%` }} />
-            </View>
-            <View className="bg-cyan-500/15 border border-cyan-500/30 px-2 py-1 rounded-lg">
-              <Text className="text-cyan-400 text-[10px] font-bold">+250ml</Text>
-            </View>
-          </View>
-        </Pressable>
 
-        {/* Quick Action Strip */}
+            {/* Quick 1-Tap Vessel Pods */}
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => handleQuickAddWater(250)}
+                style={({ pressed }) => [
+                  { transform: [{ scale: pressed ? 0.94 : 1 }], opacity: pressed ? 0.85 : 1 },
+                ]}
+                className="bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-1.5 rounded-xl flex-row items-center gap-1"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MaterialCommunityIcons name="cup-water" size={13} color="#06b6d4" />
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-cyan-300 text-[10px]">
+                  +250ml
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => handleQuickAddWater(500)}
+                style={({ pressed }) => [
+                  { transform: [{ scale: pressed ? 0.94 : 1 }], opacity: pressed ? 0.85 : 1 },
+                ]}
+                className="bg-cyan-500/20 border border-cyan-500/40 px-2.5 py-1.5 rounded-xl flex-row items-center gap-1"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MaterialCommunityIcons name="bottle-tonic-outline" size={13} color="#38bdf8" />
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-cyan-200 text-[10px]">
+                  +500ml
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Liquid progress track */}
+          <View className="w-full h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800">
+            <View
+              className="h-full bg-cyan-500 rounded-full"
+              style={{ width: `${waterPercentage}%` }}
+            />
+          </View>
+        </View>
+
+        {/* 5. 3-Column Tactile Action Dock */}
         <View className="flex-row gap-2.5 mb-4">
+          {/* Snap Catch */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.medium();
+              router.push('/(tabs)/camera' as any);
+            }}
+            style={({ pressed }) => [
+              { transform: [{ scale: pressed ? 0.96 : 1 }], opacity: pressed ? 0.88 : 1 },
+            ]}
+            className="flex-1 bg-zinc-900/90 border border-emerald-500/30 rounded-2xl py-3 px-2 items-center justify-center gap-0.5 shadow-sm"
+          >
+            <View className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 items-center justify-center mb-0.5">
+              <Ionicons name="camera" size={16} color="#10b981" />
+            </View>
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
+              Snap Catch
+            </Text>
+            <Text className="text-zinc-500 text-[9px] font-semibold">AI Vision</Text>
+          </Pressable>
+
+          {/* AI Text Log */}
           <Pressable
             onPress={() => {
               hapticFeedback.light();
               setTextModalVisible(true);
             }}
             style={({ pressed }) => [
-              { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+              { transform: [{ scale: pressed ? 0.96 : 1 }], opacity: pressed ? 0.88 : 1 },
             ]}
-            className="flex-1 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl py-3 px-4 flex-row items-center gap-2.5"
+            className="flex-1 bg-zinc-900/90 border border-purple-500/30 rounded-2xl py-3 px-2 items-center justify-center gap-0.5 shadow-sm"
           >
-            <View className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 items-center justify-center">
-              <MaterialCommunityIcons name="text-box-edit-outline" size={15} color="#c084fc" />
+            <View className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 items-center justify-center mb-0.5">
+              <MaterialCommunityIcons name="text-box-edit-outline" size={16} color="#c084fc" />
             </View>
-            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">Text Log</Text>
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
+              Text Log
+            </Text>
+            <Text className="text-zinc-500 text-[9px] font-semibold">Quick Type</Text>
           </Pressable>
 
+          {/* Photo Vault */}
           <Pressable
             onPress={() => {
               hapticFeedback.light();
               handlePickGalleryForCategory('snack');
             }}
             style={({ pressed }) => [
-              { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: pressed ? 0.9 : 1 },
+              { transform: [{ scale: pressed ? 0.96 : 1 }], opacity: pressed ? 0.88 : 1 },
             ]}
-            className="flex-1 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl py-3 px-4 flex-row items-center gap-2.5"
+            className="flex-1 bg-zinc-900/90 border border-amber-500/30 rounded-2xl py-3 px-2 items-center justify-center gap-0.5 shadow-sm"
           >
-            <View className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 items-center justify-center">
-              <Ionicons name="images-outline" size={15} color="#fbbf24" />
+            <View className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 items-center justify-center mb-0.5">
+              <Ionicons name="images-outline" size={16} color="#fbbf24" />
             </View>
-            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">Photo Library</Text>
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-xs">
+              Photo Vault
+            </Text>
+            <Text className="text-zinc-500 text-[9px] font-semibold">Gallery</Text>
           </Pressable>
         </View>
 
-        {/* 4. Proactive AI Nutrition Engine: Sia's Next Catch */}
+        {/* 6. Proactive AI Nutrition Engine: Sia's Next Catch */}
         <SiaNextCatchCard
           targets={{
             calories: targetCalories,
@@ -549,26 +522,47 @@ export default function DashboardScreen() {
           loggedMeals={meals}
         />
 
-        {/* Categorized Meal Feed with Feline Whisker Divider */}
+        {/* 7. Categorized Meal Feed */}
         <View className="mb-2">
-          <WhiskerDivider label="Today's Catches" />
+          <View className="flex-row items-center justify-between mb-3 px-1">
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base">
+              Today's Meals
+            </Text>
+            <Text style={{ fontVariant: ['tabular-nums'] }} className="text-zinc-500 text-xs font-semibold">
+              {meals.length} {meals.length === 1 ? 'entry' : 'entries'}
+            </Text>
+          </View>
 
           {meals.length === 0 ? (
-            <FelineEmptyState
-              title="Sia is Snoozing..."
-              description="No catches logged yet today! Snap a photo or type your meal to start filling your macro rings."
-              actionLabel="Snap Your First Catch"
-              onAction={() => {
-                hapticFeedback.light();
-                router.push('/(tabs)/camera' as any);
-              }}
-              mood="idle"
-            />
+            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-2xl p-6 items-center my-2">
+              <View className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 items-center justify-center mb-2.5">
+                <Ionicons name="restaurant-outline" size={22} color="#10b981" />
+              </View>
+              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-sm mb-1 text-center">
+                No Meals Logged Today
+              </Text>
+              <Text className="text-zinc-400 text-xs text-center mb-4 leading-relaxed max-w-[260px]">
+                Snap a photo or type your meal to track your macros and hit your goals.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  hapticFeedback.light();
+                  router.push('/(tabs)/camera' as any);
+                }}
+                activeOpacity={0.8}
+                className="bg-emerald-500/15 border border-emerald-500/35 px-4 py-2 rounded-xl flex-row items-center gap-1.5"
+              >
+                <Ionicons name="camera" size={16} color="#34d399" />
+                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-emerald-400 text-xs">
+                  Scan Your First Meal
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             mealSections.map((section) => {
               const hasMeals = section.meals.length > 0;
               return (
-                <View key={section.type} className="mb-3">
+                <View key={section.type} className="mb-3.5">
                   {/* Category Header Row */}
                   <View className="flex-row items-center justify-between mb-2 px-1">
                     <View className="flex-row items-center gap-2">
@@ -601,6 +595,7 @@ export default function DashboardScreen() {
                           hapticFeedback.light();
                           setActionSheetCategory(section);
                         }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         className="w-7 h-7 rounded-xl bg-zinc-800/80 items-center justify-center border border-zinc-700/60"
                       >
                         <Ionicons name="add" size={16} color="#e4e4e7" />
@@ -667,7 +662,7 @@ export default function DashboardScreen() {
                           </View>
                         </Pressable>
 
-                        {/* 1-Tap Inline Quick Re-Pounce Pill (MacroFactor / Lose It! Killer) */}
+                        {/* 1-Tap Inline Quick Re-Pounce Pill */}
                         {yesterdayCatch && (
                           <TouchableOpacity
                             onPress={() => handleDirectRePounce(yesterdayCatch, section.type)}
@@ -736,17 +731,16 @@ export default function DashboardScreen() {
           onClose={() => setSelectedMeal(null)}
           onDuplicate={(meal) => {
             setToast({
-              title: 'Re-Pounced Catch! 🐾',
+              title: 'Meal Logged to Today',
               message: `Duplicated "${meal.name}" (${Math.round(meal.calories)} kcal) to today`,
               type: 'success',
             });
           }}
           onAskCoach={(meal) => {
             setSelectedMeal(null);
-            setCoachInitialQuery(
-              `I'm inspecting my logged catch "${meal.name}" (${Math.round(meal.calories)} kcal, ${Math.round(meal.protein_g)}g protein, ${Math.round(meal.carbs_g)}g carbs, ${Math.round(meal.fat_g)}g fat). How does this impact my daily deficit, and what should I eat next to hit my macros?`
+            openCoach(
+              `I'm inspecting my logged meal "${meal.name}" (${Math.round(meal.calories)} kcal, ${Math.round(meal.protein_g)}g protein, ${Math.round(meal.carbs_g)}g carbs, ${Math.round(meal.fat_g)}g fat). How does this impact my daily deficit, and what should I eat next to hit my macros?`
             );
-            setCoachModalVisible(true);
           }}
         />
       )}
@@ -764,7 +758,7 @@ export default function DashboardScreen() {
         />
       )}
 
-      {/* Re-Pounce Recent Catches Vault Sheet (MacroFactor Killer) */}
+      {/* Re-Pounce Recent Catches Vault Sheet */}
       {rePounceSheetCategory && (
         <RePounceSheet
           visible={!!rePounceSheetCategory}
@@ -776,23 +770,6 @@ export default function DashboardScreen() {
           onPounceMeal={(meal) => handleDirectRePounce(meal, rePounceSheetCategory.type)}
         />
       )}
-
-      {/* Floating AI Coach Widget */}
-      <FloatingCoachWidget
-        onPress={() => {
-          hapticFeedback.medium();
-          setCoachInitialQuery('');
-          setCoachModalVisible(true);
-        }}
-      />
-
-      {/* AI Nutrition Coach Modal — always mounted so chat history persists */}
-      <AiNutritionCoachModal
-        visible={coachModalVisible}
-        onClose={() => setCoachModalVisible(false)}
-        userContext={coachUserContext}
-        initialQuery={coachInitialQuery}
-      />
 
       {/* Feline Hunter Milestone Celebration Modal */}
       {unlockedMilestoneTier && (

@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Alert,
   LayoutAnimation,
+  Animated,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -28,7 +29,6 @@ import { useMealStore } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import SiaCatMascot from './SiaCatMascot';
-import { SiaWalkingLoader } from './feline/SiaWalkingLoader';
 import { ToastBanner, ToastConfig } from './ToastBanner';
 
 interface AiNutritionCoachModalProps {
@@ -281,6 +281,133 @@ function FormattedChatMessage({
   );
 }
 
+function ChatTypingDots() {
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const createPulse = (dotVal: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dotVal, {
+            toValue: 1,
+            duration: 320,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotVal, {
+            toValue: 0.3,
+            duration: 320,
+            useNativeDriver: true,
+          }),
+          Animated.delay(Math.max(0, 360 - delay)),
+        ])
+      );
+    };
+
+    const a1 = createPulse(dot1, 0);
+    const a2 = createPulse(dot2, 160);
+    const a3 = createPulse(dot3, 320);
+
+    a1.start();
+    a2.start();
+    a3.start();
+
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={typingStyles.container}>
+      <Animated.View
+        style={[
+          typingStyles.dot,
+          {
+            opacity: dot1,
+            transform: [
+              {
+                translateY: dot1.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0, -3.5],
+                }),
+              },
+              {
+                scale: dot1.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0.85, 1.2],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          typingStyles.dot,
+          {
+            opacity: dot2,
+            transform: [
+              {
+                translateY: dot2.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0, -3.5],
+                }),
+              },
+              {
+                scale: dot2.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0.85, 1.2],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          typingStyles.dot,
+          {
+            opacity: dot3,
+            transform: [
+              {
+                translateY: dot3.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0, -3.5],
+                }),
+              },
+              {
+                scale: dot3.interpolate({
+                  inputRange: [0.3, 1],
+                  outputRange: [0.85, 1.2],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+const typingStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 14,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+});
+
 export function AiNutritionCoachModal({
   visible,
   onClose,
@@ -525,14 +652,14 @@ export function AiNutritionCoachModal({
     };
   }, []);
 
-  // Auto scroll on new messages
+  // Auto scroll on new messages or typing state changes
   useEffect(() => {
     if (visible) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages, visible]);
+  }, [messages, visible, isTyping]);
 
   if (!visible) return null;
 
@@ -642,7 +769,7 @@ export function AiNutritionCoachModal({
         {/* Header */}
         <View className="flex-row items-center justify-between pb-3 border-b border-zinc-800/80">
           <View className="flex-row items-center gap-2.5">
-            <SiaCatMascot size={36} mood="happy" withGlow={true} />
+            <SiaCatMascot size={36} mood="head" withGlow={false} />
             <View>
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
@@ -879,13 +1006,13 @@ export function AiNutritionCoachModal({
                   group.messages.map((msg: ChatMessage) => (
                     <View
                       key={msg.id}
-                      className={`mb-3 flex-row ${
+                      className={`mb-3 flex-row items-start ${
                         msg.role === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
                       {msg.role === 'assistant' && (
-                        <View className="mr-2 mt-0.5">
-                          <SiaCatMascot size={28} mood="idle" withGlow={false} />
+                        <View className="mr-2 mt-0.5 self-start">
+                          <SiaCatMascot size={28} mood="head" withGlow={false} />
                         </View>
                       )}
 
@@ -912,7 +1039,7 @@ export function AiNutritionCoachModal({
           {/* Friendly prompt if all history belongs to previous days and today is fresh */}
           {dateGroups.length > 0 && dateGroups.every((g) => !g.isToday) && (
             <View className="my-3 p-3 bg-zinc-950/60 border border-dashed border-zinc-800 rounded-2xl items-center flex-row gap-2.5">
-              <SiaCatMascot size={26} mood="happy" withGlow={false} />
+              <SiaCatMascot size={26} mood="head" withGlow={false} />
               <View className="flex-1">
                 <Text className="text-zinc-300 text-xs font-bold">New Day, Fresh Macros!</Text>
                 <Text className="text-zinc-500 text-[10px] leading-3 mt-0.5">
@@ -922,15 +1049,15 @@ export function AiNutritionCoachModal({
             </View>
           )}
 
-          {/* Thinking / Typing State with Animated Walking Mascot */}
+          {/* Thinking / Typing State with Assistant-Aligned Mascot Head & Bubble */}
           {isTyping && (
-            <View className="flex-row items-center gap-2 mb-3">
-              <View className="bg-zinc-950 border border-emerald-500/30 px-3.5 py-2.5 rounded-2xl shadow-sm">
-                <SiaWalkingLoader
-                  compact={true}
-                  size={40}
-                  label="Sia is crafting your nutrition advice..."
-                />
+            <View className="mb-3 flex-row justify-start items-start">
+              <View className="mr-2 mt-0.5 self-start">
+                <SiaCatMascot size={28} mood="head" withGlow={false} />
+              </View>
+              <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-row items-center gap-2">
+                <Text className="text-zinc-400 text-xs font-semibold">Sia is thinking</Text>
+                <ChatTypingDots />
               </View>
             </View>
           )}

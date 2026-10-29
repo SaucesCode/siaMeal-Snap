@@ -86,7 +86,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
 
   return (
     <TouchableOpacity
-      activeOpacity={0.75}
+      activeOpacity={0.78}
       onPress={() => {
         hapticFeedback.light();
         onPress?.(meal);
@@ -100,14 +100,14 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
           {meal.image_url && !imageError ? (
             <Image
               source={{ uri: meal.image_url }}
-              className="w-13 h-13 rounded-2xl border border-zinc-800"
+              className="rounded-2xl border border-zinc-800"
               style={{ width: 52, height: 52 }}
               resizeMode="cover"
               onError={() => setImageError(true)}
             />
           ) : (
             <View
-              className={`w-13 h-13 rounded-2xl ${config.bg} border ${config.border} items-center justify-center`}
+              className={`rounded-2xl ${config.bg} border ${config.border} items-center justify-center`}
               style={{ width: 52, height: 52 }}
             >
               <MaterialCommunityIcons name={config.icon} size={22} color={config.color} />
@@ -173,7 +173,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
       <View className="flex-row items-center justify-between pt-2.5 border-t border-zinc-800/60">
         <View className="flex-row items-baseline gap-1">
           <Text
-            style={{ fontFamily: 'Outfit_900Black' }}
+            style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
             className="text-white text-base"
           >
             {Math.round(meal.calories)}
@@ -183,9 +183,12 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
 
         <View className="flex-row items-center gap-2">
           {/* Protein */}
-          <View className="bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 rounded-lg flex-row items-center gap-1">
-            <View className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-            <Text className="text-blue-400 text-xs font-extrabold">
+          <View className="bg-sky-500/10 border border-sky-500/25 px-2 py-0.5 rounded-lg flex-row items-center gap-1">
+            <View className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-sky-400 text-xs font-extrabold"
+            >
               {Math.round(meal.protein_g)}g <Text className="text-zinc-500 font-normal text-[10px]">P</Text>
             </Text>
           </View>
@@ -193,7 +196,10 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
           {/* Carbs */}
           <View className="bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg flex-row items-center gap-1">
             <View className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <Text className="text-amber-400 text-xs font-extrabold">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-amber-400 text-xs font-extrabold"
+            >
               {Math.round(meal.carbs_g)}g <Text className="text-zinc-500 font-normal text-[10px]">C</Text>
             </Text>
           </View>
@@ -201,7 +207,10 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
           {/* Fat */}
           <View className="bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-lg flex-row items-center gap-1">
             <View className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-            <Text className="text-rose-400 text-xs font-extrabold">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-rose-400 text-xs font-extrabold"
+            >
               {Math.round(meal.fat_g)}g <Text className="text-zinc-500 font-normal text-[10px]">F</Text>
             </Text>
           </View>

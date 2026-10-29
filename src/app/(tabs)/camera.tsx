@@ -25,7 +25,7 @@ import { hapticFeedback } from '../../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MealType } from '../../types';
 import SiaCatMascot from '../../components/SiaCatMascot';
-import { SiaMascotHero } from '../../components/feline';
+import { SiaMascotHero, SiaWalkingLoader, SiaContextualLoader } from '../../components/feline';
 
 type ScanMode = 'photo' | 'barcode';
 
@@ -205,13 +205,13 @@ export default function CameraScreen() {
       // 1. Strict compression to 512px, 0.5 quality, base64
       const compressed = await compressImage(uri);
 
-      // 2. Invoke Supabase Edge Function with dynamic feline updates
-      setProcessingStatus("Sia's vision eye is analyzing meal nutrients...");
+      // 2. Invoke Supabase Edge Function with dynamic telemetry updates
+      setProcessingStatus('Analyzing meal nutrients...');
       const result = await analyzeMealPhoto(compressed.base64);
 
       // 3. Set draft meal in store and navigate to Review & Edit screen
       setDraftMeal({
-        name: result.meal_name || 'Logged Catch',
+        name: result.meal_name || 'Logged Meal',
         meal_type: (params.meal_type as MealType) || 'snack',
         calories: result.calories,
         protein_g: result.protein_g,
@@ -564,7 +564,7 @@ export default function CameraScreen() {
             {/* Viewfinder Tip */}
             <View className="mt-3 bg-black/60 px-3.5 py-1.5 rounded-full border border-white/10">
               <Text className="text-zinc-300 text-[11px] font-medium text-center">
-                🐾 Center meal inside frame for precision macro scan
+                Center meal inside frame for precision macro scan
               </Text>
             </View>
           </View>
@@ -771,46 +771,19 @@ export default function CameraScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Loading Overlay with Animated Sia Scanning Mascot & Moving Bar */}
+      {/* Loading Overlay with Animated Sia Walking Mascot & Paw Trail */}
       {isProcessing && (
         <View
           style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}
-          className="bg-black/92 items-center justify-center px-8"
+          className="bg-black/92 items-center justify-center px-6"
         >
           <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/30">
-            {/* Animated Sia Scanner Hero */}
-            <View className="mb-2">
-              <SiaMascotHero
-                size={92}
-                pose="scanner"
-                badge="AI SCANNING"
-                withGlow={true}
-              />
-            </View>
-
-            <Text
-              style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-white text-base text-center mt-1"
-            >
-              {processingStatus}
-            </Text>
-
-            <Text className="text-emerald-400 text-xs mt-1.5 text-center font-bold">
-              🐾 Sia's aperture eye is calculating macros...
-            </Text>
-
-            {/* Active Moving Progress Bar */}
-            <View className="mt-4 w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-zinc-800">
-              <Animated.View
-                style={{
-                  width: processingProgressAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['5%', '100%'],
-                  }),
-                }}
-                className="h-full bg-emerald-400 rounded-full"
-              />
-            </View>
+            <SiaContextualLoader
+              mode="scan"
+              size={112}
+              label={processingStatus || 'Sia is scanning your meal...'}
+              sublabel="Aperture vision eye calculating calories & macros"
+            />
           </View>
         </View>
       )}
@@ -837,7 +810,7 @@ export default function CameraScreen() {
               style={{ fontFamily: 'Outfit_800ExtraBold' }}
               className="text-white text-lg text-center mt-2"
             >
-              Sia Can't Eat That! 🐾
+              Sia Can't Eat That!
             </Text>
 
             <Text className="text-zinc-300 text-xs text-center leading-relaxed mt-2 px-2">

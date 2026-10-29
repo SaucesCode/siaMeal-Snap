@@ -13,7 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { useAuthStore } from '../stores/authStore';
+import { useCoachStore } from '../stores/coachStore';
+import { useMealStore } from '../stores/mealStore';
 import { SiaWalkingLoader } from '../components/feline/SiaWalkingLoader';
+import { SiaRoamingCompanion } from '../components/feline/SiaRoamingCompanion';
+import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
 WebBrowser.maybeCompleteAuthSession();
 import { initSyncQueue } from '../lib/syncQueue';
@@ -48,11 +52,44 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const WALK_DURATION_MS = 2150;
 
 export default function RootLayout() {
-  const { isInitialized, initialize } = useAuthStore();
+  const { isInitialized, initialize, profile, user } = useAuthStore();
+  const meals = useMealStore((state) => state.meals);
+  const { isOpen: coachIsOpen, initialQuery: coachInitialQuery, closeCoach } = useCoachStore();
+
   const [minWalkDone, setMinWalkDone] = useState(false);
   const [launchHidden, setLaunchHidden] = useState(false);
 
   const overlayOpacity = useSharedValue(1);
+
+  const coachUserContext = React.useMemo(() => {
+    const consumedCalories = meals.reduce((sum, m) => sum + (m.calories || 0), 0);
+    const consumedProtein = meals.reduce((sum, m) => sum + (m.protein_g || 0), 0);
+    const consumedCarbs = meals.reduce((sum, m) => sum + (m.carbs_g || 0), 0);
+    const consumedFat = meals.reduce((sum, m) => sum + (m.fat_g || 0), 0);
+
+    const targetCalories = profile?.target_calories || 2000;
+    const targetProtein = profile?.target_protein_g || 150;
+    const targetCarbs = profile?.target_carbs_g || 200;
+    const targetFat = profile?.target_fat_g || 65;
+
+    return {
+      displayName: profile?.full_name || user?.email?.split('@')[0] || 'Athlete',
+      goal: profile?.goal_pace || 'Fat Loss / Maintenance',
+      dietType: profile?.diet_type || 'Balanced',
+      targetCalories,
+      targetProtein,
+      targetCarbs,
+      targetFat,
+      consumedCalories: Math.round(consumedCalories),
+      consumedProtein: Math.round(consumedProtein),
+      consumedCarbs: Math.round(consumedCarbs),
+      consumedFat: Math.round(consumedFat),
+      remainingCalories: Math.max(0, Math.round(targetCalories - consumedCalories)),
+      remainingProtein: Math.max(0, Math.round(targetProtein - consumedProtein)),
+      remainingCarbs: Math.max(0, Math.round(targetCarbs - consumedCarbs)),
+      remainingFat: Math.max(0, Math.round(targetFat - consumedFat)),
+    };
+  }, [profile, user, meals]);
 
   const [fontsLoaded] = useFonts({
     Outfit_600SemiBold,
@@ -121,6 +158,21 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+      )}
+
+      {/* Global Roaming Sia Mascot */}
+      {appReady && launchHidden && (
+        <SiaRoamingCompanion enabled={true} />
+      )}
+
+      {/* Global AI Nutrition Coach Modal */}
+      {appReady && (
+        <AiNutritionCoachModal
+          visible={coachIsOpen}
+          onClose={closeCoach}
+          userContext={coachUserContext}
+          initialQuery={coachInitialQuery}
+        />
       )}
 
       {/* Point A -> Point B Walking Mascot App Startup Screen (No Loading Bar) */}

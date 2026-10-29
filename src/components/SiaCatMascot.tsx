@@ -25,6 +25,8 @@ export interface SiaCatMascotProps {
   interactive?: boolean;
   /** Optional callback when mascot is tapped */
   onPress?: () => void;
+  /** Incrementing counter to trigger an immediate scene-specific action flourish */
+  actionTrigger?: number;
 }
 
 /**
@@ -39,6 +41,7 @@ export default function SiaCatMascot({
   withGlow = true,
   interactive = false,
   onPress,
+  actionTrigger = 0,
 }: SiaCatMascotProps) {
   return (
     <View style={[styles.container, { width: size, height: size }, style]}>
@@ -49,6 +52,7 @@ export default function SiaCatMascot({
         withGlow={withGlow}
         interactive={interactive}
         onPress={onPress}
+        actionTrigger={actionTrigger}
       />
     </View>
   );

@@ -126,9 +126,6 @@
 
   <!-- 7. RIGHT EYE (6-BLADE CAMERA APERTURE SHUTTER + VIEWFINDER TICKS) -->
   <g>
-    <!-- Soft Outer Emerald Glow -->
-    <circle cx="151" cy="134" r="30" fill="url(#shutterGlow)" />
-
     <!-- 4 Viewfinder Reticle Ticks -->
     <line x1="151" y1="103" x2="151" y2="108" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
     <line x1="151" y1="160" x2="151" y2="165" stroke="#28F59C" stroke-width="2.5" stroke-linecap="round" />
@@ -138,7 +135,8 @@
     <!-- Outer Dark Camera Ring -->
     <circle cx="151" cy="134" r="21" fill="#141F1A" />
     <!-- Glowing Mint-Emerald Iris -->
-    <circle cx="151" cy="134" r="17" fill="url(#shutterIris)" />
+    <circle cx="151" cy="134" r="17" fill="#22E592" />
+    <circle cx="148" cy="131" r="11.5" fill="#38F8A6" opacity="0.45" />
 
     <!-- 6 Camera Shutter Blade Lines + Center Hex Aperture -->
     <polygon

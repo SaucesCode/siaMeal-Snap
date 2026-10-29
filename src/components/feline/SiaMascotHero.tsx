@@ -14,6 +14,7 @@ export type MascotPose =
   | 'logo'
   | 'walking'
   | 'celebrating'
+  | 'sleeping'
   | 'thinking';
 
 interface SiaMascotHeroProps {
@@ -24,6 +25,7 @@ interface SiaMascotHeroProps {
   onPress?: () => void;
   withGlow?: boolean;
   animation?: SiaAnimationMode;
+  actionTrigger?: number;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -34,6 +36,7 @@ const POSE_TO_MOOD: Record<MascotPose, SiaVectorMood> = {
   logo: 'happy',
   walking: 'walking',
   celebrating: 'celebrating',
+  sleeping: 'sleeping',
   thinking: 'thinking',
 };
 
@@ -49,6 +52,7 @@ export function SiaMascotHero({
   onPress,
   withGlow = true,
   animation = 'auto',
+  actionTrigger = 0,
   style,
 }: SiaMascotHeroProps) {
   const handlePress = () => {
@@ -101,6 +105,7 @@ export function SiaMascotHero({
             mood={resolvedMood}
             animation={animation}
             withGlow={withGlow}
+            actionTrigger={actionTrigger}
           />
 
           {/* Optional Badge Overlap */}

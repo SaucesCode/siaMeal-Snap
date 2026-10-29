@@ -19,7 +19,6 @@ import { MealType } from '../types';
 import { getDefaultMealType, evaluateMacroIntegrity, reconcileCaloriesWithMacros } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import SiaCatMascot from '../components/SiaCatMascot';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
 interface MealTypeOption {
@@ -48,10 +47,6 @@ export default function ReviewScreen() {
   const [protein, setProtein] = useState('0');
   const [carbs, setCarbs] = useState('0');
   const [fat, setFat] = useState('0');
-  const [fiber, setFiber] = useState('0');
-  const [sugar, setSugar] = useState('0');
-  const [sodium, setSodium] = useState('0');
-  const [potassium, setPotassium] = useState('0');
   const [foodItems, setFoodItems] = useState<string[]>([]);
   const [newItemText, setNewItemText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -65,19 +60,11 @@ export default function ReviewScreen() {
     protein_g: number;
     carbs_g: number;
     fat_g: number;
-    fiber_g: number;
-    sugar_g: number;
-    sodium_mg: number;
-    potassium_mg: number;
   }>({
     calories: 0,
     protein_g: 0,
     carbs_g: 0,
     fat_g: 0,
-    fiber_g: 0,
-    sugar_g: 0,
-    sodium_mg: 0,
-    potassium_mg: 0,
   });
 
   useEffect(() => {
@@ -88,30 +75,18 @@ export default function ReviewScreen() {
       const prot = draftMeal.protein_g ?? 0;
       const crb = draftMeal.carbs_g ?? 0;
       const ft = draftMeal.fat_g ?? 0;
-      const fib = draftMeal.fiber_g ?? 0;
-      const sug = draftMeal.sugar_g ?? 0;
-      const sod = draftMeal.sodium_mg ?? 0;
-      const pot = draftMeal.potassium_mg ?? 0;
 
       baseMacros.current = {
         calories: cal,
         protein_g: prot,
         carbs_g: crb,
         fat_g: ft,
-        fiber_g: fib,
-        sugar_g: sug,
-        sodium_mg: sod,
-        potassium_mg: pot,
       };
 
       setCalories(String(cal));
       setProtein(String(prot));
       setCarbs(String(crb));
       setFat(String(ft));
-      setFiber(String(fib));
-      setSugar(String(sug));
-      setSodium(String(sod));
-      setPotassium(String(pot));
       setFoodItems(draftMeal.food_items || []);
       setPortionScale(1.0);
     }
@@ -141,7 +116,7 @@ export default function ReviewScreen() {
     if (proteinMet && calorieOver <= 100) {
       return {
         mood: 'celebrating' as const,
-        badgeText: '👑 Protein Goal Smashed',
+        badgeText: 'Protein Goal Smashed',
         badgeColor: '#10b981',
         badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
         message: `Purr-fect! This catch pushes today's protein to ${Math.round(totalProtAfter)}g / ${targetProtein}g. Target conquered!`,
@@ -151,7 +126,7 @@ export default function ReviewScreen() {
     if (calorieOver > 150) {
       return {
         mood: 'thinking' as const,
-        badgeText: '⚠️ Over Daily Budget',
+        badgeText: 'Over Daily Budget',
         badgeColor: '#f59e0b',
         badgeBg: 'bg-amber-500/15 border-amber-500/30',
         message: `Pushes today's calories +${Math.round(calorieOver)} kcal above your target. Try a 0.75× portion or balance your next catch!`,
@@ -162,7 +137,7 @@ export default function ReviewScreen() {
     const remainingProt = Math.max(0, targetProtein - totalProtAfter);
     return {
       mood: 'scanner' as const,
-      badgeText: '🐾 Fits Daily Budget',
+      badgeText: 'Fits Daily Budget',
       badgeColor: '#10b981',
       badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
       message: `Wholesome catch! Leaves ~${Math.round(remainingKcal)} kcal and ${Math.round(remainingProt)}g protein for the rest of today.`,
@@ -177,12 +152,6 @@ export default function ReviewScreen() {
     return evaluateMacroIntegrity(c, p, cb, f);
   }, [calories, protein, carbs, fat]);
 
-  const netCarbs = useMemo(() => {
-    const totalCarb = Math.max(0, parseFloat(carbs) || 0);
-    const totalFiber = Math.max(0, parseFloat(fiber) || 0);
-    return Math.max(0, Math.round((totalCarb - totalFiber) * 10) / 10);
-  }, [carbs, fiber]);
-
   const handleScalePortion = (multiplier: number) => {
     hapticFeedback.selection();
     setPortionScale(multiplier);
@@ -190,10 +159,6 @@ export default function ReviewScreen() {
     setProtein(String(Math.round(baseMacros.current.protein_g * multiplier)));
     setCarbs(String(Math.round(baseMacros.current.carbs_g * multiplier)));
     setFat(String(Math.round(baseMacros.current.fat_g * multiplier)));
-    setFiber(String(Math.round(baseMacros.current.fiber_g * multiplier)));
-    setSugar(String(Math.round(baseMacros.current.sugar_g * multiplier)));
-    setSodium(String(Math.round(baseMacros.current.sodium_mg * multiplier)));
-    setPotassium(String(Math.round(baseMacros.current.potassium_mg * multiplier)));
   };
 
   const handleAutoAlignCalories = () => {
@@ -236,10 +201,6 @@ export default function ReviewScreen() {
       const rawProt = Math.max(0, parseFloat(protein) || 0);
       const rawCarb = Math.max(0, parseFloat(carbs) || 0);
       const rawFat = Math.max(0, parseFloat(fat) || 0);
-      const rawFiber = Math.max(0, parseFloat(fiber) || 0);
-      const rawSugar = Math.max(0, parseFloat(sugar) || 0);
-      const rawSodium = Math.max(0, parseFloat(sodium) || 0);
-      const rawPotassium = Math.max(0, parseFloat(potassium) || 0);
       const finalCal = reconcileCaloriesWithMacros(
         Math.max(0, parseFloat(calories) || 0),
         rawProt,
@@ -254,10 +215,6 @@ export default function ReviewScreen() {
         protein_g: rawProt,
         carbs_g: rawCarb,
         fat_g: rawFat,
-        fiber_g: rawFiber,
-        sugar_g: rawSugar,
-        sodium_mg: rawSodium,
-        potassium_mg: rawPotassium,
         food_items: foodItems,
         image_url: draftMeal?.image_url || null,
         logged_at: new Date().toISOString(),
@@ -307,11 +264,11 @@ export default function ReviewScreen() {
         className="flex-1"
       >
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
-          {/* Sia Vision Intelligence & Macro Fit Card */}
+          {/* Macro Fit & Portion Assessment Card */}
           <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-3 shadow-sm shadow-black">
             <View className="flex-row items-center gap-3.5">
-              <View className="items-center justify-center">
-                <SiaCatMascot size={56} mood={macroFit.mood} withGlow={true} standalone={true} />
+              <View className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 items-center justify-center">
+                <MaterialCommunityIcons name="scale-balance" size={24} color="#10b981" />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center justify-between mb-1">
@@ -429,7 +386,7 @@ export default function ReviewScreen() {
                   style={{ fontFamily: 'Outfit_700Bold' }}
                   className="text-white text-xs"
                 >
-                  🐾 Ask Sia About This Catch
+                  Ask Sia About This Catch
                 </Text>
                 <Text className="text-zinc-400 text-[10px]">
                   Get instant tactical advice for your remaining meals
@@ -672,120 +629,6 @@ export default function ReviewScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-            </View>
-
-            {/* ⚡ Cronometer-Grade Electrolytes & Micronutrient Intelligence */}
-            <View className="mt-3 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3.5">
-              <View className="flex-row items-center justify-between mb-3">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-6 h-6 rounded-lg bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
-                    <MaterialCommunityIcons name="lightning-bolt" size={14} color="#10b981" />
-                  </View>
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className="text-white text-xs"
-                  >
-                    Micronutrients & Electrolytes
-                  </Text>
-                </View>
-
-                {/* Net Carbs Indicator */}
-                <View className="bg-sky-500/15 border border-sky-500/30 px-2 py-0.5 rounded-lg flex-row items-center gap-1">
-                  <Text className="text-sky-300 text-[10px] font-bold">
-                    Net Carbs: {netCarbs}g
-                  </Text>
-                </View>
-              </View>
-
-              <View className="gap-2.5">
-                <View className="flex-row gap-2.5">
-                  {/* Fiber */}
-                  <View className="flex-1 bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-emerald-400 text-[10px] font-bold uppercase">Fiber</Text>
-                      <MaterialCommunityIcons name="sprout" size={12} color="#10b981" />
-                    </View>
-                    <View className="flex-row items-baseline">
-                      <TextInput
-                        value={fiber}
-                        onChangeText={(val) => {
-                          setFiber(val);
-                          setPortionScale(0);
-                        }}
-                        keyboardType="numeric"
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-lg p-0 flex-1"
-                      />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
-                    </View>
-                  </View>
-
-                  {/* Sugar */}
-                  <View className="flex-1 bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-amber-400 text-[10px] font-bold uppercase">Sugar</Text>
-                      <MaterialCommunityIcons name="cupcake" size={12} color="#fbbf24" />
-                    </View>
-                    <View className="flex-row items-baseline">
-                      <TextInput
-                        value={sugar}
-                        onChangeText={(val) => {
-                          setSugar(val);
-                          setPortionScale(0);
-                        }}
-                        keyboardType="numeric"
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-lg p-0 flex-1"
-                      />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View className="flex-row gap-2.5">
-                  {/* Sodium */}
-                  <View className="flex-1 bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-cyan-400 text-[10px] font-bold uppercase">Sodium</Text>
-                      <MaterialCommunityIcons name="shaker-outline" size={12} color="#06b6d4" />
-                    </View>
-                    <View className="flex-row items-baseline">
-                      <TextInput
-                        value={sodium}
-                        onChangeText={(val) => {
-                          setSodium(val);
-                          setPortionScale(0);
-                        }}
-                        keyboardType="numeric"
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-lg p-0 flex-1"
-                      />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">mg</Text>
-                    </View>
-                  </View>
-
-                  {/* Potassium */}
-                  <View className="flex-1 bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-purple-400 text-[10px] font-bold uppercase">Potassium</Text>
-                      <MaterialCommunityIcons name="battery-charging-medium" size={12} color="#c084fc" />
-                    </View>
-                    <View className="flex-row items-baseline">
-                      <TextInput
-                        value={potassium}
-                        onChangeText={(val) => {
-                          setPotassium(val);
-                          setPortionScale(0);
-                        }}
-                        keyboardType="numeric"
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-lg p-0 flex-1"
-                      />
-                      <Text className="text-zinc-500 text-xs font-bold ml-1">mg</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
             </View>
           </View>
 

@@ -369,7 +369,7 @@ export default function ProfileScreen() {
           <View className="flex-row items-center gap-3.5 flex-1 mr-2">
             <SiaCatMascot
               size={52}
-              mood={avatarIcon?.startsWith('cat_') ? (avatarIcon.replace('cat_', '') as SiaMood) : 'happy'}
+              mood={avatarIcon?.startsWith('cat_') ? (avatarIcon.replace('cat_', '') as SiaMood) : 'logo'}
               withGlow={true}
             />
 

@@ -143,11 +143,11 @@ export async function scheduleFelineDailyReminders(): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    // 1. Afternoon Hydration Pounce (Daily at 13:30)
+    // 1. Afternoon Hydration Reminder (Daily at 13:30)
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '💧 Sia: Time to hydrate!',
-        body: 'Keep your paws energized! Tap to log your water intake.',
+        title: 'Sia: Time to hydrate',
+        body: 'Keep your hydration on track. Tap to log your fluid intake.',
         data: { screen: '/water' },
       },
       trigger: {
@@ -157,11 +157,11 @@ export async function scheduleFelineDailyReminders(): Promise<void> {
       },
     });
 
-    // 2. Evening Catch & Streak Protector (Daily at 19:30)
+    // 2. Evening Meal & Streak Protector (Daily at 19:30)
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🐾 Sia: Protect your hunting streak!',
-        body: "Don't let today's streak slip away. Snap your dinner or quick-log your catch.",
+        title: 'Sia: Protect your daily streak',
+        body: "Don't let today's streak slip away. Snap your dinner or quick-log your meal.",
         data: { screen: '/(tabs)' },
       },
       trigger: {

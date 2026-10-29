@@ -58,10 +58,17 @@ export function FelineEmptyState({
     <View className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-6 items-center text-center my-3 shadow-sm shadow-black">
       <View className="mb-3.5">
         <SiaMascotHero
-          size={82}
-          pose={resolvedMood === 'scanning' ? 'scanner' : 'chef'}
+          size={86}
+          pose={
+            resolvedMood === 'scanning'
+              ? 'scanner'
+              : resolvedMood === 'sleeping'
+              ? 'sleeping'
+              : 'chef'
+          }
           badge={timeAware ? 'Sia on Prowl' : undefined}
-          withGlow={true}
+          withGlow={false}
+          onPress={onAction}
         />
       </View>
 
