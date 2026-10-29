@@ -60,7 +60,7 @@ export interface SiaVectorCatProps {
   animation?: SiaAnimationMode;
   /** Optional container style */
   style?: StyleProp<ViewStyle>;
-  /** Show ambient glow behind the character */
+  /** Legacy prop preserved for compatibility (background circle removed) */
   withGlow?: boolean;
   /** Enable interactive tap-to-pet squash & heart reaction */
   interactive?: boolean;
@@ -70,114 +70,7 @@ export interface SiaVectorCatProps {
 
 const EASE_IN_OUT = Easing.bezier(0.45, 0, 0.55, 1);
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-
-/**
- * 8-Frame Cartoon Cat Walk Cycle Keyframes (Contact -> Down -> Passing -> Up -> Mirror)
- * Front Leg Poses (Shoulder socket at x=122..138, y=150; ground plane at y=191..193)
- */
-const FRONT_LEG_FRAMES: ReadonlyArray<{ legD: string; bootD: string }> = [
-  // Frame 0: Contact (Reaching forward, paw pad angled up to greet the ground)
-  {
-    legD: 'M 122 150 C 124 164 134 178 142 189 C 145 193 157 191 155 184 C 151 174 142 162 138 150',
-    bootD: 'M 136 177 C 141 174 147 174 151 177 L 155 184 C 157 191 145 193 142 189 Z',
-  },
-  // Frame 1: Down (Planted flat on ground, elbow/wrist cushioning body weight)
-  {
-    legD: 'M 122 150 C 125 165 132 178 135 189 C 136 194 150 194 149 188 C 148 176 141 163 138 150',
-    bootD: 'M 133 179 C 138 177 144 177 148 179 L 149 188 C 150 194 136 194 135 189 Z',
-  },
-  // Frame 2: Mid-Stance (Supporting weight straight underneath shoulder)
-  {
-    legD: 'M 122 150 C 123 165 123 178 124 189 C 124 194 138 194 138 189 C 138 178 138 165 138 150',
-    bootD: 'M 124 179 C 128 177 134 177 138 179 L 138 189 C 138 194 124 194 124 189 Z',
-  },
-  // Frame 3: Push-Off (Extending backward to propel torso into Up pose)
-  {
-    legD: 'M 122 150 C 120 163 114 176 110 187 C 108 193 121 195 124 189 C 129 178 135 164 138 150',
-    bootD: 'M 113 178 C 117 177 123 178 127 181 L 124 189 C 121 195 108 193 110 187 Z',
-  },
-  // Frame 4: Toe-Off Extreme Back (Stretched back on toe tip as opposite leg lands)
-  {
-    legD: 'M 122 150 C 117 162 108 174 101 184 C 98 189 110 193 115 187 C 123 176 132 164 138 150',
-    bootD: 'M 106 176 C 110 176 116 178 119 181 L 115 187 C 110 193 98 189 101 184 Z',
-  },
-  // Frame 5: Peel-Off Curl (Lifting off the floor with wrist bent and paw curled back)
-  {
-    legD: 'M 122 150 C 120 160 115 168 108 174 C 103 178 112 186 118 181 C 127 174 134 162 138 150',
-    bootD: 'M 113 169 C 117 170 121 173 123 177 L 118 181 C 112 186 103 178 108 174 Z',
-  },
-  // Frame 6: Passing Tuck (Folded high mid-air with bent knee/wrist crossing standing leg)
-  {
-    legD: 'M 122 150 C 126 160 132 168 127 175 C 124 180 137 183 140 176 C 143 168 140 158 138 150',
-    bootD: 'M 129 169 C 133 168 138 169 141 172 L 140 176 C 137 183 124 180 127 175 Z',
-  },
-  // Frame 7: Forward Kick / Unfolding (Reaching high and forward in air before Contact)
-  {
-    legD: 'M 122 150 C 126 162 136 172 144 181 C 148 185 158 180 154 174 C 148 165 141 157 138 150',
-    bootD: 'M 139 172 C 143 169 148 169 152 171 L 154 174 C 158 180 148 185 144 181 Z',
-  },
-];
-
-/**
- * 8-Frame Cartoon Cat Walk Cycle Keyframes for Hind Legs
- * (Hip socket at x=66..86, y=148; ground plane at y=191..193)
- */
-const HIND_LEG_FRAMES: ReadonlyArray<{ legD: string; bootD: string }> = [
-  // Frame 0: Contact (Stepping forward under belly)
-  {
-    legD: 'M 66 148 C 68 162 78 176 86 189 C 89 193 101 191 99 184 C 95 174 88 160 86 148',
-    bootD: 'M 81 177 C 86 174 92 174 96 177 L 99 184 C 101 191 89 193 86 189 Z',
-  },
-  // Frame 1: Down (Planted firmly, absorbing hip weight)
-  {
-    legD: 'M 66 148 C 69 164 76 177 79 189 C 80 194 94 194 93 188 C 92 176 87 162 86 148',
-    bootD: 'M 77 179 C 82 177 88 177 92 179 L 93 188 C 94 194 80 194 79 189 Z',
-  },
-  // Frame 2: Mid-Stance (Standing directly under hip)
-  {
-    legD: 'M 66 148 C 67 164 68 177 69 189 C 69 194 83 194 83 189 C 84 177 85 164 86 148',
-    bootD: 'M 69 179 C 73 177 79 177 83 179 L 83 189 C 83 194 69 194 69 189 Z',
-  },
-  // Frame 3: Push-Off (Extending backward from hip)
-  {
-    legD: 'M 66 148 C 64 162 59 175 55 187 C 53 193 66 195 69 189 C 74 177 82 163 86 148',
-    bootD: 'M 58 178 C 62 177 68 178 72 181 L 69 189 C 66 195 53 193 55 187 Z',
-  },
-  // Frame 4: Toe-Off Extreme Back (Digitigrade stretch back on toes)
-  {
-    legD: 'M 66 148 C 61 160 53 173 46 184 C 43 189 55 193 60 187 C 68 176 79 162 86 148',
-    bootD: 'M 51 176 C 55 176 61 178 64 181 L 60 187 C 55 193 43 189 46 184 Z',
-  },
-  // Frame 5: Peel-Off Curl (Lifting off floor with hind paw curled back)
-  {
-    legD: 'M 66 148 C 64 159 59 167 52 174 C 47 178 56 186 62 181 C 71 173 81 160 86 148',
-    bootD: 'M 57 169 C 61 170 65 173 67 177 L 62 181 C 56 186 47 178 52 174 Z',
-  },
-  // Frame 6: Passing Tuck (Folded high mid-air under hip crossing standing hind leg)
-  {
-    legD: 'M 66 148 C 70 159 76 167 71 175 C 68 180 81 183 84 176 C 87 167 86 157 86 148',
-    bootD: 'M 73 169 C 77 168 82 169 85 172 L 84 176 C 81 183 68 180 71 175 Z',
-  },
-  // Frame 7: Forward Reach (Unfolding forward under belly before Contact)
-  {
-    legD: 'M 66 148 C 70 161 80 171 88 181 C 92 185 102 180 98 174 C 92 165 87 156 86 148',
-    bootD: 'M 83 172 C 87 169 92 169 96 171 L 98 174 C 102 180 92 185 88 181 Z',
-  },
-];
-
-/**
- * 4-Phase Whipping S-Wave Tail Sequence (Repeated twice per 8-frame walk cycle)
- */
-const TAIL_WAVE_FRAMES: ReadonlyArray<string> = [
-  // Phase 0 (Contact): Tail sweeps down in a graceful S-arc
-  'M 68 146 C 40 140 44 108 38 88 C 34 74 18 78 22 92 C 26 106 34 116 32 132 C 30 146 44 156 64 156 Z',
-  // Phase 1 (Down): Hips drop, tail tip whips upward with follow-through
-  'M 68 146 C 38 144 42 112 42 90 C 42 74 26 72 26 86 C 26 102 32 118 30 134 C 28 148 44 156 64 156 Z',
-  // Phase 2 (Passing): Body rises, tail arches high and curls at the tip
-  'M 68 146 C 42 134 50 100 48 80 C 46 66 30 68 32 82 C 34 96 40 110 38 126 C 36 142 46 154 64 156 Z',
-  // Phase 3 (Up): Peak of stride bounce, tail trails in a sleek wave
-  'M 68 146 C 40 136 46 104 42 84 C 38 70 22 74 25 88 C 28 102 36 114 34 130 C 32 144 44 155 64 156 Z',
-];
+const TWO_PI = Math.PI * 2;
 
 /**
  * UI-thread worklet that rotates a 240x240 SVG layer around an exact anatomical socket
@@ -223,16 +116,14 @@ function eyeBlinkLocalTransform(eyeY: number, scaleY: number, size: number) {
 }
 
 /**
- * SiaVectorCat - Multi-Part Articulated 2D Vector SVG Siamese Mascot
- * Uses an authentic 8-frame cartoon cat walk sequence (Contact -> Down -> Passing -> Up)
- * combined with 60fps UI-thread secondary follow-through via Reanimated 4.
+ * SiaVectorCat - Pure Borderless 2D Vector SVG Siamese Mascot
+ * Zero background circles or borders; smooth 120fps diagonal feline gait.
  */
 export function SiaVectorCat({
   size = 64,
   mood = 'idle',
   animation = 'auto',
   style,
-  withGlow = true,
   interactive = false,
   onPress,
 }: SiaVectorCatProps) {
@@ -247,7 +138,6 @@ export function SiaVectorCat({
   }, [mood, animation]);
 
   // ── Skeletal Shared Values (Independent Body Parts) ───────────────────────
-  // walkCycle runs continuously from 0 -> 8 (8 frames per full stride cycle)
   const walkCycle = useSharedValue(0);
   const bobY = useSharedValue(0);
   const headTilt = useSharedValue(0);
@@ -343,10 +233,8 @@ export function SiaVectorCat({
     sproutSway.set(
       withRepeat(
         withSequence(
-          withTiming(6.5, { duration: 1050, easing: EASE_IN_OUT }),
-          withTiming(-5.5, { duration: 1050, easing: EASE_IN_OUT }),
-          withTiming(8, { duration: 240, easing: EASE_OUT }),
-          withTiming(0, { duration: 350, easing: EASE_IN_OUT })
+          withTiming(4.5, { duration: 1200, easing: EASE_IN_OUT }),
+          withTiming(-4, { duration: 1200, easing: EASE_IN_OUT })
         ),
         -1,
         true
@@ -357,8 +245,8 @@ export function SiaVectorCat({
     tailSwing.set(
       withRepeat(
         withSequence(
-          withTiming(6.5, { duration: 750, easing: EASE_IN_OUT }),
-          withTiming(-5.5, { duration: 750, easing: EASE_IN_OUT })
+          withTiming(5, { duration: 850, easing: EASE_IN_OUT }),
+          withTiming(-4.5, { duration: 850, easing: EASE_IN_OUT })
         ),
         -1,
         true
@@ -381,10 +269,10 @@ export function SiaVectorCat({
 
     // 5. Scene-Specific Skeletal Articulation
     if (scene === 'walking') {
-      // 8-frame cartoon walk sequence (80ms per frame = 640ms per full 8-frame stride loop)
+      // Continuous 0 -> 2π diagonal gait cycle (560ms per full stride)
       walkCycle.set(
         withRepeat(
-          withTiming(8, { duration: 640, easing: Easing.linear }),
+          withTiming(TWO_PI, { duration: 560, easing: Easing.linear }),
           -1,
           false
         )
@@ -393,8 +281,8 @@ export function SiaVectorCat({
       bobY.set(
         withRepeat(
           withSequence(
-            withTiming(-2.2, { duration: 1300, easing: EASE_IN_OUT }),
-            withTiming(0.8, { duration: 1300, easing: EASE_IN_OUT })
+            withTiming(-2, { duration: 1350, easing: EASE_IN_OUT }),
+            withTiming(0.8, { duration: 1350, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -403,8 +291,8 @@ export function SiaVectorCat({
       headTilt.set(
         withRepeat(
           withSequence(
-            withTiming(-4, { duration: 1500, easing: EASE_IN_OUT }),
-            withTiming(4, { duration: 1500, easing: EASE_IN_OUT })
+            withTiming(-3.5, { duration: 1500, easing: EASE_IN_OUT }),
+            withTiming(3.5, { duration: 1500, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -424,8 +312,8 @@ export function SiaVectorCat({
       headTilt.set(
         withRepeat(
           withSequence(
-            withTiming(-3, { duration: 1200, easing: EASE_IN_OUT }),
-            withTiming(2.5, { duration: 1200, easing: EASE_IN_OUT })
+            withTiming(-2.8, { duration: 1200, easing: EASE_IN_OUT }),
+            withTiming(2.2, { duration: 1200, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -435,8 +323,8 @@ export function SiaVectorCat({
       bobY.set(
         withRepeat(
           withSequence(
-            withTiming(-3, { duration: 420, easing: EASE_OUT }),
-            withTiming(1.5, { duration: 420, easing: EASE_IN_OUT })
+            withTiming(-2.8, { duration: 420, easing: EASE_OUT }),
+            withTiming(1.2, { duration: 420, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -457,8 +345,8 @@ export function SiaVectorCat({
       bobY.set(
         withRepeat(
           withSequence(
-            withTiming(isCeleb ? -4.5 : -2.2, { duration: isCeleb ? 320 : 1450, easing: EASE_IN_OUT }),
-            withTiming(0.6, { duration: isCeleb ? 320 : 1450, easing: EASE_IN_OUT })
+            withTiming(isCeleb ? -4 : -2, { duration: isCeleb ? 320 : 1450, easing: EASE_IN_OUT }),
+            withTiming(0.5, { duration: isCeleb ? 320 : 1450, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -467,8 +355,8 @@ export function SiaVectorCat({
       headTilt.set(
         withRepeat(
           withSequence(
-            withTiming(isCeleb ? 5.5 : 3.2, { duration: isCeleb ? 320 : 1900, easing: EASE_IN_OUT }),
-            withTiming(isCeleb ? -5.5 : -3.2, { duration: isCeleb ? 320 : 1900, easing: EASE_IN_OUT })
+            withTiming(isCeleb ? 5 : 2.8, { duration: isCeleb ? 320 : 1900, easing: EASE_IN_OUT }),
+            withTiming(isCeleb ? -5 : -2.8, { duration: isCeleb ? 320 : 1900, easing: EASE_IN_OUT })
           ),
           -1,
           true
@@ -497,97 +385,90 @@ export function SiaVectorCat({
     ],
   }));
 
-  // ── SCENE 1 (WALKING) 8-FRAME SEQUENCE + 60FPS OVERLAPPING STYLES ─────────
-  // UI-thread frame visibility selectors for Frames 0..7 (Contact -> Down -> Passing -> Up)
-  const walkFrame0Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 0 ? 1 : 0,
-  }));
-  const walkFrame1Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 1 ? 1 : 0,
-  }));
-  const walkFrame2Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 2 ? 1 : 0,
-  }));
-  const walkFrame3Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 3 ? 1 : 0,
-  }));
-  const walkFrame4Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 4 ? 1 : 0,
-  }));
-  const walkFrame5Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 5 ? 1 : 0,
-  }));
-  const walkFrame6Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 6 ? 1 : 0,
-  }));
-  const walkFrame7Style = useAnimatedStyle(() => ({
-    opacity: Math.floor(walkCycle.get()) % 8 === 7 ? 1 : 0,
-  }));
-  const walkFrameStyles = [
-    walkFrame0Style,
-    walkFrame1Style,
-    walkFrame2Style,
-    walkFrame3Style,
-    walkFrame4Style,
-    walkFrame5Style,
-    walkFrame6Style,
-    walkFrame7Style,
-  ];
-
-  // Ground shadow breathes in sync with Contact/Down/Passing/Up
-  const walkShadowStyle = useAnimatedStyle(() => {
-    const wave = Math.sin((walkCycle.get() / 8) * Math.PI * 4);
+  // ── SCENE 1 (WALKING): CALM, STEADY 120FPS DIAGONAL FELINE PROWL ──────────
+  // Diagonal Pair A: Far Back Paw (70, 160) & Near Front Paw (136, 160) at phase θ
+  const walkLegFarBackStyle = useAnimatedStyle(() => {
+    const theta = walkCycle.get();
+    const swingDeg = -Math.sin(theta) * 14;
+    const strideX = Math.sin(theta) * (size * 0.024);
+    const liftY = Math.min(0, Math.cos(theta)) * (size * 0.018);
     return {
-      transform: [{ scaleX: 1 + wave * 0.08 }],
-      opacity: 0.36 + wave * 0.08,
+      transform: pivotTransform(70, 160, swingDeg, size, strideX, liftY),
     };
   });
 
-  // Body bounces down on Frame 1 & 5 (Down pose) and rises on Frame 3 & 7 (Up pose)
+  const walkLegNearFrontStyle = useAnimatedStyle(() => {
+    const theta = walkCycle.get();
+    const swingDeg = -Math.sin(theta) * 14;
+    const strideX = Math.sin(theta) * (size * 0.024);
+    const liftY = Math.min(0, Math.cos(theta)) * (size * 0.018);
+    return {
+      transform: pivotTransform(136, 160, swingDeg, size, strideX, liftY),
+    };
+  });
+
+  // Diagonal Pair B: Far Front Paw (122, 160) & Near Back Paw (84, 160) at phase θ + π
+  const walkLegFarFrontStyle = useAnimatedStyle(() => {
+    const theta = walkCycle.get() + Math.PI;
+    const swingDeg = -Math.sin(theta) * 14;
+    const strideX = Math.sin(theta) * (size * 0.024);
+    const liftY = Math.min(0, Math.cos(theta)) * (size * 0.018);
+    return {
+      transform: pivotTransform(122, 160, swingDeg, size, strideX, liftY),
+    };
+  });
+
+  const walkLegNearBackStyle = useAnimatedStyle(() => {
+    const theta = walkCycle.get() + Math.PI;
+    const swingDeg = -Math.sin(theta) * 14;
+    const strideX = Math.sin(theta) * (size * 0.024);
+    const liftY = Math.min(0, Math.cos(theta)) * (size * 0.018);
+    return {
+      transform: pivotTransform(84, 160, swingDeg, size, strideX, liftY),
+    };
+  });
+
+  // Calm, level torso glide (±0.9px subtle feline breath, zero bubbly wobble)
   const walkTorsoStyle = useAnimatedStyle(() => {
-    const stepRad = (walkCycle.get() / 8) * Math.PI * 4;
-    const bounceY = Math.sin(stepRad) * (size * 0.024);
-    const pitchDeg = Math.cos(stepRad) * 2.4;
+    const theta = walkCycle.get();
+    const glideY = Math.sin(theta * 2) * (size * 0.008);
     return {
-      transform: pivotTransform(106, 152, pitchDeg, size, 0, bounceY),
+      transform: [{ translateY: glideY }],
     };
   });
 
-  // Overlapping Head Bob, Propel & Nod (Delayed behind torso by 0.65 rad)
+  // Smooth tail sway pivoted at rump (64, 146)
+  const walkTailLocalStyle = useAnimatedStyle(() => {
+    const theta = walkCycle.get();
+    const tailDeg = Math.sin(theta) * 5;
+    return {
+      transform: pivotTransform(64, 146, tailDeg, size),
+    };
+  });
+
+  // Gimbal-steady feline head prowl (±1px glide, ±1.2° subtle attitude)
   const walkHeadStyle = useAnimatedStyle(() => {
-    const stepRad = (walkCycle.get() / 8) * Math.PI * 4;
-    const headY = Math.sin(stepRad - 0.65) * (size * 0.032);
-    const headX = Math.cos(stepRad - 0.65) * (size * 0.014);
-    const nodDeg = Math.sin(stepRad - 1.1) * 4.6;
+    const theta = walkCycle.get();
+    const headY = Math.sin(theta * 2 - 0.5) * (size * 0.009);
+    const nodDeg = Math.sin(theta - 0.4) * 1.2;
     return {
-      transform: pivotTransform(128, 122, nodDeg, size, headX, headY),
+      transform: pivotTransform(128, 122, nodDeg, size, 0, headY),
     };
   });
 
-  // Nested Bouncing Ears (Local follow-through around crown (130, 74) inside Head)
-  const walkEarsLocalStyle = useAnimatedStyle(() => {
-    const stepRad = (walkCycle.get() / 8) * Math.PI * 4;
-    const earDeg = Math.sin(stepRad - 1.5) * 5.8;
-    return {
-      transform: pivotTransform(130, 74, earDeg, size),
-    };
-  });
-
-  // Nested Bouncing Leaf Sprout (Local follow-through around (130, 64) inside Head)
+  // Gentle leaf sprout sway
   const walkSproutLocalStyle = useAnimatedStyle(() => {
-    const stepRad = (walkCycle.get() / 8) * Math.PI * 4;
-    const leafDeg = Math.sin(stepRad - 1.85) * 11.5;
+    const theta = walkCycle.get();
+    const leafDeg = Math.sin(theta - 0.8) * 3.2;
     return {
       transform: pivotTransform(130, 64, leafDeg, size),
     };
   });
 
-  // Nested Focusing Camera Shutter Eye (Local rotation around (153, 99) inside Head)
   const walkShutterLocalStyle = useAnimatedStyle(() => ({
     transform: pivotTransform(153, 99, shutterRotate.get(), size),
   }));
 
-  // Nested Blinking Left Eye (Local vertical scale around y=99 inside Head)
   const walkEyeBlinkLocalStyle = useAnimatedStyle(() => ({
     transform: eyeBlinkLocalTransform(99, eyeBlinkScaleY.get(), size),
   }));
@@ -598,7 +479,7 @@ export function SiaVectorCat({
   }));
 
   const headArticulatedStyle = useAnimatedStyle(() => ({
-    transform: pivotTransform(115, 130, headTilt.get(), size, 0, bobY.get() * 1.15),
+    transform: pivotTransform(115, 130, headTilt.get(), size, 0, bobY.get() * 1.1),
   }));
 
   const sproutLocalStyle = useAnimatedStyle(() => ({
@@ -637,137 +518,120 @@ export function SiaVectorCat({
     ],
   }));
 
-  const glowColor = scene === 'water' ? '#06b6d4' : '#10b981';
-
   const renderSceneContent = () => {
     // ───────────────────────────────────────────────────────────────────────
-    // SCENE 1: WALKING CAT (8-Frame Cartoon Walk Sequence + 60fps Head/Ears/Tail)
+    // SCENE 1: WALKING CAT (Compact Chibi Sock-Paws Under Smooth Torso, Steady Prowl)
     // ───────────────────────────────────────────────────────────────────────
     if (scene === 'walking') {
       return (
         <View style={{ width: size, height: size }}>
-          {/* Layer 0: Breathing Ground Shadow */}
-          <Animated.View style={[StyleSheet.absoluteFill, walkShadowStyle]}>
+          {/* Layer 1A: Far Back Sock Paw (Tucked Under Torso at 70, 160) */}
+          <Animated.View style={[StyleSheet.absoluteFill, walkLegFarBackStyle]}>
             <Svg width={size} height={size} viewBox="0 0 240 240">
-              <Ellipse cx="106" cy="200" rx="54" ry="7" fill="#10B981" opacity={0.45} />
+              <Path
+                d="M 63 156 L 63 185 C 63 192 77 192 77 185 L 77 156 Z"
+                fill="#E5CDB4"
+                stroke="#2A1810"
+                strokeWidth="4.2"
+              />
+              <Path
+                d="M 63 177 C 67 175 73 175 77 177 L 78 185 C 78 192 63 192 63 185 Z"
+                fill="#3D2820"
+                stroke="#2A1810"
+                strokeWidth="4"
+              />
             </Svg>
           </Animated.View>
 
-          {/* Layer 1: 8-Frame Cartoon Walk Sequence (Contact -> Down -> Passing -> Up) */}
-          <Animated.View style={[StyleSheet.absoluteFill, walkTorsoStyle]}>
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((frameIdx) => {
-              const farBack = HIND_LEG_FRAMES[frameIdx];
-              const farFront = FRONT_LEG_FRAMES[(frameIdx + 4) % 8];
-              const nearBack = HIND_LEG_FRAMES[(frameIdx + 4) % 8];
-              const nearFront = FRONT_LEG_FRAMES[frameIdx];
-              const tailD = TAIL_WAVE_FRAMES[frameIdx % 4];
-
-              return (
-                <Animated.View
-                  key={frameIdx}
-                  style={[StyleSheet.absoluteFill, walkFrameStyles[frameIdx]]}
-                >
-                  <Svg width={size} height={size} viewBox="0 0 240 240">
-                    {/* 1. Whipping S-Wave Tail */}
-                    <Path
-                      d={tailD}
-                      fill="#4B3329"
-                      stroke="#2A1810"
-                      strokeWidth="4.5"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* 2. Far Back Leg (Behind Torso, Warm Shaded Cream) */}
-                    <Path
-                      d={`${farBack.legD} Z`}
-                      fill="#E5CDB4"
-                      stroke="#2A1810"
-                      strokeWidth="4.4"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d={farBack.bootD}
-                      fill="#3D2820"
-                      stroke="#2A1810"
-                      strokeWidth="4.2"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* 3. Far Front Leg (Behind Torso, Warm Shaded Cream) */}
-                    <Path
-                      d={`${farFront.legD} Z`}
-                      fill="#E5CDB4"
-                      stroke="#2A1810"
-                      strokeWidth="4.4"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d={farFront.bootD}
-                      fill="#3D2820"
-                      stroke="#2A1810"
-                      strokeWidth="4.2"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* 4. Plump Chibi Cream Torso & Emerald Nutrition Collar */}
-                    <Path
-                      d="M 58 140 C 53 156 62 169 84 170 L 138 170 C 154 168 158 150 148 132 C 136 120 74 122 58 140 Z"
-                      fill="#F7EBD6"
-                      stroke="#2A1810"
-                      strokeWidth="4.5"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M 118 134 C 126 146 138 150 149 142"
-                      stroke="#10B981"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <Circle cx="139" cy="148" r="5" fill="#28F59C" stroke="#2A1810" strokeWidth="2.5" />
-
-                    {/* 5. Near Back Leg (Seamless Open-Top Blend into Torso) */}
-                    <Path
-                      d={nearBack.legD}
-                      fill="#F7EBD6"
-                      stroke="#2A1810"
-                      strokeWidth="4.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d={nearBack.bootD}
-                      fill="#4B3329"
-                      stroke="#2A1810"
-                      strokeWidth="4.2"
-                      strokeLinejoin="round"
-                    />
-
-                    {/* 6. Near Front Leg (Seamless Open-Top Blend into Torso) */}
-                    <Path
-                      d={nearFront.legD}
-                      fill="#F7EBD6"
-                      stroke="#2A1810"
-                      strokeWidth="4.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d={nearFront.bootD}
-                      fill="#4B3329"
-                      stroke="#2A1810"
-                      strokeWidth="4.2"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </Animated.View>
-              );
-            })}
+          {/* Layer 1B: Far Front Sock Paw (Tucked Under Torso at 122, 160) */}
+          <Animated.View style={[StyleSheet.absoluteFill, walkLegFarFrontStyle]}>
+            <Svg width={size} height={size} viewBox="0 0 240 240">
+              <Path
+                d="M 115 156 L 115 185 C 115 192 129 192 129 185 L 129 156 Z"
+                fill="#E5CDB4"
+                stroke="#2A1810"
+                strokeWidth="4.2"
+              />
+              <Path
+                d="M 115 177 C 119 175 125 175 129 177 L 130 185 C 130 192 115 192 115 185 Z"
+                fill="#3D2820"
+                stroke="#2A1810"
+                strokeWidth="4"
+              />
+            </Svg>
           </Animated.View>
 
-          {/* Layer 2: Overlapping Head Group (60fps Bob, Propel & Nod with Secondary Lag) */}
+          {/* Layer 1C: Near Back Sock Paw (Tucked Under Torso at 84, 160) */}
+          <Animated.View style={[StyleSheet.absoluteFill, walkLegNearBackStyle]}>
+            <Svg width={size} height={size} viewBox="0 0 240 240">
+              <Path
+                d="M 77 156 L 77 187 C 77 194 92 194 92 187 L 92 156 Z"
+                fill="#F7EBD6"
+                stroke="#2A1810"
+                strokeWidth="4.4"
+              />
+              <Path
+                d="M 77 178 C 81 176 88 176 92 178 L 93 187 C 93 194 77 194 77 187 Z"
+                fill="#4B3329"
+                stroke="#2A1810"
+                strokeWidth="4.2"
+              />
+            </Svg>
+          </Animated.View>
+
+          {/* Layer 1D: Near Front Sock Paw (Tucked Under Torso at 136, 160) */}
+          <Animated.View style={[StyleSheet.absoluteFill, walkLegNearFrontStyle]}>
+            <Svg width={size} height={size} viewBox="0 0 240 240">
+              <Path
+                d="M 129 156 L 129 187 C 129 194 144 194 144 187 L 144 156 Z"
+                fill="#F7EBD6"
+                stroke="#2A1810"
+                strokeWidth="4.4"
+              />
+              <Path
+                d="M 129 178 C 133 176 140 176 144 178 L 145 187 C 145 194 129 194 129 187 Z"
+                fill="#4B3329"
+                stroke="#2A1810"
+                strokeWidth="4.2"
+              />
+            </Svg>
+          </Animated.View>
+
+          {/* Layer 2: Smooth Feline Torso & Swaying Tail (Cleanly Overlaps Leg Tops) */}
+          <Animated.View style={[StyleSheet.absoluteFill, walkTorsoStyle]}>
+            <Animated.View style={[StyleSheet.absoluteFill, walkTailLocalStyle]}>
+              <Svg width={size} height={size} viewBox="0 0 240 240">
+                <Path
+                  d="M 68 146 C 40 138 46 106 40 86 C 36 72 20 76 24 90 C 28 104 36 114 34 130 C 32 144 44 155 64 156 Z"
+                  fill="#4B3329"
+                  stroke="#2A1810"
+                  strokeWidth="4.5"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </Animated.View>
+
+            <Svg width={size} height={size} viewBox="0 0 240 240">
+              <Path
+                d="M 58 144 C 56 158 64 168 82 168 L 138 168 C 154 167 158 150 148 134 C 134 120 72 120 58 144 Z"
+                fill="#F7EBD6"
+                stroke="#2A1810"
+                strokeWidth="4.5"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M 118 134 C 126 146 138 150 149 142"
+                stroke="#10B981"
+                strokeWidth="5"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <Circle cx="139" cy="148" r="5" fill="#28F59C" stroke="#2A1810" strokeWidth="2.5" />
+            </Svg>
+          </Animated.View>
+
+          {/* Layer 3: Steady Feline Head Group */}
           <Animated.View style={[StyleSheet.absoluteFill, walkHeadStyle]}>
-            {/* Nested Layer 2A: Bouncing Leaf Sprout */}
             <Animated.View style={[StyleSheet.absoluteFill, walkSproutLocalStyle]}>
               <Svg width={size} height={size} viewBox="0 0 240 240">
                 <Path d="M 130 66 L 130 42" stroke="#2A1810" strokeWidth="4" strokeLinecap="round" />
@@ -776,18 +640,11 @@ export function SiaVectorCat({
               </Svg>
             </Animated.View>
 
-            {/* Nested Layer 2B: Bouncing Pointy Siamese Ears */}
-            <Animated.View style={[StyleSheet.absoluteFill, walkEarsLocalStyle]}>
-              <Svg width={size} height={size} viewBox="0 0 240 240">
-                <Path d="M 80 86 C 76 56 81 34 90 31 C 99 29 115 46 123 60 Z" fill="#4B3329" stroke="#2A1810" strokeWidth="5" strokeLinejoin="round" />
-                <Path d="M 86 80 C 84 58 87 41 93 39 C 99 38 110 50 116 61 Z" fill="#7D5243" />
-                <Path d="M 179 86 C 183 56 178 34 169 31 C 160 29 144 46 136 60 Z" fill="#4B3329" stroke="#2A1810" strokeWidth="5" strokeLinejoin="round" />
-                <Path d="M 173 80 C 175 58 172 41 166 39 C 160 38 149 50 143 61 Z" fill="#7D5243" />
-              </Svg>
-            </Animated.View>
-
-            {/* Nested Layer 2C: Head Face, Mask, Nose, Smile & Whiskers */}
             <Svg width={size} height={size} viewBox="0 0 240 240">
+              <Path d="M 80 86 C 76 56 81 34 90 31 C 99 29 115 46 123 60 Z" fill="#4B3329" stroke="#2A1810" strokeWidth="5" strokeLinejoin="round" />
+              <Path d="M 86 80 C 84 58 87 41 93 39 C 99 38 110 50 116 61 Z" fill="#7D5243" />
+              <Path d="M 179 86 C 183 56 178 34 169 31 C 160 29 144 46 136 60 Z" fill="#4B3329" stroke="#2A1810" strokeWidth="5" strokeLinejoin="round" />
+              <Path d="M 173 80 C 175 58 172 41 166 39 C 160 38 149 50 143 61 Z" fill="#7D5243" />
               <Ellipse cx="130" cy="95" rx="52" ry="41" fill="#F7EBD6" stroke="#2A1810" strokeWidth="5" />
               <Path d="M 88 102 C 88 86 102 80 115 74 C 123 68 126 64 130 64 C 134 64 137 68 145 74 C 158 80 172 86 172 102 C 172 118 153 123 143 128 C 136 132 133 134 130 134 C 127 134 124 132 117 128 C 107 123 88 118 88 102 Z" fill="#4B3329" />
               <Circle cx="153" cy="99" r="14" fill="#28F59C" opacity={0.3} />
@@ -801,7 +658,6 @@ export function SiaVectorCat({
               <Line x1="188" y1="115" x2="174" y2="111" stroke="#2A1810" strokeWidth="4" strokeLinecap="round" />
             </Svg>
 
-            {/* Nested Layer 2D: Focusing 6-Blade Camera Shutter Eye (Pivoted at 153, 99) */}
             <Animated.View style={[StyleSheet.absoluteFill, walkShutterLocalStyle]}>
               <Svg width={size} height={size} viewBox="0 0 240 240">
                 <Circle cx="153" cy="99" r="12" fill="#22E592" stroke="#141F1A" strokeWidth="2.5" />
@@ -815,7 +671,6 @@ export function SiaVectorCat({
               </Svg>
             </Animated.View>
 
-            {/* Nested Layer 2E: Blinking Left Teal Eye (Pivoted at y=99) */}
             <Animated.View style={[StyleSheet.absoluteFill, walkEyeBlinkLocalStyle]}>
               <Svg width={size} height={size} viewBox="0 0 240 240">
                 <Ellipse cx="108" cy="99" rx="11.5" ry="10.5" fill="#1FD4AE" stroke="#2A1810" strokeWidth="3" />
@@ -835,7 +690,6 @@ export function SiaVectorCat({
     if (scene === 'chef') {
       return (
         <View style={{ width: size, height: size }}>
-          {/* Layer 1: Swaying S-Curved Siamese Tail Holding the 3-Prong Silver Fork */}
           <Animated.View style={[StyleSheet.absoluteFill, chefTailStyle]}>
             <Svg width={size} height={size} viewBox="0 0 240 240">
               <Path
@@ -862,7 +716,6 @@ export function SiaVectorCat({
             </Svg>
           </Animated.View>
 
-          {/* Layer 2: Torso, White Chef Apron, Symmetrical Front Paws & Toe-Bean Feet */}
           <Animated.View style={[StyleSheet.absoluteFill, bodyBobStyle]}>
             <Svg width={size} height={size} viewBox="0 0 240 240">
               <Path
@@ -921,7 +774,6 @@ export function SiaVectorCat({
             </Svg>
           </Animated.View>
 
-          {/* Layer 3: Articulated Tilting Head Group */}
           <Animated.View style={[StyleSheet.absoluteFill, headArticulatedStyle]}>
             <Animated.View style={[StyleSheet.absoluteFill, sproutLocalStyle]}>
               <Svg width={size} height={size} viewBox="0 0 240 240">
@@ -1270,20 +1122,6 @@ export function SiaVectorCat({
 
   const content = (
     <Animated.View style={[styles.root, { width: size, height: size }, rootPetStyle, style]}>
-      {withGlow && (
-        <View
-          style={[
-            styles.ambientGlow,
-            {
-              width: size * 0.78,
-              height: size * 0.78,
-              borderRadius: (size * 0.78) / 2,
-              backgroundColor: glowColor,
-            },
-          ]}
-        />
-      )}
-
       {renderSceneContent()}
 
       {/* Floating Hearts & Sparkles Burst on Tap-to-Pet */}
@@ -1331,9 +1169,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  ambientGlow: {
-    position: 'absolute',
-    opacity: 0.14,
   },
 });

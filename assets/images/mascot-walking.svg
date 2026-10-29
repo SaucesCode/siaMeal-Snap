@@ -1,41 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%">
-  <defs>
-    <radialGradient id="walkAmbient" cx="50%" cy="52%" r="48%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.22" />
-      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
-    </radialGradient>
-  </defs>
-
-  <circle cx="120" cy="126" r="98" fill="url(#walkAmbient)" />
-
-  <!-- Ground Shadow -->
-  <ellipse cx="106" cy="200" rx="54" ry="7" fill="#10B981" opacity="0.35" />
-
-  <!-- S-Curved Whipping Siamese Tail -->
+  <!-- S-Curved Siamese Tail -->
   <path d="M 68 146 C 40 138 46 106 40 86 C 36 72 20 76 24 90 C 28 104 36 114 34 130 C 32 144 44 155 64 156 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
 
-  <!-- Far Back Leg (Contact Reach Forward Under Belly) -->
-  <path d="M 66 148 C 68 162 78 176 86 189 C 89 193 101 191 99 184 C 95 174 88 160 86 148 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.4" stroke-linejoin="round" />
-  <path d="M 81 177 C 86 174 92 174 96 177 L 99 184 C 101 191 89 193 86 189 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
+  <!-- Far Back Sock Paw (Tucked Under Torso Belly) -->
+  <g transform="rotate(-12 70 160)">
+    <path d="M 63 156 L 63 185 C 63 192 77 192 77 185 L 77 156 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
+    <path d="M 63 177 C 67 175 73 175 77 177 L 78 185 C 78 192 63 192 63 185 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
+  </g>
 
-  <!-- Far Front Leg (Toe-Off Push Back) -->
-  <path d="M 122 150 C 117 162 108 174 101 184 C 98 189 110 193 115 187 C 123 176 132 164 138 150 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.4" stroke-linejoin="round" />
-  <path d="M 106 176 C 110 176 116 178 119 181 L 115 187 C 110 193 98 189 101 184 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
+  <!-- Far Front Sock Paw (Tucked Under Torso Belly) -->
+  <g transform="rotate(12 122 160)">
+    <path d="M 115 156 L 115 185 C 115 192 129 192 129 185 L 129 156 Z" fill="#E5CDB4" stroke="#2A1810" stroke-width="4.2" />
+    <path d="M 115 177 C 119 175 125 175 129 177 L 130 185 C 130 192 115 192 115 185 Z" fill="#3D2820" stroke="#2A1810" stroke-width="4" />
+  </g>
 
-  <!-- Plump Chibi Walking Torso -->
-  <path d="M 58 140 C 53 156 62 169 84 170 L 138 170 C 154 168 158 150 148 132 C 136 120 74 122 58 140 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
+  <!-- Near Back Sock Paw (Tucked Under Torso Belly) -->
+  <g transform="rotate(12 84 160)">
+    <path d="M 77 156 L 77 187 C 77 194 92 194 92 187 L 92 156 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" />
+    <path d="M 77 178 C 81 176 88 176 92 178 L 93 187 C 93 194 77 194 77 187 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+  </g>
+
+  <!-- Near Front Sock Paw (Tucked Under Torso Belly) -->
+  <g transform="rotate(-12 136 160)">
+    <path d="M 129 156 L 129 187 C 129 194 144 194 144 187 L 144 156 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" />
+    <path d="M 129 178 C 133 176 140 176 144 178 L 145 187 C 145 194 129 194 129 187 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" />
+  </g>
+
+  <!-- Smooth Feline Torso (Covers Upper Leg Joints Cleanly) -->
+  <path d="M 58 144 C 56 158 64 168 82 168 L 138 168 C 154 167 158 150 148 134 C 134 120 72 120 58 144 Z" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round" />
 
   <!-- Emerald Nutrition Collar & Tag -->
   <path d="M 118 134 C 126 146 138 150 149 142" stroke="#10B981" stroke-width="5" stroke-linecap="round" fill="none" />
   <circle cx="139" cy="148" r="5" fill="#28F59C" stroke="#2A1810" stroke-width="2.5" />
-
-  <!-- Near Back Leg (Digitigrade Push-Off) -->
-  <path d="M 66 148 C 61 160 53 173 46 184 C 43 189 55 193 60 187 C 68 176 79 162 86 148" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 51 176 C 55 176 61 178 64 181 L 60 187 C 55 193 43 189 46 184 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
-
-  <!-- Near Front Leg (Contact Reach Forward) -->
-  <path d="M 122 150 C 124 164 134 178 142 189 C 145 193 157 191 155 184 C 151 174 142 162 138 150" fill="#F7EBD6" stroke="#2A1810" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 136 177 C 141 174 147 174 151 177 L 155 184 C 157 191 145 193 142 189 Z" fill="#4B3329" stroke="#2A1810" stroke-width="4.2" stroke-linejoin="round" />
 
   <!-- Top Leaf Sprout -->
   <path d="M 130 66 L 130 42" stroke="#2A1810" stroke-width="4" stroke-linecap="round" />
