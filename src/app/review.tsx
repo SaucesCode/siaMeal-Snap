@@ -33,10 +33,10 @@ interface MealTypeOption {
 }
 
 const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Morning Pounce', sublabel: 'Breakfast', icon: 'cat', color: '#f59e0b' },
-  { type: 'lunch', label: 'Midday Catch', sublabel: 'Lunch', icon: 'fish', color: '#10b981' },
-  { type: 'dinner', label: 'Night Prowl', sublabel: 'Dinner', icon: 'weather-night', color: '#818cf8' },
-  { type: 'snack', label: 'Paws & Treats', sublabel: 'Snack', icon: 'paw', color: '#06b6d4' },
+  { type: 'breakfast', label: 'Breakfast', sublabel: 'Morning', icon: 'cat', color: '#f59e0b' },
+  { type: 'lunch', label: 'Lunch', sublabel: 'Midday', icon: 'fish', color: '#10b981' },
+  { type: 'dinner', label: 'Dinner', sublabel: 'Evening', icon: 'weather-night', color: '#818cf8' },
+  { type: 'snack', label: 'Snack', sublabel: 'Anytime', icon: 'paw', color: '#06b6d4' },
 ];
 
 export default function ReviewScreen() {

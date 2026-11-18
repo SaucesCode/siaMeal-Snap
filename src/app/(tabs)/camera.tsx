@@ -34,10 +34,10 @@ const CATEGORY_NAMES: Record<
   string,
   { title: string; color: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
 > = {
-  breakfast: { title: 'Morning Pounce', color: '#f59e0b', icon: 'cat' },
-  lunch: { title: 'Midday Catch', color: '#10b981', icon: 'fish' },
-  dinner: { title: 'Night Prowl', color: '#818cf8', icon: 'weather-night' },
-  snack: { title: 'Paws & Treats', color: '#06b6d4', icon: 'paw' },
+  breakfast: { title: 'Breakfast', color: '#f59e0b', icon: 'cat' },
+  lunch: { title: 'Lunch', color: '#10b981', icon: 'fish' },
+  dinner: { title: 'Dinner', color: '#818cf8', icon: 'weather-night' },
+  snack: { title: 'Snack', color: '#06b6d4', icon: 'paw' },
 };
 
 export default function CameraScreen() {

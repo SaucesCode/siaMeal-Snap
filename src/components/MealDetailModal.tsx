@@ -35,10 +35,10 @@ interface MealTypeOption {
 }
 
 const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Morning Pounce', icon: 'cat', color: '#f59e0b' },
-  { type: 'lunch', label: 'Midday Catch', icon: 'fish', color: '#10b981' },
-  { type: 'dinner', label: 'Night Prowl', icon: 'weather-night', color: '#818cf8' },
-  { type: 'snack', label: 'Paws & Treats', icon: 'paw', color: '#06b6d4' },
+  { type: 'breakfast', label: 'Breakfast', icon: 'cat', color: '#f59e0b' },
+  { type: 'lunch', label: 'Lunch', icon: 'fish', color: '#10b981' },
+  { type: 'dinner', label: 'Dinner', icon: 'weather-night', color: '#818cf8' },
+  { type: 'snack', label: 'Snack', icon: 'paw', color: '#06b6d4' },
 ];
 
 export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicate }: MealDetailModalProps) {

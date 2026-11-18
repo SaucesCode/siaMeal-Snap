@@ -23,28 +23,28 @@ interface CategoryConfig {
 
 const CATEGORY_CONFIG: Record<MealType, CategoryConfig> = {
   breakfast: {
-    title: 'Morning Pounce',
+    title: 'Breakfast',
     icon: 'cat',
     color: '#f59e0b',
     bg: 'bg-amber-500/10',
     border: 'border-amber-500/30',
   },
   lunch: {
-    title: 'Midday Catch',
+    title: 'Lunch',
     icon: 'fish',
     color: '#10b981',
     bg: 'bg-emerald-500/10',
     border: 'border-emerald-500/30',
   },
   dinner: {
-    title: 'Night Prowl',
+    title: 'Dinner',
     icon: 'weather-night',
     color: '#818cf8',
     bg: 'bg-indigo-500/10',
     border: 'border-indigo-500/30',
   },
   snack: {
-    title: 'Paws & Treats',
+    title: 'Snack',
     icon: 'paw',
     color: '#06b6d4',
     bg: 'bg-cyan-500/10',
