@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system/legacy';
+import { MEAL_IMAGES_BUCKET, toMealImagePath } from './mealImages';
 
 /**
  * Decodes a base64 string into an ArrayBuffer for Supabase Storage uploads.
@@ -14,8 +15,9 @@ function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 /**
- * Uploads a compressed meal photo to Supabase Storage bucket 'meal-images'
- * and returns the permanent public URL. Falls back to local URI if upload fails.
+ * Uploads a compressed meal photo to the private 'meal-images' bucket and returns its
+ * object path ("<userId>/<file>"), which is resolved to a signed URL for display.
+ * Falls back to the local URI if the upload fails.
  */
 export async function uploadMealPhotoToSupabase(
   localUri: string,
@@ -23,8 +25,8 @@ export async function uploadMealPhotoToSupabase(
 ): Promise<string | null> {
   if (!localUri) return null;
 
-  // If already a remote URL, return as is
-  if (localUri.startsWith('http://') || localUri.startsWith('https://')) {
+  // Already stored, or an external URL
+  if (toMealImagePath(localUri) || localUri.startsWith('http://') || localUri.startsWith('https://')) {
     return localUri;
   }
 
@@ -42,10 +44,10 @@ export async function uploadMealPhotoToSupabase(
     const arrayBuffer = decodeBase64ToArrayBuffer(base64);
 
     const { data, error } = await supabase.storage
-      .from('meal-images')
+      .from(MEAL_IMAGES_BUCKET)
       .upload(filename, arrayBuffer, {
         contentType,
-        upsert: true,
+        upsert: false,
         cacheControl: '31536000',
       });
 
@@ -54,11 +56,7 @@ export async function uploadMealPhotoToSupabase(
       return localUri;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('meal-images')
-      .getPublicUrl(data.path);
-
-    return publicUrlData.publicUrl;
+    return data.path;
   } catch (err) {
     console.warn('Failed to upload meal photo to Supabase storage:', err);
     return localUri;

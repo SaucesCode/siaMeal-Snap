@@ -390,12 +390,11 @@ export const useMealStore = create<MealState>((set, get) => ({
     const user = session?.user;
     if (!user) throw new Error('User not authenticated');
 
-    let finalImageUrl = mealData.image_url || null;
-    if (finalImageUrl && !finalImageUrl.startsWith('http')) {
-      uploadMealPhotoToSupabase(finalImageUrl, user.id).then((uploaded) => {
-        if (uploaded) finalImageUrl = uploaded;
-      }).catch(() => {});
-    }
+    const localImageUri = mealData.image_url || null;
+    // Upload starts now so it overlaps the meal write; the stored path is attached afterwards.
+    const imageUpload = localImageUri
+      ? uploadMealPhotoToSupabase(localImageUri, user.id)
+      : Promise.resolve(null);
 
     // Generate standard RFC 4122 v4 UUID so Postgres accepts it without error
     const mealId = generateUUID();
@@ -414,7 +413,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       sodium_mg: mealData.sodium_mg != null ? Number(mealData.sodium_mg) : 0,
       potassium_mg: mealData.potassium_mg != null ? Number(mealData.potassium_mg) : 0,
       food_items: mealData.food_items || [],
-      image_url: finalImageUrl,
+      image_url: localImageUri,
       logged_at: mealData.logged_at || new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
@@ -446,6 +445,17 @@ export const useMealStore = create<MealState>((set, get) => ({
       console.warn('Direct Supabase write failed, queuing for offline background sync:', err?.message || err);
       await enqueueMutation('CREATE_MEAL', newMeal);
     }
+
+    // Attach the uploaded photo once the meal row exists (updateMeal queues offline if needed).
+    imageUpload
+      .then((storedPath) => {
+        if (storedPath && storedPath !== localImageUri) {
+          return get().updateMeal(mealId, { image_url: storedPath });
+        }
+      })
+      .catch((err: unknown) => {
+        console.warn('Failed to attach uploaded meal photo:', err);
+      });
 
     // Refresh weekly stats in background
     get().fetchWeeklyStats().catch(() => {});

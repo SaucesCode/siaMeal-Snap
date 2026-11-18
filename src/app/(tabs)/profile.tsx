@@ -64,7 +64,8 @@ const DIETARY_TAGS = [
 ];
 
 export default function ProfileScreen() {
-  const { user, profile, saveProfile, signOut } = useAuthStore();
+  const { user, profile, saveProfile, signOut, deleteAccount } = useAuthStore();
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const { meals, weeklySummary, fetchWeeklyStats } = useMealStore();
   const { entries, loadWeightHistory, logWeight } = useWeightStore();
   const { dailyGoalMl, loadTodayWater, setDailyGoal } = useWaterStore();
@@ -314,6 +315,35 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    hapticFeedback.medium();
+    Alert.alert(
+      'Delete your account?',
+      'This permanently deletes your profile, every meal you have logged, your meal photos, and your coach chats. Water and weight history on this phone is erased too. This cannot be undone.',
+      [
+        { text: 'Keep My Account', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeletingAccount(true);
+            try {
+              await deleteAccount();
+              hapticFeedback.success();
+            } catch (err: unknown) {
+              hapticFeedback.error();
+              setIsDeletingAccount(false);
+              Alert.alert(
+                'Account not deleted',
+                err instanceof Error ? err.message : 'Please try again in a moment.'
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const displayName = fullName.trim() || user?.email?.split('@')[0] || 'Athlete';
@@ -889,6 +919,36 @@ export default function ProfileScreen() {
               </View>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#fb7185" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDeleteAccount}
+            disabled={isDeletingAccount}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            accessibilityHint="Permanently deletes your profile, meals and photos"
+            accessibilityState={{ disabled: isDeletingAccount, busy: isDeletingAccount }}
+            className="flex-row items-center justify-between p-4 border-t border-zinc-800/90 active:bg-rose-500/10"
+          >
+            <View className="flex-row items-center gap-3 flex-1">
+              <View className="w-8 h-8 rounded-xl bg-rose-500/15 items-center justify-center">
+                <Ionicons name="trash-outline" size={16} color="#fb7185" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-rose-400 font-bold text-sm">
+                  {isDeletingAccount ? 'Deleting your account…' : 'Delete Account'}
+                </Text>
+                <Text className="text-zinc-400 text-xs font-medium mt-0.5">
+                  Permanently erase your meals, photos and profile
+                </Text>
+              </View>
+            </View>
+            {isDeletingAccount ? (
+              <ActivityIndicator size="small" color="#fb7185" />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color="#fb7185" />
+            )}
           </TouchableOpacity>
         </View>
 

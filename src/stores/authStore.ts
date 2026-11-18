@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
 import { useCoachStore } from './coachStore';
 import { useMealStore } from './mealStore';
+import { useWaterStore } from './waterStore';
+import { useWeightStore } from './weightStore';
 
 const PROFILE_CACHE_KEY = '@calorie_tracker_cached_profile';
 
@@ -18,6 +20,7 @@ interface AuthState {
   fetchProfile: () => Promise<Profile | null>;
   saveProfile: (profileData: Partial<Profile>) => Promise<Profile>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -176,6 +179,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.warn('Failed to clear caches on sign out:', cacheErr);
     }
     await supabase.auth.signOut();
+    set({ user: null, session: null, profile: null });
+  },
+
+  /**
+   * Permanently deletes the account server-side (profile, meals, photos), then wipes every
+   * piece of app data on this device. Throws with a user-facing message if the server fails,
+   * in which case nothing local is touched.
+   */
+  deleteAccount: async () => {
+    const { data, error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error || !data?.deleted) {
+      let message = "We couldn't delete your account right now. Please try again.";
+      const body = await error?.context?.json?.().catch(() => null);
+      if (body?.error) message = body.error;
+      throw new Error(message);
+    }
+
+    // The server session is gone, so only clear the local one.
+    await supabase.auth.signOut({ scope: 'local' }).catch((err: unknown) => {
+      console.warn('Local sign-out after account deletion failed:', err);
+    });
+    useCoachStore.getState().reset();
+    useMealStore.getState().reset();
+    await AsyncStorage.clear();
+    // Reload from the now-empty storage so in-memory water and weight history is cleared too.
+    await Promise.all([
+      useWaterStore.getState().loadTodayWater(),
+      useWeightStore.getState().loadWeightHistory(),
+    ]);
     set({ user: null, session: null, profile: null });
   },
 }));

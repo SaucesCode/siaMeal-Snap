@@ -13,6 +13,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
+import { useMealImageUri } from '../lib/mealImages';
 import { hapticFeedback } from '../utils/haptics';
 
 interface MealDetailModalProps {
@@ -52,6 +53,7 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const imageUri = useMealImageUri(meal?.image_url);
 
   useEffect(() => {
     if (meal) {
@@ -202,10 +204,10 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Meal Photo */}
-            {meal.image_url && !imageError ? (
+            {imageUri && !imageError ? (
               <View className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
                 <Image
-                  source={{ uri: meal.image_url }}
+                  source={{ uri: imageUri }}
                   className="w-full h-48"
                   resizeMode="cover"
                   onError={() => setImageError(true)}

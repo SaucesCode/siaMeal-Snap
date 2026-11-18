@@ -101,16 +101,17 @@ CREATE POLICY "Users can delete their own meals"
   ON public.meals FOR DELETE
   USING ((select auth.uid()) = user_id);
 
--- 3. Storage Bucket for Meal Images
+-- 3. Storage Bucket for Meal Images (private: photos are served through short-lived signed URLs)
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('meal-images', 'meal-images', true)
-ON CONFLICT (id) DO NOTHING;
+VALUES ('meal-images', 'meal-images', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
 
 -- Storage RLS Policies
 DROP POLICY IF EXISTS "Allow public read of meal images" ON storage.objects;
-CREATE POLICY "Allow public read of meal images"
+DROP POLICY IF EXISTS "Allow users to read their own meal images" ON storage.objects;
+CREATE POLICY "Allow users to read their own meal images"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'meal-images');
+  USING (bucket_id = 'meal-images' AND (select auth.uid())::text = (storage.foldername(name))[1]);
 
 DROP POLICY IF EXISTS "Allow authenticated users to upload meal images" ON storage.objects;
 CREATE POLICY "Allow authenticated users to upload meal images"
