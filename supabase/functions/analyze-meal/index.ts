@@ -225,6 +225,45 @@ function sanitizeUserContext(raw: unknown): RequestPayload["userContext"] | unde
   };
 }
 
+/**
+ * Per-request latency trace. Each awaited stage (auth, quota, every provider attempt) is
+ * recorded, then emitted as one structured log line so slow stages are visible in the
+ * Supabase function logs.
+ */
+class RequestTrace {
+  readonly requestId = crypto.randomUUID();
+  mode: "chat" | "analyze" | "unknown" = "unknown";
+  private readonly startedAt = performance.now();
+  private readonly spans: { stage: string; ms: number; status?: number | "error" }[] = [];
+
+  async time<T>(stage: string, fn: () => Promise<T>): Promise<T> {
+    const start = performance.now();
+    try {
+      const result = await fn();
+      this.spans.push({
+        stage,
+        ms: Math.round(performance.now() - start),
+        status: result instanceof Response ? result.status : undefined,
+      });
+      return result;
+    } catch (err) {
+      this.spans.push({ stage, ms: Math.round(performance.now() - start), status: "error" });
+      throw err;
+    }
+  }
+
+  finish(status: number) {
+    console.log(JSON.stringify({
+      event: "analyze_meal_timing",
+      requestId: this.requestId,
+      mode: this.mode,
+      status,
+      total_ms: Math.round(performance.now() - this.startedAt),
+      spans: this.spans,
+    }));
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP SERVER HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -237,7 +276,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Method not allowed." }, 405);
   }
 
-  const requestId = crypto.randomUUID();
+  const trace = new RequestTrace();
+  const response = await handleAnalyzeMeal(req, trace);
+  trace.finish(response.status);
+  return response;
+});
+
+async function handleAnalyzeMeal(req: Request, trace: RequestTrace): Promise<Response> {
+  const requestId = trace.requestId;
 
   try {
     const contentLength = Number(req.headers.get("content-length") ?? 0);
@@ -245,7 +291,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "That photo is too large. Please try again." }, 413);
     }
 
-    const auth = await authenticate(req);
+    const auth = await trace.time("auth", () => authenticate(req));
     if (!auth) {
       return jsonResponse({ error: "Please sign in again to use Sia's AI features." }, 401);
     }
@@ -270,7 +316,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const isChat = body.mode === "chat" || (Array.isArray(body.messages) && body.messages.length > 0);
-    const quota = await consumeQuota(auth.supabase, isChat ? "chat" : "analyze", requestId);
+    trace.mode = isChat ? "chat" : "analyze";
+    const quota = await trace.time("quota", () => consumeQuota(auth.supabase, trace.mode as QuotaKind, requestId));
     if (quota === "exceeded") {
       return jsonResponse(
         { error: "Sia needs a short catnap. You've hit the hourly AI limit; please try again soon." },
@@ -457,25 +504,31 @@ ${contextBlock}
           for (const modelName of geminiModels) {
             try {
               // Attempt 1: Multi-turn conversation
-              let resp = await geminiGenerate(
-                modelName,
-                geminiKey,
-                { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200 },
-                20000
+              let resp = await trace.time(`gemini:${modelName}:multi-turn`, () =>
+                geminiGenerate(
+                  modelName,
+                  geminiKey,
+                  { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200 },
+                  20000
+                )
               );
 
               // Attempt 2: Single-turn with the latest user message (if multi-turn was rejected)
               if (!resp.ok) {
+                const firstErr = await resp.text().catch(() => "");
+                console.warn(`[${requestId}] Gemini ${modelName} multi-turn returned ${resp.status}: ${firstErr.slice(0, 300)}`);
                 const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hi Sia!";
-                resp = await geminiGenerate(
-                  modelName,
-                  geminiKey,
-                  {
-                    systemPrompt: coachSystemPrompt,
-                    contents: [{ role: "user", parts: [{ text: lastUserText }] }],
-                    maxOutputTokens: 1200,
-                  },
-                  20000
+                resp = await trace.time(`gemini:${modelName}:single-turn`, () =>
+                  geminiGenerate(
+                    modelName,
+                    geminiKey,
+                    {
+                      systemPrompt: coachSystemPrompt,
+                      contents: [{ role: "user", parts: [{ text: lastUserText }] }],
+                      maxOutputTokens: 1200,
+                    },
+                    20000
+                  )
                 );
               }
 
@@ -513,7 +566,7 @@ ${contextBlock}
         for (const openAiKey of openAiKeys) {
           if (replyText) break;
           try {
-            const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+            const resp = await trace.time("openai:chat", () => fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${openAiKey.trim()}`,
@@ -525,7 +578,7 @@ ${contextBlock}
                 temperature: 0.7,
                 max_tokens: 450,
               }),
-            }, 14000);
+            }, 14000));
 
             if (resp.ok) {
               const data = await resp.json();
@@ -660,16 +713,18 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
 
         for (const modelName of geminiModels) {
           try {
-            const geminiResponse = await geminiGenerate(
-              modelName,
-              geminiKey,
-              {
-                systemPrompt,
-                contents: [{ role: "user", parts }],
-                maxOutputTokens: 2048,
-                responseMimeType: "application/json",
-              },
-              20000
+            const geminiResponse = await trace.time(`gemini:${modelName}:analyze`, () =>
+              geminiGenerate(
+                modelName,
+                geminiKey,
+                {
+                  systemPrompt,
+                  contents: [{ role: "user", parts }],
+                  maxOutputTokens: 2048,
+                  responseMimeType: "application/json",
+                },
+                20000
+              )
             );
 
             if (geminiResponse.ok) {
@@ -709,7 +764,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
       for (const openAiKey of openAiKeys) {
         if (parsedData) break;
         try {
-          const openAiResponse = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+          const openAiResponse = await trace.time("openai:analyze", () => fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -724,7 +779,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
               ],
               temperature: 0.2,
             }),
-          }, 20000);
+          }, 20000));
 
           if (openAiResponse.ok) {
             const openAiData = await openAiResponse.json();
@@ -788,4 +843,4 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
     console.error(`[${requestId}] Edge Function error:`, err);
     return jsonResponse({ error: "Something went wrong on Sia's side. Please try again." }, 500);
   }
-});
+}
