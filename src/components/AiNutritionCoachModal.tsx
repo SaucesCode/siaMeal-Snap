@@ -1120,6 +1120,9 @@ export function AiNutritionCoachModal({
             <Ionicons name="arrow-up" size={16} color="#ffffff" />
           </Pressable>
         </View>
+        <Text className="text-zinc-400 text-xs text-center mt-2">
+          Sia shares general nutrition info, not medical advice.
+        </Text>
       </View>
     </View>
   );
