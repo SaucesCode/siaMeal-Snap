@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal, MealType } from '../types';
 import { hapticFeedback } from '../utils/haptics';
+import { useMealImageUri } from '../lib/mealImages';
 
 interface MealItemCardProps {
   meal: Meal;
@@ -51,6 +52,7 @@ const CATEGORY_CONFIG: Record<MealType, CategoryConfig> = {
 
 export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
   const [imageError, setImageError] = useState(false);
+  const imageUri = useMealImageUri(meal.image_url);
 
   const formatTime = (isoString: string) => {
     try {
@@ -97,9 +99,9 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-1 flex-row items-center gap-3.5 mr-2">
           {/* Photo or Category Icon Disc */}
-          {meal.image_url && !imageError ? (
+          {imageUri && !imageError ? (
             <Image
-              source={{ uri: meal.image_url }}
+              source={{ uri: imageUri }}
               className="rounded-2xl border border-zinc-800"
               style={{ width: 52, height: 52 }}
               resizeMode="cover"

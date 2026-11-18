@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy · SiaMeal Snap</title>
+  <link rel="icon" href="data:,">
+  <meta name="description" content="How SiaMeal Snap collects, uses, and deletes your data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --text: #18181b;
+      --muted: #52525b;
+      --border: #e4e4e7;
+      --accent: #047857;
+      --accent-soft: #ecfdf5;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --space-6: 24px; --space-8: 32px; --space-12: 48px;
+      --radius: 12px;
+      --font-display: "Outfit", system-ui, sans-serif;
+      --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --text: #f4f4f5;
+        --muted: #a1a1aa;
+        --border: #27272a;
+        --accent: #34d399;
+        --accent-soft: #052e22;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 400 1rem/1.65 var(--font-body);
+    }
+    main {
+      max-width: 68ch;
+      margin: 0 auto;
+      padding: var(--space-12) var(--space-4) var(--space-12);
+    }
+    .brand {
+      font: 800 0.875rem/1 var(--font-display);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 var(--space-3);
+    }
+    h1 { font: 800 clamp(2rem, 6vw, 2.75rem)/1.1 var(--font-display); margin: 0 0 var(--space-3); }
+    h2 { font: 700 1.375rem/1.3 var(--font-display); margin: var(--space-12) 0 var(--space-3); }
+    p, ul, table { margin: 0 0 var(--space-4); }
+    ul { padding-left: var(--space-6); }
+    li + li { margin-top: var(--space-2); }
+    .meta { color: var(--muted); margin-bottom: var(--space-8); }
+    .summary {
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-4) var(--space-6);
+    }
+    .summary ul { margin: 0; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+    th, td { text-align: left; vertical-align: top; padding: var(--space-3); border-bottom: 1px solid var(--border); }
+    th { font-weight: 700; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+    @media (max-width: 600px) {
+      table, thead, tbody, tr, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tr { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-2) var(--space-4); margin-bottom: var(--space-3); background: var(--surface); }
+      td { border: 0; padding: var(--space-2) 0; }
+      td::before { content: attr(data-label); display: block; font-weight: 700; font-size: 0.8125rem; color: var(--muted); }
+    }
+    footer { color: var(--muted); font-size: 0.875rem; margin-top: var(--space-12); border-top: 1px solid var(--border); padding-top: var(--space-4); }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">SiaMeal Snap</p>
+    <h1>Privacy Policy</h1>
+    <p class="meta">Effective November 18, 2026 · Published by James Patrick De Mesa</p>
+
+    <div class="summary">
+      <ul>
+        <li>We collect what the app needs to track your nutrition: your account, profile, and the meals you log.</li>
+        <li>Meal photos, meal descriptions, and coach messages are sent to an AI provider to estimate nutrition and write replies.</li>
+        <li>No ads, no analytics trackers, and we never sell your data.</li>
+        <li>You can delete your account and all of its data at any time from inside the app.</li>
+      </ul>
+    </div>
+
+    <h2>What we collect</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Data</th><th scope="col">Why</th><th scope="col">Where it's stored</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Data">Email address and password, or your Google sign-in</td>
+            <td data-label="Why">To create your account and sign you in. Passwords are stored hashed, never in plain text.</td>
+            <td data-label="Where it's stored">Our server (Supabase)</td>
+          </tr>
+          <tr>
+            <td data-label="Data">Profile: name, age, gender, height, weight, activity level, goals, diet type, and calculated targets</td>
+            <td data-label="Why">To calculate your daily calorie and macro targets.</td>
+            <td data-label="Where it's stored">Our server</td>
+          </tr>
+          <tr>
+            <td data-label="Data">Meals: name, time, calories, macros and micronutrients, ingredients, and meal photos</td>
+            <td data-label="Why">To show your food log, history, and progress.</td>
+            <td data-label="Where it's stored">Our server. Photos are in private storage that only your account can open.</td>
+          </tr>
+          <tr>
+            <td data-label="Data">A record of each AI request (type and time)</td>
+            <td data-label="Why">To enforce fair-use limits. Deleted automatically after one day.</td>
+            <td data-label="Where it's stored">Our server</td>
+          </tr>
+          <tr>
+            <td data-label="Data">Water intake, weight history, and coach chat history</td>
+            <td data-label="Why">To show your hydration, weight trend, and past conversations.</td>
+            <td data-label="Where it's stored">Only on your device</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>We don't use advertising or analytics SDKs. Reminders are scheduled on your device, so we don't collect a push notification token.</p>
+
+    <h2>AI processing</h2>
+    <p>When you scan or describe a meal, the photo or text is sent to our server and then to Google's Gemini API to estimate its nutrition. If Gemini is unavailable, OpenAI's API is used instead.</p>
+    <p>When you chat with Sia, your recent messages are sent along with the context Sia needs to give relevant advice: your display name, goal, diet type, daily targets, what you've eaten today, and the names of today's meals.</p>
+    <p>These providers process the data under their own terms: <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a> and <a href="https://openai.com/policies/privacy-policy/">OpenAI privacy policy</a>. AI estimates can be wrong, so please check them before you save.</p>
+
+    <h2>Who else handles your data</h2>
+    <ul>
+      <li><strong>Supabase</strong> hosts our database, sign-in, and photo storage.</li>
+      <li><strong>Google</strong> (Gemini API) and <strong>OpenAI</strong> process meal photos, descriptions, and coach messages as described above.</li>
+      <li><strong>Google</strong> also handles sign-in if you choose "Continue with Google".</li>
+      <li><strong>Open Food Facts</strong> receives the barcode number when you scan a packaged product. No personal information is sent with it.</li>
+    </ul>
+    <p>These services may process data on servers outside your country. We share data with them only to run the features described here.</p>
+
+    <h2>How long we keep it</h2>
+    <p>We keep your account data until you delete your account. When you do, your profile, meals, and photos are deleted from our server right away, and the app erases the data stored on your device. Copies may remain in our hosting provider's encrypted backups for a limited period before they expire.</p>
+
+    <h2>Your choices and rights</h2>
+    <ul>
+      <li><strong>Edit:</strong> change your profile and meals at any time in the app.</li>
+      <li><strong>Delete:</strong> go to Profile → Delete Account. This is permanent.</li>
+      <li><strong>Camera and photos:</strong> access is only requested when you use those features, and you can turn it off in your device settings.</li>
+    </ul>
+    <p>Depending on where you live, laws such as the Philippine Data Privacy Act of 2012 or the GDPR may give you more rights, like getting a copy of your data. Contact us to use them.</p>
+
+    <h2>Health information</h2>
+    <p>SiaMeal Snap gives general nutrition information, not medical advice. If you're pregnant, managing a health condition, or have a history of disordered eating, please check your targets with a doctor or registered dietitian.</p>
+
+    <h2>Children</h2>
+    <p>SiaMeal Snap is not intended for children under 13, and we don't knowingly collect their data.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If we change this policy, we'll update the date at the top. For significant changes, we'll let you know in the app.</p>
+
+    <h2>Contact</h2>
+    <p>For questions about this policy, open an issue at <a href="https://github.com/SaucesCode/siaMeal-Snap/issues">github.com/SaucesCode/siaMeal-Snap/issues</a>. Issues are public, so don't include personal details there. To delete your data, use Delete Account in the app.</p>
+
+    <footer>© 2026 James Patrick De Mesa (SaucesCode). SiaMeal Snap.</footer>
+  </main>
+</body>
+</html>
