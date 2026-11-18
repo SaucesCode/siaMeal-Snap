@@ -120,6 +120,19 @@ export const EXTRAS = {
   ],
 } as const;
 
+/**
+ * Launch splash image layout (1024 × 1024 canvas). Android 12+ shows the splash image through
+ * the system splash API, which fits it inside a centred circle (~2/3 of the canvas), so Sia sits
+ * centred and nothing is placed outside that circle. Shared by scripts/render-sia-assets.ts
+ * (native splash PNG) and LaunchWink (JS hand-off overlay), so the hand-off has no jump.
+ */
+export const SPLASH = {
+  canvas: 1024,
+  siaBox: { x: 232, y: 232, size: 560 },
+  /** Must equal expo-splash-screen `imageWidth` in app.json (dp). */
+  imageWidthDp: 240,
+} as const;
+
 /** Simplified head for < 48 px: no whiskers, no inner ears or shine, chunkier strokes. */
 export const MINI = {
   earLeft: PATHS.earLeft,

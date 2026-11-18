@@ -1,5 +1,5 @@
 import '../global.css';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import { useCoachStore } from '../stores/coachStore';
 import { useMealStore, selectTodayMeals } from '../stores/mealStore';
 import { buildCoachContext } from '../utils/coachContext';
 import { SiaRoamingCompanion } from '../components/feline/SiaRoamingCompanion';
+import { LaunchWink } from '../components/sia/LaunchWink';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -78,13 +79,15 @@ export default function RootLayout() {
   // the user sees is the real app; there is no artificial minimum launch delay.
   const appReady = isInitialized && fontsLoaded;
 
-  useEffect(() => {
-    if (appReady) {
-      SplashScreen.hideAsync().catch((err: unknown) => {
-        console.warn('Failed to hide splash screen:', err);
-      });
-    }
-  }, [appReady]);
+  // Once ready, LaunchWink covers the screen exactly like the native splash; the native splash
+  // hides underneath it, then Sia winks as the overlay fades into the app.
+  const [launchDone, setLaunchDone] = useState(false);
+  const hideNativeSplash = useCallback(() => {
+    SplashScreen.hideAsync().catch((err: unknown) => {
+      console.warn('Failed to hide splash screen:', err);
+    });
+  }, []);
+  const finishLaunch = useCallback(() => setLaunchDone(true), []);
 
   return (
     <View style={styles.root}>
@@ -123,6 +126,7 @@ export default function RootLayout() {
         />
       )}
 
+      {appReady && !launchDone && <LaunchWink onReady={hideNativeSplash} onDone={finishLaunch} />}
     </View>
   );
 }
