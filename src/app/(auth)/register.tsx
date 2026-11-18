@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { BrandLogo } from '../../components/BrandLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticFeedback } from '../../utils/haptics';
+import { openPrivacyPolicy } from '../../lib/legal';
 import SiaCatMascot from '../../components/SiaCatMascot';
 import { CatEarCard, WhiskerDivider } from '../../components/feline';
 
@@ -319,6 +320,18 @@ export default function RegisterScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          <Text className="text-zinc-400 text-xs text-center mt-3 leading-5">
+            By creating an account, you agree to our{' '}
+            <Text
+              onPress={openPrivacyPolicy}
+              accessibilityRole="link"
+              className="text-emerald-400 font-bold underline"
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </CatEarCard>
 
         {/* Footer Link */}

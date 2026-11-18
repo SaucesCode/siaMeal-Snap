@@ -28,6 +28,7 @@ import {
 import { WeightTrendChart } from '../../components/WeightTrendChart';
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { hapticFeedback } from '../../utils/haptics';
+import { openPrivacyPolicy } from '../../lib/legal';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
@@ -904,6 +905,26 @@ export default function ProfileScreen() {
 
         {/* 8. Sign Out & Account Actions */}
         <View className="bg-zinc-900/90 border border-zinc-800/90 rounded-3xl overflow-hidden mb-6">
+          <TouchableOpacity
+            onPress={openPrivacyPolicy}
+            activeOpacity={0.7}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+            accessibilityHint="Opens the privacy policy in your browser"
+            className="flex-row items-center justify-between p-4 border-b border-zinc-800/90 active:bg-zinc-800/60"
+          >
+            <View className="flex-row items-center gap-3 flex-1">
+              <View className="w-8 h-8 rounded-xl bg-zinc-800 items-center justify-center">
+                <Ionicons name="shield-checkmark-outline" size={16} color="#a1a1aa" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-zinc-200 font-bold text-sm">Privacy Policy</Text>
+                <Text className="text-zinc-400 text-xs font-medium mt-0.5">What we collect and how to delete it</Text>
+              </View>
+            </View>
+            <Ionicons name="open-outline" size={16} color="#a1a1aa" />
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={handleSignOut}
             activeOpacity={0.7}
