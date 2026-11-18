@@ -19,7 +19,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import {
-  sendNutritionCoachMessage,
+  streamNutritionCoachMessage,
   cleanCoachReply,
   ChatMessage,
   UserNutritionContext,
@@ -425,6 +425,7 @@ export function AiNutritionCoachModal({
   );
   const [inputText, setInputText] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingReply, setStreamingReply] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const scrollViewRef = useRef<any>(null);
@@ -665,7 +666,7 @@ export function AiNutritionCoachModal({
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages, visible, isTyping]);
+  }, [messages, visible, isTyping, streamingReply]);
 
   if (!visible) return null;
 
@@ -699,7 +700,7 @@ export function AiNutritionCoachModal({
         content: m.content,
       }));
 
-      const reply = await sendNutritionCoachMessage(conversationPayload, userContext);
+      const reply = await streamNutritionCoachMessage(conversationPayload, userContext, setStreamingReply);
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -720,6 +721,9 @@ export function AiNutritionCoachModal({
       };
       await addMessage(errorMsg);
     } finally {
+      // Cleared together with isTyping, after the final message is saved, so the streamed
+      // bubble hands over to the saved message without a flicker.
+      setStreamingReply('');
       setIsTyping(false);
     }
   };
@@ -1055,8 +1059,23 @@ export function AiNutritionCoachModal({
             </View>
           )}
 
-          {/* Thinking / Typing State with Assistant-Aligned Mascot Head & Bubble */}
-          {isTyping && (
+          {/* Sia's reply streaming in word by word */}
+          {isTyping && streamingReply !== '' && (
+            <View className="mb-3 flex-row justify-start items-start">
+              <View className="mr-2 mt-0.5 self-start">
+                <SiaCatMascot size={28} mood="head" withGlow={false} />
+              </View>
+              <View
+                accessibilityLiveRegion="polite"
+                className="max-w-[84%] rounded-2xl p-3.5 bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm"
+              >
+                <FormattedChatMessage content={streamingReply} isUser={false} />
+              </View>
+            </View>
+          )}
+
+          {/* Thinking state until the first words arrive */}
+          {isTyping && streamingReply === '' && (
             <View className="mb-3 flex-row justify-start items-start">
               <View className="mr-2 mt-0.5 self-start">
                 <SiaCatMascot size={28} mood="head" withGlow={false} />

@@ -37,6 +37,8 @@ const DEFAULT_GEMINI_MODELS = {
 // the first successful answer wins. Bounds worst-case latency without giving up quality.
 const CHAT_HEDGE_AFTER_MS = 3500;
 const CHAT_ATTEMPT_TIMEOUT_MS = 15000;
+// A streamed attempt's timeout covers the whole reply, not just the first words.
+const CHAT_STREAM_TIMEOUT_MS = 30000;
 const ANALYZE_HEDGE_AFTER_MS = 6000;
 const ANALYZE_ATTEMPT_TIMEOUT_MS = 25000;
 // gpt-4o-mini shuts down 2027-01-14; override with the OPENAI_MODEL secret.
@@ -56,6 +58,8 @@ interface Message {
 
 interface RequestPayload {
   mode?: "analyze" | "chat";
+  /** Chat only: stream the reply as NDJSON lines ({delta} ... {done} | {error}). */
+  stream?: boolean;
   // Meal analysis params
   imageBase64?: string;
   textDescription?: string;
@@ -136,11 +140,13 @@ function raceWithHedging<T>(
     let settled = false;
     let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const settle = (value: T | null) => {
+    const settle = (value: T | null, winner?: AbortController) => {
       if (settled) return;
       settled = true;
       clearTimeout(hedgeTimer);
-      controllers.forEach((c) => c.abort());
+      controllers.forEach((c) => {
+        if (c !== winner) c.abort();
+      });
       resolve(value);
     };
 
@@ -166,7 +172,7 @@ function raceWithHedging<T>(
         })
         .then((value) => {
           inFlight--;
-          if (value != null) settle(value);
+          if (value != null) settle(value, controller);
           else launchNext();
         });
     };
@@ -227,12 +233,14 @@ function geminiGenerate(
     contents: unknown[];
     maxOutputTokens: number;
     responseMimeType?: string;
+    stream?: boolean;
   },
   timeoutMs: number,
   signal?: AbortSignal
 ): Promise<Response> {
+  const method = request.stream ? "streamGenerateContent?alt=sse" : "generateContent";
   return fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${method}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -249,6 +257,122 @@ function geminiGenerate(
     timeoutMs,
     signal
   );
+}
+
+type TextStream = { firstText: string; rest: AsyncGenerator<string> };
+
+/** Yields the payload of each `data:` line in a server-sent-events body. */
+async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      let newline: number;
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (line.startsWith("data:")) yield line.slice(5).trim();
+      }
+    }
+    const tail = buffer.trim();
+    if (tail.startsWith("data:")) yield tail.slice(5).trim();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Yields non-empty text deltas from a provider's SSE stream. */
+async function* textDeltas(
+  body: ReadableStream<Uint8Array>,
+  extract: (payload: any) => string
+): AsyncGenerator<string> {
+  for await (const data of sseData(body)) {
+    if (data === "[DONE]") return;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    const text = extract(payload);
+    if (text) yield text;
+  }
+}
+
+/**
+ * Streaming provider attempt. Resolves once the provider has produced its first visible
+ * text, so hedging races on time-to-first-words rather than time-to-full-reply.
+ */
+function streamAttempt(
+  trace: RequestTrace,
+  label: string,
+  call: (signal: AbortSignal) => Promise<Response>,
+  extract: (payload: any) => string
+): ProviderAttempt<TextStream> {
+  return {
+    label,
+    run: (signal) =>
+      trace.time(`${label}:first-text`, async () => {
+        const resp = await call(signal);
+        if (!resp.ok || !resp.body) {
+          const body = await resp.text().catch(() => "");
+          console.warn(`[${trace.requestId}] ${label} returned ${resp.status}: ${body.slice(0, 300)}`);
+          return null;
+        }
+        const deltas = textDeltas(resp.body, extract);
+        const first = await deltas.next();
+        if (first.done) return null;
+        return { firstText: first.value, rest: deltas };
+      }),
+  };
+}
+
+/** Relays a winning provider stream to the client as NDJSON: {delta}..., then {done} or {error}. */
+function ndjsonReply(winner: TextStream, requestId: string): Response {
+  const encoder = new TextEncoder();
+  const startedAt = performance.now();
+  let chars = 0;
+  let outcome = "done";
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (line: Record<string, unknown>) =>
+        controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
+      try {
+        send({ delta: winner.firstText });
+        chars += winner.firstText.length;
+        for await (const delta of winner.rest) {
+          send({ delta });
+          chars += delta.length;
+        }
+        send({ done: true });
+      } catch (err) {
+        outcome = "error";
+        console.warn(`[${requestId}] Stream interrupted: ${err instanceof Error ? err.message : err}`);
+        send({ error: "Sia lost the connection mid-reply. Please try again." });
+      } finally {
+        console.log(JSON.stringify({
+          event: "analyze_meal_stream_done",
+          requestId,
+          outcome,
+          stream_ms: Math.round(performance.now() - startedAt),
+          chars,
+        }));
+        controller.close();
+      }
+    },
+    cancel() {
+      // The client went away: stop pulling from the provider.
+      winner.rest.return(undefined).catch(() => {});
+    },
+  });
+
+  return new Response(stream, {
+    headers: { ...corsHeaders, "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" },
+  });
 }
 
 /** Extracts the visible (non-thought) text from a Gemini response. */
@@ -633,6 +757,46 @@ ${text}`;
           ),
           (data) => sanitizeCoachOutput(data?.choices?.[0]?.message?.content || "") || null
         ));
+      }
+
+      if (body.stream === true) {
+        const streamAttempts: ProviderAttempt<TextStream>[] = [];
+        for (const geminiKey of geminiKeys) {
+          for (const modelName of getGeminiModels("chat")) {
+            streamAttempts.push(streamAttempt(
+              trace,
+              `gemini:${modelName}:chat-stream`,
+              (signal) => geminiGenerate(
+                modelName,
+                geminiKey,
+                { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200, stream: true },
+                CHAT_STREAM_TIMEOUT_MS,
+                signal
+              ),
+              geminiText
+            ));
+          }
+        }
+        for (const openAiKey of openAiKeys) {
+          streamAttempts.push(streamAttempt(
+            trace,
+            "openai:chat-stream",
+            (signal) => openAiChatCompletion(
+              openAiKey,
+              { messages: openAiMessages, temperature: 0.7, max_tokens: 450, stream: true },
+              CHAT_STREAM_TIMEOUT_MS,
+              signal
+            ),
+            (payload) => payload?.choices?.[0]?.delta?.content ?? ""
+          ));
+        }
+
+        const winner = await raceWithHedging(streamAttempts, CHAT_HEDGE_AFTER_MS, requestId);
+        if (!winner) {
+          console.error(`[${requestId}] Coach stream failed on every provider.`);
+          return jsonResponse({ error: "Sia couldn't reach the AI coach right now. Please try again in a moment." }, 502);
+        }
+        return ndjsonReply(winner, requestId);
       }
 
       const replyText = await raceWithHedging(chatAttempts, CHAT_HEDGE_AFTER_MS, requestId);
