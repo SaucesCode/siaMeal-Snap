@@ -18,6 +18,7 @@
 - Text ≥ 12 pt; touch targets ≥ 44×44; contrast per spec §7.1 (text 4.5:1, UI 3:1).
 - Plain words: Breakfast, Lunch, Dinner, Snack, "Log again", the user's name (never "Athlete"), "N-day streak". Cat puns only in Sia's lines, ≤ 1 per line, never in errors, legal or health text.
 - Sia appears on Today, History, Water, Me (perch) only — never on Camera, Review, auth/onboarding; coach has its own header Sia.
+- Android is the launch platform (user has no iPhone); every task must still build for iOS and web.
 - `app.json` `userInterfaceStyle: "light"`; splash/adaptive-icon background = cream `#FBF6EE`.
 - Every task ends with `npx tsc --noEmit` clean and `npx jest` green; commit messages end with the repo's Co-Authored-By trailer.
 
@@ -146,8 +147,8 @@ plus `PUPILS` values above.
 - [ ] **Step 1:** Script builds the resting-Sia SVG string from `siaArt` (no separate SVG copy) and renders: icon 1024² (Sia on cream, full bleed safe area), splash 1024² transparent Sia + wordmark, Android foreground/monochrome 1024² (monochrome = single-colour silhouette), background 1024² cream, favicon 48². Run `npm run assets:sia`; open each PNG and confirm.
 - [ ] **Step 2:** `app.json`: `userInterfaceStyle: "light"`, splash `backgroundColor` and adaptive icon `backgroundColor` `#FBF6EE`, splash `imageWidth` sized so Sia + wordmark match the overlay.
 - [ ] **Step 3:** `_layout.tsx`: keep the native splash until `appReady` (existing), then render `LaunchWink` over the app and hide the native splash under it; unmount on `onDone`. `StatusBar style="dark"`.
-- [ ] **Step 4:** Verify: `npx expo export --platform ios` succeeds; web: load the app, screenshot mid-fade (no layout jump between splash and overlay).
-- [ ] **Step 5: Real-device checkpoint (user):** cold-start on phone; splash → wink → Today feels seamless; new icon on home screen.
+- [ ] **Step 4:** Verify: `npx expo export --platform android` (primary) and `--platform ios` (stays buildable) succeed; web: load the app, screenshot mid-fade (no layout jump between splash and overlay).
+- [ ] **Step 5: Real-device checkpoint (user, Android phone or Android emulator):** cold-start; splash → wink → Today feels seamless; new icon on home screen.
 - [ ] **Step 6:** Commit `feat: Sia launch splash, app icon and light mode`.
 
 ### Task 6: Real streaks
@@ -199,7 +200,7 @@ plus `PUPILS` values above.
 - [ ] **Step 2:** FAIL. **Step 3:** Implement store, perch, paws, events; tabs layout adds `PERCH_RESERVED_HEIGHT` to each tab screen's scroll `contentContainerStyle.paddingBottom` (when not hidden).
 - [ ] **Step 4:** PASS; `tsc` clean.
 - [ ] **Step 5: Visual check (web, 375/768/1280):** perch matches `docking-v6.html` close-up; lists end above the strip; nothing overlaps.
-- [ ] **Step 6: Real-device checkpoint (user):** paws visible against the tab bar? If not, darken `pointDeep` until they read (record the value in `palette.js`).
+- [ ] **Step 6: Real-device checkpoint (user, Android phone or Android emulator):** paws visible against the tab bar? If not, darken `pointDeep` until they read (record the value in `palette.js`).
 - [ ] **Step 7:** Commit `feat: perch Sia on the tab bar with event reactions`.
 
 ### Task 9: Tab bar + shared meal types
@@ -267,6 +268,6 @@ plus `PUPILS` values above.
 - [ ] **Step 1:** Before deleting each file, `grep` confirms no imports remain; delete; `npx expo install --fix`. In `src/app/_layout.tsx`, load only the Outfit / Plus Jakarta Sans weights still referenced (`grep -rhoE "Outfit_[0-9]+\w+|PlusJakartaSans_[0-9]+\w+" src | sort -u`).
 - [ ] **Step 2:** Copy sweep: `grep -rniE "athlete|pounce|prowl|hunter|pride|catch" src` → only Sia lines/coach persona remain; notifications and errors follow plain-word rules.
 - [ ] **Step 3:** Raw-colour check: `grep -rnE "#[0-9a-fA-F]{6}" src/app src/components | grep -v "src/components/sia/siaArt.ts"` → none.
-- [ ] **Step 4: Measure:** `npx expo export --platform ios`; record Hermes bundle + assets vs 5.88 MB / 3.56 MB (expect ~2 MB JS drop).
+- [ ] **Step 4: Measure:** `npx expo export --platform android` and `--platform ios`; record Hermes bundle + assets (iOS baseline 5.88 MB / 3.56 MB; expect ~2 MB JS drop).
 - [ ] **Step 5: Full verification:** `npx tsc --noEmit`, `npx jest`, `npm run test:sql`, `npx expo-doctor`; web screenshots of every screen at 375/768/1280; screen-reader pass (perch = one button, decorative Sias silent); reduced-motion pass; regression: log a meal, scan, coach streaming, account deletion.
 - [ ] **Step 6:** Commit `chore: remove the old mascot system and Lottie`; summarise results, remaining risks, and the user's to-dos (re-run `schema.sql`, redeploy nothing else, real-device check).
