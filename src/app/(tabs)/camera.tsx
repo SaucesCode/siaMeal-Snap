@@ -22,7 +22,8 @@ import { compressImage, analyzeMealPhoto } from '../../services/aiService';
 import { lookupBarcode } from '../../services/barcodeService';
 import { useMealStore } from '../../stores/mealStore';
 import { hapticFeedback } from '../../utils/haptics';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { MealType } from '../../types';
 import SiaCatMascot from '../../components/SiaCatMascot';
 import { SiaMascotHero, SiaWalkingLoader, SiaContextualLoader } from '../../components/feline';
@@ -62,7 +63,6 @@ export default function CameraScreen() {
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const reticlePulseAnim = useRef(new Animated.Value(1)).current;
   const bracketGlowAnim = useRef(new Animated.Value(0.6)).current;
-  const processingProgressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (params.mode === 'barcode') {
@@ -137,25 +137,6 @@ export default function CameraScreen() {
       bracketLoop.stop();
     };
   }, [scanMode]);
-
-  // Active progress animation while AI is analyzing
-  useEffect(() => {
-    if (isProcessing) {
-      processingProgressAnim.setValue(0);
-      Animated.timing(processingProgressAnim, {
-        toValue: 0.92,
-        duration: 6500,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: false,
-      }).start();
-    } else {
-      Animated.timing(processingProgressAnim, {
-        toValue: 1.0,
-        duration: 200,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [isProcessing]);
 
   if (!permission) {
     return (

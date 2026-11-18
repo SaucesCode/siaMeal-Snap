@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -14,13 +13,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useMealStore } from '../stores/mealStore';
-import { useMealImageUri } from '../lib/mealImages';
+import { useMealImageSource } from '../lib/mealImages';
+import { Image } from 'expo-image';
 import { useAuthStore } from '../stores/authStore';
 import { MealType } from '../types';
 import { getDefaultMealType, evaluateMacroIntegrity, reconcileCaloriesWithMacros } from '../utils/nutrition';
 import { hapticFeedback } from '../utils/haptics';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
+import { useShallow } from 'zustand/react/shallow';
 
 interface MealTypeOption {
   type: MealType;
@@ -39,9 +41,13 @@ const MEAL_TYPES: MealTypeOption[] = [
 
 export default function ReviewScreen() {
   const router = useRouter();
-  const { profile } = useAuthStore();
-  const { draftMeal, logMeal, meals } = useMealStore();
-  const draftImageUri = useMealImageUri(draftMeal?.image_url);
+  const { profile } = useAuthStore(
+    useShallow((s) => ({ profile: s.profile }))
+  );
+  const { draftMeal, logMeal, meals } = useMealStore(
+    useShallow((s) => ({ draftMeal: s.draftMeal, logMeal: s.logMeal, meals: s.meals }))
+  );
+  const draftImageSource = useMealImageSource(draftMeal?.image_url);
 
   const [name, setName] = useState('');
   const [mealType, setMealType] = useState<MealType>(getDefaultMealType());
@@ -406,12 +412,14 @@ export default function ReviewScreen() {
           </TouchableOpacity>
 
           {/* Photo Thumbnail if available */}
-          {draftImageUri && (
+          {draftImageSource && (
             <View className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
               <Image
-                source={{ uri: draftImageUri }}
-                className="w-full h-44"
-                resizeMode="cover"
+                source={draftImageSource}
+                style={{ width: '100%', height: 176 }}
+                contentFit="cover"
+                transition={150}
+                accessibilityLabel="Photo of the meal you're logging"
               />
             </View>
           )}

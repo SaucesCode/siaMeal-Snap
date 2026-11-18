@@ -23,9 +23,11 @@ import {
   generateWeeklyCoachingInsights,
   calculateMacroEnergySplit,
 } from '../../utils/nutritionInsights';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
+import { useShallow } from 'zustand/react/shallow';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40;
@@ -46,14 +48,18 @@ const CATEGORIES: CategoryHeaderConfig[] = [
 ];
 
 export default function HistoryScreen() {
-  const { profile } = useAuthStore();
+  const { profile } = useAuthStore(
+    useShallow((s) => ({ profile: s.profile }))
+  );
   const {
     meals,
     weeklySummary,
     fetchMealsForDate,
     fetchWeeklyStats,
     deleteMeal,
-  } = useMealStore();
+  } = useMealStore(
+    useShallow((s) => ({ meals: s.meals, weeklySummary: s.weeklySummary, fetchMealsForDate: s.fetchMealsForDate, fetchWeeklyStats: s.fetchWeeklyStats, deleteMeal: s.deleteMeal }))
+  );
 
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [refreshing, setRefreshing] = useState(false);

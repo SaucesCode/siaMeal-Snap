@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import { getSiaForecastRecommendation } from '../utils/mealForecastEngine';
+import { useShallow } from 'zustand/react/shallow';
 
 interface SiaNextCatchCardProps {
   targets: {
@@ -25,7 +27,9 @@ interface SiaNextCatchCardProps {
 
 export function SiaNextCatchCard({ targets, consumed, loggedMeals }: SiaNextCatchCardProps) {
   const router = useRouter();
-  const { setDraftMeal } = useMealStore();
+  const { setDraftMeal } = useMealStore(
+    useShallow((s) => ({ setDraftMeal: s.setDraftMeal }))
+  );
   const [cycleIndex, setCycleIndex] = useState(0);
 
   const forecast = useMemo(() => {

@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { AnimatedProgressRing } from './AnimatedProgressRing';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface DailySummaryCardProps {
   targetCalories: number;
@@ -86,42 +86,15 @@ export function DailyMacroSummary({
   // Outer Ring: Calories (Radius 94, Stroke 11)
   const rCal = 94;
   const strokeCal = 11;
-  const cCal = 2 * Math.PI * rCal;
 
   // Middle Ring: Protein (Radius 78, Stroke 7.5)
   const rProt = 78;
   const strokeProt = 7.5;
-  const cProt = 2 * Math.PI * rProt;
 
   // Inner Ring: Carbs (Radius 64, Stroke 6.5)
   const rCarb = 64;
   const strokeCarb = 6.5;
-  const cCarb = 2 * Math.PI * rCarb;
 
-  // Animated Arcs
-  const animCal = useRef(new Animated.Value(cCal)).current;
-  const animProt = useRef(new Animated.Value(cProt)).current;
-  const animCarb = useRef(new Animated.Value(cCarb)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(animCal, {
-        toValue: cCal - (calPct / 100) * cCal,
-        duration: 950,
-        useNativeDriver: false,
-      }),
-      Animated.timing(animProt, {
-        toValue: cProt - (protPct / 100) * cProt,
-        duration: 900,
-        useNativeDriver: false,
-      }),
-      Animated.timing(animCarb, {
-        toValue: cCarb - (carbPct / 100) * cCarb,
-        duration: 850,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [calPct, protPct, carbPct]);
 
   return (
     <View
@@ -194,48 +167,36 @@ export function DailyMacroSummary({
 
             {/* Concentric Active Rings */}
             {/* 1. Outer Calorie Ring */}
-            <AnimatedCircle
+            <AnimatedProgressRing
               cx={center}
               cy={center}
               r={rCal}
               stroke={isOverCalories ? 'url(#roseGrad)' : 'url(#emeraldGrad)'}
               strokeWidth={strokeCal}
-              strokeDasharray={[cCal, cCal]}
-              strokeDashoffset={animCal}
-              strokeLinecap="round"
-              fill="transparent"
-              rotation="-90"
-              origin={`${center}, ${center}`}
+              progress={calPct / 100}
+              durationMs={950}
             />
 
             {/* 2. Middle Protein Ring */}
-            <AnimatedCircle
+            <AnimatedProgressRing
               cx={center}
               cy={center}
               r={rProt}
-              stroke="url(#skyGrad)"
+              stroke={"url(#skyGrad)"}
               strokeWidth={strokeProt}
-              strokeDasharray={[cProt, cProt]}
-              strokeDashoffset={animProt}
-              strokeLinecap="round"
-              fill="transparent"
-              rotation="-90"
-              origin={`${center}, ${center}`}
+              progress={protPct / 100}
+              durationMs={900}
             />
 
             {/* 3. Inner Carbs Ring */}
-            <AnimatedCircle
+            <AnimatedProgressRing
               cx={center}
               cy={center}
               r={rCarb}
-              stroke="url(#amberGrad)"
+              stroke={"url(#amberGrad)"}
               strokeWidth={strokeCarb}
-              strokeDasharray={[cCarb, cCarb]}
-              strokeDashoffset={animCarb}
-              strokeLinecap="round"
-              fill="transparent"
-              rotation="-90"
-              origin={`${center}, ${center}`}
+              progress={carbPct / 100}
+              durationMs={850}
             />
           </Svg>
 

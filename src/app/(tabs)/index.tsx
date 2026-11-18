@@ -24,7 +24,8 @@ import { RePounceSheet } from '../../components/RePounceSheet';
 import { useCoachStore } from '../../stores/coachStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { compressImage, analyzeMealPhoto } from '../../services/aiService';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
@@ -33,6 +34,7 @@ import { getFelineHunterRank, FelineHunterTier } from '../../utils/felineGamific
 import { FelineMilestoneCelebrationModal } from '../../components/FelineMilestoneCelebrationModal';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
+import { useShallow } from 'zustand/react/shallow';
 
 interface CategoryHeaderConfig {
   type: MealType;
@@ -105,7 +107,9 @@ const getCategoryEmptyPrompt = (type: MealType) => {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user, profile } = useAuthStore();
+  const { user, profile } = useAuthStore(
+    useShallow((s) => ({ user: s.user, profile: s.profile }))
+  );
   const {
     meals,
     fetchMealsForDate,
@@ -115,8 +119,12 @@ export default function DashboardScreen() {
     fetchWeeklyStats,
     duplicateMeal,
     getYesterdayMeals,
-  } = useMealStore();
-  const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore();
+  } = useMealStore(
+    useShallow((s) => ({ meals: s.meals, fetchMealsForDate: s.fetchMealsForDate, deleteMeal: s.deleteMeal, setDraftMeal: s.setDraftMeal, weeklySummary: s.weeklySummary, fetchWeeklyStats: s.fetchWeeklyStats, duplicateMeal: s.duplicateMeal, getYesterdayMeals: s.getYesterdayMeals }))
+  );
+  const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore(
+    useShallow((s) => ({ addWater: s.addWater, todayMl: s.todayMl, dailyGoalMl: s.dailyGoalMl, loadTodayWater: s.loadTodayWater }))
+  );
   const openCoach = useCoachStore((state) => state.openCoach);
 
   const [textModalVisible, setTextModalVisible] = useState(false);

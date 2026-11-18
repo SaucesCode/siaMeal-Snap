@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getNotificationStatus, requestNotificationPermission } from '../services/notificationService';
 import { hapticFeedback } from '../utils/haptics';
 

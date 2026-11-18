@@ -29,10 +29,12 @@ import { WeightTrendChart } from '../../components/WeightTrendChart';
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { hapticFeedback } from '../../utils/haptics';
 import { openPrivacyPolicy } from '../../lib/legal';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
 import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
+import { useShallow } from 'zustand/react/shallow';
 
 export const CAT_AVATARS: { id: string; mood: SiaMood; label: string }[] = [
   { id: 'cat_scanning', mood: 'scanning', label: 'Vision Eye Sia' },
@@ -65,11 +67,19 @@ const DIETARY_TAGS = [
 ];
 
 export default function ProfileScreen() {
-  const { user, profile, saveProfile, signOut, deleteAccount } = useAuthStore();
+  const { user, profile, saveProfile, signOut, deleteAccount } = useAuthStore(
+    useShallow((s) => ({ user: s.user, profile: s.profile, saveProfile: s.saveProfile, signOut: s.signOut, deleteAccount: s.deleteAccount }))
+  );
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const { meals, weeklySummary, fetchWeeklyStats } = useMealStore();
-  const { entries, loadWeightHistory, logWeight } = useWeightStore();
-  const { dailyGoalMl, loadTodayWater, setDailyGoal } = useWaterStore();
+  const { meals, weeklySummary, fetchWeeklyStats } = useMealStore(
+    useShallow((s) => ({ meals: s.meals, weeklySummary: s.weeklySummary, fetchWeeklyStats: s.fetchWeeklyStats }))
+  );
+  const { entries, loadWeightHistory, logWeight } = useWeightStore(
+    useShallow((s) => ({ entries: s.entries, loadWeightHistory: s.loadWeightHistory, logWeight: s.logWeight }))
+  );
+  const { dailyGoalMl, loadTodayWater, setDailyGoal } = useWaterStore(
+    useShallow((s) => ({ dailyGoalMl: s.dailyGoalMl, loadTodayWater: s.loadTodayWater, setDailyGoal: s.setDailyGoal }))
+  );
 
   // State
   const [fullName, setFullName] = useState(profile?.full_name || '');

@@ -14,7 +14,8 @@ import {
   LayoutAnimation,
   Animated,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -30,6 +31,7 @@ import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import SiaCatMascot from './SiaCatMascot';
 import { ToastBanner, ToastConfig } from './ToastBanner';
+import { useShallow } from 'zustand/react/shallow';
 
 interface AiNutritionCoachModalProps {
   visible: boolean;
@@ -415,8 +417,12 @@ export function AiNutritionCoachModal({
   initialQuery,
 }: AiNutritionCoachModalProps) {
   const router = useRouter();
-  const { setDraftMeal } = useMealStore();
-  const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore();
+  const { setDraftMeal } = useMealStore(
+    useShallow((s) => ({ setDraftMeal: s.setDraftMeal }))
+  );
+  const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore(
+    useShallow((s) => ({ messages: s.messages, isLoaded: s.isLoaded, loadHistory: s.loadHistory, addMessage: s.addMessage, setMessages: s.setMessages, clearHistory: s.clearHistory }))
+  );
   const [inputText, setInputText] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);

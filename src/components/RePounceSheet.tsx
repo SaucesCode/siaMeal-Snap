@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import SiaCatMascot from './SiaCatMascot';
+import { useShallow } from 'zustand/react/shallow';
 
 interface RePounceSheetProps {
   visible: boolean;
@@ -35,7 +37,9 @@ export function RePounceSheet({
   onClose,
   onPounceMeal,
 }: RePounceSheetProps) {
-  const { getRecentMeals } = useMealStore();
+  const { getRecentMeals } = useMealStore(
+    useShallow((s) => ({ getRecentMeals: s.getRecentMeals }))
+  );
   const [recentMeals, setRecentMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

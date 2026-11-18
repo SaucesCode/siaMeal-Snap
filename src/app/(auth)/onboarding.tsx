@@ -22,7 +22,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useWaterStore } from '../../stores/waterStore';
 import { hapticFeedback } from '../../utils/haptics';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import SiaCatMascot from '../../components/SiaCatMascot';
 import { CatEarCard, PawProgressBar, WhiskerDivider } from '../../components/feline';
 

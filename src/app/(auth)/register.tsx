@@ -15,7 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { performGoogleOAuth } from '../../utils/oauth';
 import { useAuthStore } from '../../stores/authStore';
 import { BrandLogo } from '../../components/BrandLogo';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { hapticFeedback } from '../../utils/haptics';
 import { openPrivacyPolicy } from '../../lib/legal';
 import SiaCatMascot from '../../components/SiaCatMascot';

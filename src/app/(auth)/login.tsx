@@ -14,7 +14,7 @@ import { useRouter, Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { performGoogleOAuth } from '../../utils/oauth';
 import { BrandLogo } from '../../components/BrandLogo';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../stores/authStore';
 import { hapticFeedback } from '../../utils/haptics';
 import SiaCatMascot from '../../components/SiaCatMascot';

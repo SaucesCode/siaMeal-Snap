@@ -11,7 +11,8 @@ import Animated, {
   useReducedMotion,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SiaVectorCat } from './SiaVectorCat';
 import { SiaWalkingLoader } from './SiaWalkingLoader';
 
