@@ -235,7 +235,8 @@ export default function ReviewScreen() {
     return null;
   }
 
-  const confidencePct = Math.round((draftMeal.confidence_score ?? 0.94) * 100);
+  const confidencePct =
+    draftMeal.confidence_score != null ? Math.round(draftMeal.confidence_score * 100) : null;
 
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
@@ -331,12 +332,14 @@ export default function ReviewScreen() {
                   Explainable AI Nutrition
                 </Text>
               </View>
-              <View className="bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <Text className="text-emerald-400 text-[10px] font-extrabold">
-                  {confidencePct}% Certainty
-                </Text>
-              </View>
+              {confidencePct != null && (
+                <View className="bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                  <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <Text className="text-emerald-400 text-[10px] font-extrabold">
+                    {confidencePct}% Certainty
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Portion Notes */}
@@ -369,6 +372,10 @@ export default function ReviewScreen() {
                 ))}
               </View>
             )}
+
+            <Text className="text-zinc-400 text-xs mt-2.5 leading-4">
+              AI estimates can be off. Check the portions and macros before you save.
+            </Text>
           </View>
 
           {/* Ask Sia Coach Continuity Button */}

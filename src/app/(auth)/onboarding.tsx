@@ -747,6 +747,12 @@ export default function OnboardingScreen() {
                   </Text>
                 </View>
               </View>
+
+              <Text className="text-zinc-400 text-xs leading-4 mt-3">
+                These targets are general estimates, not medical advice. If you're pregnant,
+                managing a health condition, or have a history of disordered eating, check
+                them with a doctor or registered dietitian first.
+              </Text>
             </CatEarCard>
           )}
 

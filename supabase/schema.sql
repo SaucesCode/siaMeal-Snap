@@ -115,7 +115,7 @@ CREATE POLICY "Allow public read of meal images"
 DROP POLICY IF EXISTS "Allow authenticated users to upload meal images" ON storage.objects;
 CREATE POLICY "Allow authenticated users to upload meal images"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'meal-images' AND (select auth.role()) = 'authenticated');
+  WITH CHECK (bucket_id = 'meal-images' AND (select auth.uid())::text = (storage.foldername(name))[1]);
 
 DROP POLICY IF EXISTS "Allow users to delete their own meal images" ON storage.objects;
 CREATE POLICY "Allow users to delete their own meal images"
@@ -162,3 +162,60 @@ BEGIN
   ORDER BY log_date ASC;
 END;
 $$;
+
+-- 5. Per-User AI Quota (called by the analyze-meal Edge Function)
+-- Every AI request is recorded so one account cannot run up unbounded provider costs.
+CREATE TABLE IF NOT EXISTS public.ai_requests (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('analyze', 'chat')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ai_requests_user_kind_created_idx
+  ON public.ai_requests(user_id, kind, created_at DESC);
+
+-- RLS on with no policies: rows are only reachable through consume_ai_quota below.
+ALTER TABLE public.ai_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.consume_ai_quota(
+  p_kind TEXT,
+  p_limit INTEGER,
+  p_window_seconds INTEGER
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID := (select auth.uid());
+  v_limit INTEGER := LEAST(GREATEST(p_limit, 1), 500);
+  v_window INTERVAL := make_interval(secs => LEAST(GREATEST(p_window_seconds, 60), 86400));
+  v_recent INTEGER;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Serialize concurrent requests from the same user so the count cannot be raced.
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_user_id::text, 0));
+
+  DELETE FROM public.ai_requests
+  WHERE user_id = v_user_id AND created_at < now() - INTERVAL '1 day';
+
+  SELECT COUNT(*) INTO v_recent
+  FROM public.ai_requests
+  WHERE user_id = v_user_id AND kind = p_kind AND created_at > now() - v_window;
+
+  IF v_recent >= v_limit THEN
+    RETURN FALSE;
+  END IF;
+
+  INSERT INTO public.ai_requests (user_id, kind) VALUES (v_user_id, p_kind);
+  RETURN TRUE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consume_ai_quota(TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.consume_ai_quota(TEXT, INTEGER, INTEGER) TO authenticated;

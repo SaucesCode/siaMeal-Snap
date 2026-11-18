@@ -146,47 +146,30 @@ export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMeal
 }
 
 /**
- * Sends text description fallback to Supabase Edge Function 'analyze-meal'
- * with circuit breaker protection and on-device graceful degradation.
+ * Sends a text meal description to Supabase Edge Function 'analyze-meal'
+ * with circuit breaker protection. Failures surface to the caller so the user
+ * never logs invented macros.
  */
 export async function analyzeMealText(textDescription: string): Promise<AnalyzeMealResponse> {
-  return aiCircuitBreaker.execute(
-    async () => {
-      const { data, error } = await supabase.functions.invoke('analyze-meal', {
-        body: { textDescription },
-      });
+  return aiCircuitBreaker.execute(async () => {
+    const { data, error } = await supabase.functions.invoke('analyze-meal', {
+      body: { textDescription },
+    });
 
-      if (error) {
-        const detailedMessage = await extractErrorMessage(error);
-        console.error('Edge Function detailed error:', detailedMessage);
-        throw new Error(detailedMessage);
-      }
+    if (error) {
+      const detailedMessage = await extractErrorMessage(error);
+      console.error('Edge Function detailed error:', detailedMessage);
+      throw new Error(detailedMessage);
+    }
 
-      return {
-        ...data,
-        fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
-        sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
-        sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
-        potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
-      } as AnalyzeMealResponse;
-    },
-    () => ({
-      meal_name: textDescription.slice(0, 35) || 'Logged Meal',
-      calories: 350,
-      protein_g: 22,
-      carbs_g: 38,
-      fat_g: 12,
-      fiber_g: 4,
-      sugar_g: 3,
-      sodium_mg: 380,
-      potassium_mg: 310,
-      ingredients: [textDescription || 'Logged item (offline fallback — adjust in Review)'],
-      confidence_score: 0.88,
-      portion_notes: 'Parsed from natural language description',
-      dietary_tags: ['Text Log'],
-      feline_verdict: 'Logged via text description — adjust if needed!',
-    })
-  );
+    return {
+      ...data,
+      fiber_g: data.fiber_g != null ? Number(data.fiber_g) : 0,
+      sugar_g: data.sugar_g != null ? Number(data.sugar_g) : 0,
+      sodium_mg: data.sodium_mg != null ? Number(data.sodium_mg) : 0,
+      potassium_mg: data.potassium_mg != null ? Number(data.potassium_mg) : 0,
+    } as AnalyzeMealResponse;
+  });
 }
 
 /**

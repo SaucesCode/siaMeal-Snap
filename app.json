@@ -21,7 +21,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -34,7 +36,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "SiaMeal Snap needs camera access to photograph meals and analyze nutrition."
+          "cameraPermission": "SiaMeal Snap uses the camera to photograph your meals and scan barcodes so it can estimate their nutrition.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SiaMeal Snap opens your photo library so you can pick a meal photo to analyze. Photos are only used for nutrition estimates.",
+          "cameraPermission": "SiaMeal Snap uses the camera to photograph your meals and scan barcodes so it can estimate their nutrition.",
+          "microphonePermission": false
         }
       ],
       [
@@ -52,7 +63,10 @@
           "icon": "./assets/images/icon.png",
           "color": "#10b981"
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
