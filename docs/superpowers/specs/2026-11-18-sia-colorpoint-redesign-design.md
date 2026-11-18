@@ -233,8 +233,10 @@ helps, static).
 - **Auth / Onboarding:** one large static-or-resting Sia + wordmark; no roaming companion; plain copy.
 - **Tab bar:** Today · History · (Snap) · Water · Me on `pointDeep`; Snap is the raised shutter-green
   button with a cream ring.
-- **Launch:** the native splash is the new Sia head (resting) centred on cream `bg`, no box or dark
-  square (today's `splash-icon.png` is the old head on a black square over near-black). The splash
+- **Launch:** the native splash is the new Sia head (resting) centred on cream `bg` with a small
+  "SiaMeal Snap" wordmark below her (Outfit, `text` colour), no box or dark square (today's
+  `splash-icon.png` is the old head on a black square over near-black). The splash appears instantly
+  on tap, before any JS runs, so there is always a logo screen while the app loads. The splash
   stays up until fonts and session are ready (as now — no artificial delay, no walking intro). On
   hand-off a JS overlay matching the splash exactly shows Sia **winking once** while it fades into
   the first screen (~300 ms, runs during the fade, adds no wait). Reduced motion: fade only.
