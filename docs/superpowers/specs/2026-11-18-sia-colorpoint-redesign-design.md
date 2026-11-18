@@ -1,6 +1,6 @@
 # Sia + Colorpoint redesign — design
 
-Date: 2026-11-18 · Branch: `upgrade/anna-readiness` · Status: awaiting approval (decisions recorded through §13a)
+Date: 2026-11-18 · Branch: `upgrade/anna-readiness` · Status: approved by the user 2026-11-18
 
 Approved mockups (kept locally in `.superpowers/brainstorm/922-1794988104/content/`):
 `visual-direction-v2.html` (Colorpoint), `expressions-v10.html` (face + expressions + whiskers),
