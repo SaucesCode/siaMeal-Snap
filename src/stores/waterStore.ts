@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocalDateString } from './mealStore';
 
 export interface WaterLog {
   id: string;
@@ -18,7 +19,9 @@ interface WaterState {
   setDailyGoal: (goalMl: number) => Promise<void>;
 }
 
-const getTodayDateStr = () => new Date().toISOString().split('T')[0];
+/** True when the log falls on the user's local calendar day (not the UTC day). */
+const isLoggedToday = (log: WaterLog) =>
+  getLocalDateString(new Date(log.logged_at)) === getLocalDateString(new Date());
 const WATER_STORAGE_KEY = '@calorie_tracker_water_logs';
 const WATER_GOAL_KEY = '@calorie_tracker_water_goal';
 const MAX_RETENTION_DAYS = 30; // Rolling 30-day retention for lightweight AsyncStorage
@@ -42,7 +45,6 @@ export const useWaterStore = create<WaterState>((set, get) => ({
   loadTodayWater: async () => {
     try {
       set({ isLoading: true });
-      const todayStr = getTodayDateStr();
 
       // Load saved goal
       const savedGoal = await AsyncStorage.getItem(WATER_GOAL_KEY);
@@ -58,7 +60,7 @@ export const useWaterStore = create<WaterState>((set, get) => ({
         AsyncStorage.setItem(WATER_STORAGE_KEY, JSON.stringify(allLogs)).catch(() => {});
       }
 
-      const todayLogs = allLogs.filter((l) => l.logged_at.startsWith(todayStr));
+      const todayLogs = allLogs.filter(isLoggedToday);
       const todayMl = todayLogs.reduce((sum, l) => sum + l.amount_ml, 0);
 
       set({ logs: todayLogs, todayMl, dailyGoalMl });
@@ -83,8 +85,7 @@ export const useWaterStore = create<WaterState>((set, get) => ({
 
       await AsyncStorage.setItem(WATER_STORAGE_KEY, JSON.stringify(updatedAllLogs));
 
-      const todayStr = getTodayDateStr();
-      const todayLogs = updatedAllLogs.filter((l) => l.logged_at.startsWith(todayStr));
+      const todayLogs = updatedAllLogs.filter(isLoggedToday);
       const todayMl = todayLogs.reduce((sum, l) => sum + l.amount_ml, 0);
 
       set({ logs: todayLogs, todayMl });
@@ -101,8 +102,7 @@ export const useWaterStore = create<WaterState>((set, get) => ({
 
       await AsyncStorage.setItem(WATER_STORAGE_KEY, JSON.stringify(filtered));
 
-      const todayStr = getTodayDateStr();
-      const todayLogs = filtered.filter((l) => l.logged_at.startsWith(todayStr));
+      const todayLogs = filtered.filter(isLoggedToday);
       const todayMl = todayLogs.reduce((sum, l) => sum + l.amount_ml, 0);
 
       set({ logs: todayLogs, todayMl });

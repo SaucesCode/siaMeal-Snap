@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, Pressable } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { FelineHunterTier } from '../utils/felineGamification';
 import { hapticFeedback } from '../utils/haptics';
 import SiaCatMascot from './SiaCatMascot';

@@ -1,5 +1,5 @@
 import { Gender, MealType, FitnessGoal, ActivityLevel, GoalPace, DietType } from '../types';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export interface NutritionTargets {
   bmr: number;

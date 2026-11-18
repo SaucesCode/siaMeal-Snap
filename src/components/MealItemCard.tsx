@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../types';
 import { hapticFeedback } from '../utils/haptics';
-import { useMealImageUri } from '../lib/mealImages';
+import { useMealImageSource } from '../lib/mealImages';
 
 interface MealItemCardProps {
   meal: Meal;
@@ -52,7 +54,7 @@ const CATEGORY_CONFIG: Record<MealType, CategoryConfig> = {
 
 export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
   const [imageError, setImageError] = useState(false);
-  const imageUri = useMealImageUri(meal.image_url);
+  const imageSource = useMealImageSource(meal.image_url);
 
   const formatTime = (isoString: string) => {
     try {
@@ -99,12 +101,14 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-1 flex-row items-center gap-3.5 mr-2">
           {/* Photo or Category Icon Disc */}
-          {imageUri && !imageError ? (
+          {imageSource && !imageError ? (
             <Image
-              source={{ uri: imageUri }}
-              className="rounded-2xl border border-zinc-800"
-              style={{ width: 52, height: 52 }}
-              resizeMode="cover"
+              source={imageSource}
+              style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: '#27272a' }}
+              contentFit="cover"
+              transition={150}
+              recyclingKey={meal.id}
+              accessibilityIgnoresInvertColors
               onError={() => setImageError(true)}
             />
           ) : (

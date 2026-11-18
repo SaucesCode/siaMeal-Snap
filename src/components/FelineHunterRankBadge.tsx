@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getFelineHunterRank, FELINE_TIERS } from '../utils/felineGamification';
 import { hapticFeedback } from '../utils/haptics';
 import SiaCatMascot from './SiaCatMascot';

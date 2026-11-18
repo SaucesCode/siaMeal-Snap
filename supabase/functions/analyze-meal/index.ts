@@ -22,9 +22,25 @@ const QUOTAS = {
 
 type QuotaKind = keyof typeof QUOTAS;
 
-// Gemini 2.0 / 1.5 were shut down by Google (June 2026). Override with the GEMINI_MODELS
-// secret (comma-separated) when Google retires these, without redeploying code.
-const DEFAULT_GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"];
+// Gemini 2.0 / 1.5 were shut down by Google (June 2026). Models are tried first-to-last;
+// override with the GEMINI_CHAT_MODELS / GEMINI_ANALYZE_MODELS secrets (comma-separated),
+// or GEMINI_MODELS for both, when Google retires these.
+// Chat leads with flash-lite: production timing showed gemini-3.6-flash hanging past 20 s on
+// a short coach reply while flash-lite answered in ~3.3 s. Meal analysis leads with the
+// stronger vision model and hedges to flash-lite.
+const DEFAULT_GEMINI_MODELS = {
+  chat: ["gemini-3.5-flash-lite", "gemini-3.6-flash"],
+  analyze: ["gemini-3.6-flash", "gemini-3.5-flash-lite"],
+} as const;
+
+// If an attempt hasn't answered by the hedge delay, the next provider starts in parallel and
+// the first successful answer wins. Bounds worst-case latency without giving up quality.
+const CHAT_HEDGE_AFTER_MS = 3500;
+const CHAT_ATTEMPT_TIMEOUT_MS = 15000;
+// A streamed attempt's timeout covers the whole reply, not just the first words.
+const CHAT_STREAM_TIMEOUT_MS = 30000;
+const ANALYZE_HEDGE_AFTER_MS = 6000;
+const ANALYZE_ATTEMPT_TIMEOUT_MS = 25000;
 // gpt-4o-mini shuts down 2027-01-14; override with the OPENAI_MODEL secret.
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 
@@ -42,6 +58,8 @@ interface Message {
 
 interface RequestPayload {
   mode?: "analyze" | "chat";
+  /** Chat only: stream the reply as NDJSON lines ({delta} ... {done} | {error}). */
+  stream?: boolean;
   // Meal analysis params
   imageBase64?: string;
   textDescription?: string;
@@ -72,17 +90,17 @@ interface RequestPayload {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch wrapper with AbortController timeout to prevent stuck connections
- * from holding open Edge Function worker slots during upstream latency spikes.
+ * Fetch with a hard timeout, optionally cancellable by the caller (used to cancel losing
+ * hedged attempts) so stuck upstream calls never hold a worker slot.
  */
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<Response> {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return fetch(url, { ...options, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
 }
 
 /**
@@ -96,9 +114,110 @@ function getApiKeys(envName: string): string[] {
     .filter(Boolean);
 }
 
-function getGeminiModels(): string[] {
-  const configured = getApiKeys("GEMINI_MODELS");
-  return configured.length > 0 ? configured : DEFAULT_GEMINI_MODELS;
+function getGeminiModels(mode: "chat" | "analyze"): string[] {
+  const perMode = getApiKeys(mode === "chat" ? "GEMINI_CHAT_MODELS" : "GEMINI_ANALYZE_MODELS");
+  if (perMode.length > 0) return perMode;
+  const shared = getApiKeys("GEMINI_MODELS");
+  return shared.length > 0 ? shared : [...DEFAULT_GEMINI_MODELS[mode]];
+}
+
+type ProviderAttempt<T> = { label: string; run: (signal: AbortSignal) => Promise<T | null> };
+
+/**
+ * Starts attempts in order. The next one launches when the current one fails or has not
+ * answered within hedgeAfterMs; the first non-null result wins and the rest are cancelled.
+ * Resolves null only when every attempt has failed.
+ */
+function raceWithHedging<T>(
+  attempts: ProviderAttempt<T>[],
+  hedgeAfterMs: number,
+  requestId: string
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    const controllers: AbortController[] = [];
+    let nextIndex = 0;
+    let inFlight = 0;
+    let settled = false;
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const settle = (value: T | null, winner?: AbortController) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hedgeTimer);
+      controllers.forEach((c) => {
+        if (c !== winner) c.abort();
+      });
+      resolve(value);
+    };
+
+    const launchNext = () => {
+      clearTimeout(hedgeTimer);
+      if (settled) return;
+      if (nextIndex >= attempts.length) {
+        if (inFlight === 0) settle(null);
+        return;
+      }
+      const attempt = attempts[nextIndex++];
+      const controller = new AbortController();
+      controllers.push(controller);
+      inFlight++;
+      hedgeTimer = setTimeout(launchNext, hedgeAfterMs);
+
+      attempt.run(controller.signal)
+        .catch((err: unknown) => {
+          if (!controller.signal.aborted) {
+            console.warn(`[${requestId}] ${attempt.label} failed: ${err instanceof Error ? err.message : err}`);
+          }
+          return null;
+        })
+        .then((value) => {
+          inFlight--;
+          if (value != null) settle(value, controller);
+          else launchNext();
+        });
+    };
+
+    launchNext();
+  });
+}
+
+/** Wraps one provider call: times it, logs non-2xx bodies, and parses success into T. */
+function providerAttempt<T>(
+  trace: RequestTrace,
+  label: string,
+  call: (signal: AbortSignal) => Promise<Response>,
+  parse: (data: any) => T | null
+): ProviderAttempt<T> {
+  return {
+    label,
+    run: async (signal) => {
+      const resp = await trace.time(label, () => call(signal));
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "");
+        console.warn(`[${trace.requestId}] ${label} returned ${resp.status}: ${body.slice(0, 300)}`);
+        return null;
+      }
+      return parse(await resp.json());
+    },
+  };
+}
+
+function openAiChatCompletion(
+  apiKey: string,
+  body: Record<string, unknown>,
+  timeoutMs: number,
+  signal: AbortSignal
+): Promise<Response> {
+  return fetchWithTimeout(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: Deno.env.get("OPENAI_MODEL") || DEFAULT_OPENAI_MODEL, ...body }),
+    },
+    timeoutMs,
+    signal
+  );
 }
 
 /**
@@ -114,11 +233,14 @@ function geminiGenerate(
     contents: unknown[];
     maxOutputTokens: number;
     responseMimeType?: string;
+    stream?: boolean;
   },
-  timeoutMs: number
+  timeoutMs: number,
+  signal?: AbortSignal
 ): Promise<Response> {
+  const method = request.stream ? "streamGenerateContent?alt=sse" : "generateContent";
   return fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${method}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -132,8 +254,125 @@ function geminiGenerate(
         },
       }),
     },
-    timeoutMs
+    timeoutMs,
+    signal
   );
+}
+
+type TextStream = { firstText: string; rest: AsyncGenerator<string> };
+
+/** Yields the payload of each `data:` line in a server-sent-events body. */
+async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      let newline: number;
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (line.startsWith("data:")) yield line.slice(5).trim();
+      }
+    }
+    const tail = buffer.trim();
+    if (tail.startsWith("data:")) yield tail.slice(5).trim();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Yields non-empty text deltas from a provider's SSE stream. */
+async function* textDeltas(
+  body: ReadableStream<Uint8Array>,
+  extract: (payload: any) => string
+): AsyncGenerator<string> {
+  for await (const data of sseData(body)) {
+    if (data === "[DONE]") return;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    const text = extract(payload);
+    if (text) yield text;
+  }
+}
+
+/**
+ * Streaming provider attempt. Resolves once the provider has produced its first visible
+ * text, so hedging races on time-to-first-words rather than time-to-full-reply.
+ */
+function streamAttempt(
+  trace: RequestTrace,
+  label: string,
+  call: (signal: AbortSignal) => Promise<Response>,
+  extract: (payload: any) => string
+): ProviderAttempt<TextStream> {
+  return {
+    label,
+    run: (signal) =>
+      trace.time(`${label}:first-text`, async () => {
+        const resp = await call(signal);
+        if (!resp.ok || !resp.body) {
+          const body = await resp.text().catch(() => "");
+          console.warn(`[${trace.requestId}] ${label} returned ${resp.status}: ${body.slice(0, 300)}`);
+          return null;
+        }
+        const deltas = textDeltas(resp.body, extract);
+        const first = await deltas.next();
+        if (first.done) return null;
+        return { firstText: first.value, rest: deltas };
+      }),
+  };
+}
+
+/** Relays a winning provider stream to the client as NDJSON: {delta}..., then {done} or {error}. */
+function ndjsonReply(winner: TextStream, requestId: string): Response {
+  const encoder = new TextEncoder();
+  const startedAt = performance.now();
+  let chars = 0;
+  let outcome = "done";
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (line: Record<string, unknown>) =>
+        controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
+      try {
+        send({ delta: winner.firstText });
+        chars += winner.firstText.length;
+        for await (const delta of winner.rest) {
+          send({ delta });
+          chars += delta.length;
+        }
+        send({ done: true });
+      } catch (err) {
+        outcome = "error";
+        console.warn(`[${requestId}] Stream interrupted: ${err instanceof Error ? err.message : err}`);
+        send({ error: "Sia lost the connection mid-reply. Please try again." });
+      } finally {
+        console.log(JSON.stringify({
+          event: "analyze_meal_stream_done",
+          requestId,
+          outcome,
+          stream_ms: Math.round(performance.now() - startedAt),
+          chars,
+        }));
+        controller.close();
+      }
+    },
+    cancel() {
+      // The client went away: stop pulling from the provider.
+      winner.rest.return(undefined).catch(() => {});
+    },
+  });
+
+  return new Response(stream, {
+    headers: { ...corsHeaders, "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" },
+  });
 }
 
 /** Extracts the visible (non-thought) text from a Gemini response. */
@@ -145,7 +384,11 @@ function geminiText(data: any): string {
     .join("");
 }
 
-/** Resolves the caller from their Supabase session JWT. The anon key alone is rejected. */
+/**
+ * Resolves the caller from their Supabase session JWT. getClaims verifies the signature
+ * locally against the project's cached ES256 JWKS (no Auth round trip once warm) and only
+ * falls back to a getUser call for symmetric keys. The anon key has no user and is rejected.
+ */
 async function authenticate(req: Request) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
@@ -155,9 +398,10 @@ async function authenticate(req: Request) {
     Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     { global: { headers: { Authorization: authHeader } } }
   );
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return { supabase, user: data.user };
+  const { data, error } = await supabase.auth.getClaims(authHeader.slice("Bearer ".length));
+  const claims = data?.claims;
+  if (error || !claims?.sub || claims.role !== "authenticated") return null;
+  return { supabase, userId: claims.sub };
 }
 
 /**
@@ -458,146 +702,106 @@ ${contextBlock}
         return text;
       }
 
-      let replyText = "";
-      const debugErrors: string[] = [];
+      // Gemini multi-turn contents: consecutive roles merged, conversation starts with a user turn.
+      const geminiContents: { role: string; parts: { text: string }[] }[] = [];
+      for (const m of recentMessages) {
+        const role = m.role === "assistant" ? "model" : "user";
+        const text = m.content?.trim();
+        if (!text) continue;
+        if (geminiContents.length === 0 && role === "model") continue;
+        const last = geminiContents[geminiContents.length - 1];
+        if (last?.role === role) {
+          last.parts[0].text += `
 
-      // 1. Google Gemini Provider — Key rotation & in-memory cached model resolution
-      if (geminiKeys.length > 0) {
-        // Sanitize multi-turn contents for Google Gemini API
-        const geminiContents: { role: string; parts: { text: string }[] }[] = [];
-
-        for (const m of recentMessages) {
-          const role = m.role === "assistant" ? "model" : "user";
-          const text = m.content?.trim();
-          if (!text) continue;
-
-          // Skip assistant greeting at the very beginning of Gemini contents
-          if (geminiContents.length === 0 && role === "model") {
-            continue;
-          }
-
-          // Merge consecutive turns with the same role
-          if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
-            geminiContents[geminiContents.length - 1].parts[0].text += `\n\n${text}`;
-          } else {
-            geminiContents.push({
-              role,
-              parts: [{ text }],
-            });
-          }
+${text}`;
+        } else {
+          geminiContents.push({ role, parts: [{ text }] });
         }
+      }
+      if (geminiContents.length === 0) {
+        const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hello coach!";
+        geminiContents.push({ role: "user", parts: [{ text: lastUserText }] });
+      }
 
-        if (geminiContents.length === 0) {
-          const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hello coach!";
-          geminiContents.push({
-            role: "user",
-            parts: [{ text: lastUserText }],
-          });
+      const openAiMessages = [
+        { role: "system", content: coachSystemPrompt },
+        ...recentMessages.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+      ];
+
+      const chatAttempts: ProviderAttempt<string>[] = [];
+      for (const geminiKey of geminiKeys) {
+        for (const modelName of getGeminiModels("chat")) {
+          chatAttempts.push(providerAttempt(
+            trace,
+            `gemini:${modelName}:chat`,
+            (signal) => geminiGenerate(
+              modelName,
+              geminiKey,
+              { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200 },
+              CHAT_ATTEMPT_TIMEOUT_MS,
+              signal
+            ),
+            (data) => sanitizeCoachOutput(geminiText(data)) || null
+          ));
         }
+      }
+      for (const openAiKey of openAiKeys) {
+        chatAttempts.push(providerAttempt(
+          trace,
+          "openai:chat",
+          (signal) => openAiChatCompletion(
+            openAiKey,
+            { messages: openAiMessages, temperature: 0.7, max_tokens: 450 },
+            CHAT_ATTEMPT_TIMEOUT_MS,
+            signal
+          ),
+          (data) => sanitizeCoachOutput(data?.choices?.[0]?.message?.content || "") || null
+        ));
+      }
 
-        const geminiModels = getGeminiModels();
-
-        // Key loop
+      if (body.stream === true) {
+        const streamAttempts: ProviderAttempt<TextStream>[] = [];
         for (const geminiKey of geminiKeys) {
-          if (replyText) break;
-
-          for (const modelName of geminiModels) {
-            try {
-              // Attempt 1: Multi-turn conversation
-              let resp = await trace.time(`gemini:${modelName}:multi-turn`, () =>
-                geminiGenerate(
-                  modelName,
-                  geminiKey,
-                  { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200 },
-                  20000
-                )
-              );
-
-              // Attempt 2: Single-turn with the latest user message (if multi-turn was rejected)
-              if (!resp.ok) {
-                const firstErr = await resp.text().catch(() => "");
-                console.warn(`[${requestId}] Gemini ${modelName} multi-turn returned ${resp.status}: ${firstErr.slice(0, 300)}`);
-                const lastUserText = [...recentMessages].reverse().find((m) => m.role === "user")?.content?.trim() || "Hi Sia!";
-                resp = await trace.time(`gemini:${modelName}:single-turn`, () =>
-                  geminiGenerate(
-                    modelName,
-                    geminiKey,
-                    {
-                      systemPrompt: coachSystemPrompt,
-                      contents: [{ role: "user", parts: [{ text: lastUserText }] }],
-                      maxOutputTokens: 1200,
-                    },
-                    20000
-                  )
-                );
-              }
-
-              if (resp.ok) {
-                const data = await resp.json();
-                const sanitized = sanitizeCoachOutput(geminiText(data));
-
-                if (sanitized) {
-                  replyText = sanitized;
-                  break;
-                }
-              } else {
-                const errBody = await resp.text().catch(() => "");
-                debugErrors.push(`${modelName} (${resp.status}): ${errBody.slice(0, 80)}`);
-                console.warn(`Gemini ${modelName} returned status ${resp.status}:`, errBody);
-              }
-            } catch (err: any) {
-              debugErrors.push(`${modelName} exception: ${err.message}`);
-              console.warn(`Gemini ${modelName} chat error:`, err.message);
-            }
+          for (const modelName of getGeminiModels("chat")) {
+            streamAttempts.push(streamAttempt(
+              trace,
+              `gemini:${modelName}:chat-stream`,
+              (signal) => geminiGenerate(
+                modelName,
+                geminiKey,
+                { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200, stream: true },
+                CHAT_STREAM_TIMEOUT_MS,
+                signal
+              ),
+              geminiText
+            ));
           }
         }
-      }
-
-      // 2. OpenAI GPT-4o-mini Fallback for Chat
-      if (!replyText && openAiKeys.length > 0) {
-        const openAiMessages = [
-          { role: "system", content: coachSystemPrompt },
-          ...recentMessages.map((m) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content || "",
-          })),
-        ];
-
         for (const openAiKey of openAiKeys) {
-          if (replyText) break;
-          try {
-            const resp = await trace.time("openai:chat", () => fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${openAiKey.trim()}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: Deno.env.get("OPENAI_MODEL") || DEFAULT_OPENAI_MODEL,
-                messages: openAiMessages,
-                temperature: 0.7,
-                max_tokens: 450,
-              }),
-            }, 14000));
-
-            if (resp.ok) {
-              const data = await resp.json();
-              const rawContent = data.choices?.[0]?.message?.content || "";
-              replyText = sanitizeCoachOutput(rawContent);
-              break;
-            } else {
-              const errBody = await resp.text().catch(() => "");
-              debugErrors.push(`OpenAI (${resp.status}): ${errBody.slice(0, 120)}`);
-              console.warn(`OpenAI chat returned status ${resp.status}:`, errBody);
-            }
-          } catch (err: any) {
-            debugErrors.push(`OpenAI exception: ${err.message}`);
-          }
+          streamAttempts.push(streamAttempt(
+            trace,
+            "openai:chat-stream",
+            (signal) => openAiChatCompletion(
+              openAiKey,
+              { messages: openAiMessages, temperature: 0.7, max_tokens: 450, stream: true },
+              CHAT_STREAM_TIMEOUT_MS,
+              signal
+            ),
+            (payload) => payload?.choices?.[0]?.delta?.content ?? ""
+          ));
         }
+
+        const winner = await raceWithHedging(streamAttempts, CHAT_HEDGE_AFTER_MS, requestId);
+        if (!winner) {
+          console.error(`[${requestId}] Coach stream failed on every provider.`);
+          return jsonResponse({ error: "Sia couldn't reach the AI coach right now. Please try again in a moment." }, 502);
+        }
+        return ndjsonReply(winner, requestId);
       }
 
+      const replyText = await raceWithHedging(chatAttempts, CHAT_HEDGE_AFTER_MS, requestId);
       if (!replyText) {
-        console.error(`[${requestId}] Coach failed on every provider: ${debugErrors.join(" | ") || "no candidates"}`);
+        console.error(`[${requestId}] Coach failed on every provider.`);
         return jsonResponse({ error: "Sia couldn't reach the AI coach right now. Please try again in a moment." }, 502);
       }
 
@@ -670,8 +874,6 @@ Strictly inspect whether the image or text describes REAL, EDIBLE FOOD, MEALS, G
   }
 Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code blocks.`;
 
-    let parsedData: any = null;
-
     // Resolve dynamic image MIME type and clean Base64 payload
     let detectedMime = "image/jpeg";
     let cleanImageBase64 = "";
@@ -689,112 +891,64 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
       }
     }
 
-    if (geminiKeys.length > 0) {
-      const parts: any[] = [];
-      parts.push({
-        text: textDescription
-          ? `Analyze this meal: "${textDescription}". Estimate calories, protein, carbs, fat, and ingredients.`
-          : "Analyze this meal photo. Identify all foods, portion sizes, calories, macronutrients (protein, carbs, fat), and individual ingredients.",
+    const analyzePrompt = textDescription
+      ? `Analyze this meal: "${textDescription}". Estimate calories, protein, carbs, fat, and ingredients.`
+      : "Analyze this meal photo. Identify all foods, portion sizes, calories, macronutrients (protein, carbs, fat), and individual ingredients.";
+
+    const geminiParts: unknown[] = [{ text: analyzePrompt }];
+    const openAiContent: unknown[] = [{ type: "text", text: analyzePrompt }];
+    if (cleanImageBase64) {
+      geminiParts.push({ inline_data: { mime_type: detectedMime, data: cleanImageBase64 } });
+      openAiContent.push({
+        type: "image_url",
+        image_url: { url: `data:${detectedMime};base64,${cleanImageBase64}`, detail: "low" },
       });
-
-      if (cleanImageBase64) {
-        parts.push({
-          inline_data: {
-            mime_type: detectedMime,
-            data: cleanImageBase64,
-          },
-        });
-      }
-
-      const geminiModels = getGeminiModels();
-
-      for (const geminiKey of geminiKeys) {
-        if (parsedData) break;
-
-        for (const modelName of geminiModels) {
-          try {
-            const geminiResponse = await trace.time(`gemini:${modelName}:analyze`, () =>
-              geminiGenerate(
-                modelName,
-                geminiKey,
-                {
-                  systemPrompt,
-                  contents: [{ role: "user", parts }],
-                  maxOutputTokens: 2048,
-                  responseMimeType: "application/json",
-                },
-                20000
-              )
-            );
-
-            if (geminiResponse.ok) {
-              const geminiData = await geminiResponse.json();
-              parsedData = JSON.parse(geminiText(geminiData) || "null");
-              if (parsedData) break;
-            } else {
-              const errBody = await geminiResponse.text().catch(() => "");
-              console.warn(`[${requestId}] Gemini ${modelName} analyze returned ${geminiResponse.status}: ${errBody.slice(0, 300)}`);
-            }
-          } catch (e: any) {
-            console.warn(`[${requestId}] Gemini ${modelName} analyze error: ${e?.message}`);
-          }
-        }
-      }
     }
 
-    if (!parsedData && openAiKeys.length > 0) {
-      const userContent: any[] = [];
-      userContent.push({
-        type: "text",
-        text: textDescription
-          ? `Analyze this meal description: "${textDescription}" and return the estimated nutrients and ingredients.`
-          : "Analyze this meal photo and return the estimated calories, protein, carbs, fat, and ingredients.",
-      });
-
-      if (cleanImageBase64) {
-        userContent.push({
-          type: "image_url",
-          image_url: {
-            url: `data:${detectedMime};base64,${cleanImageBase64}`,
-            detail: "low",
-          },
-        });
-      }
-
-      for (const openAiKey of openAiKeys) {
-        if (parsedData) break;
-        try {
-          const openAiResponse = await trace.time("openai:analyze", () => fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${openAiKey.trim()}`,
+    const analyzeAttempts: ProviderAttempt<any>[] = [];
+    for (const geminiKey of geminiKeys) {
+      for (const modelName of getGeminiModels("analyze")) {
+        analyzeAttempts.push(providerAttempt(
+          trace,
+          `gemini:${modelName}:analyze`,
+          (signal) => geminiGenerate(
+            modelName,
+            geminiKey,
+            {
+              systemPrompt,
+              contents: [{ role: "user", parts: geminiParts }],
+              maxOutputTokens: 2048,
+              responseMimeType: "application/json",
             },
-            body: JSON.stringify({
-              model: Deno.env.get("OPENAI_MODEL") || DEFAULT_OPENAI_MODEL,
-              response_format: { type: "json_object" },
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userContent },
-              ],
-              temperature: 0.2,
-            }),
-          }, 20000));
-
-          if (openAiResponse.ok) {
-            const openAiData = await openAiResponse.json();
-            const rawContent = openAiData.choices?.[0]?.message?.content;
-            parsedData = JSON.parse(rawContent || "null");
-            if (parsedData) break;
-          } else {
-            const errorText = await openAiResponse.text();
-            console.warn(`[${requestId}] OpenAI analyze returned ${openAiResponse.status}: ${errorText.slice(0, 300)}`);
-          }
-        } catch (err: any) {
-          console.warn(`[${requestId}] OpenAI analyze error: ${err?.message}`);
-        }
+            ANALYZE_ATTEMPT_TIMEOUT_MS,
+            signal
+          ),
+          (data) => JSON.parse(geminiText(data) || "null")
+        ));
       }
     }
+    for (const openAiKey of openAiKeys) {
+      analyzeAttempts.push(providerAttempt(
+        trace,
+        "openai:analyze",
+        (signal) => openAiChatCompletion(
+          openAiKey,
+          {
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: openAiContent },
+            ],
+            temperature: 0.2,
+          },
+          ANALYZE_ATTEMPT_TIMEOUT_MS,
+          signal
+        ),
+        (data) => JSON.parse(data?.choices?.[0]?.message?.content || "null")
+      ));
+    }
+
+    const parsedData = await raceWithHedging(analyzeAttempts, ANALYZE_HEDGE_AFTER_MS, requestId);
 
     // Never return a zero-macro "success" when every provider failed.
     if (!parsedData || typeof parsedData !== "object") {

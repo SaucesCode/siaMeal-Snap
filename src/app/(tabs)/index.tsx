@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../stores/authStore';
-import { useMealStore, getTodayString } from '../../stores/mealStore';
+import { useMealStore, getTodayString, selectTodayMeals } from '../../stores/mealStore';
 import { useWaterStore } from '../../stores/waterStore';
 import { DailyMacroSummary } from '../../components/MacroCard';
 import { MealItemCard } from '../../components/MealItemCard';
@@ -24,7 +24,8 @@ import { RePounceSheet } from '../../components/RePounceSheet';
 import { useCoachStore } from '../../stores/coachStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { compressImage, analyzeMealPhoto } from '../../services/aiService';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import { SiaNextCatchCard } from '../../components/SiaNextCatchCard';
@@ -33,6 +34,7 @@ import { getFelineHunterRank, FelineHunterTier } from '../../utils/felineGamific
 import { FelineMilestoneCelebrationModal } from '../../components/FelineMilestoneCelebrationModal';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
+import { useShallow } from 'zustand/react/shallow';
 
 interface CategoryHeaderConfig {
   type: MealType;
@@ -105,18 +107,24 @@ const getCategoryEmptyPrompt = (type: MealType) => {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user, profile } = useAuthStore();
+  const { user, profile } = useAuthStore(
+    useShallow((s) => ({ user: s.user, profile: s.profile }))
+  );
   const {
     meals,
-    fetchMealsForDate,
+    fetchTodayMeals,
     deleteMeal,
     setDraftMeal,
     weeklySummary,
     fetchWeeklyStats,
     duplicateMeal,
     getYesterdayMeals,
-  } = useMealStore();
-  const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore();
+  } = useMealStore(
+    useShallow((s) => ({ meals: selectTodayMeals(s), fetchTodayMeals: s.fetchTodayMeals, deleteMeal: s.deleteMeal, setDraftMeal: s.setDraftMeal, weeklySummary: s.weeklySummary, fetchWeeklyStats: s.fetchWeeklyStats, duplicateMeal: s.duplicateMeal, getYesterdayMeals: s.getYesterdayMeals }))
+  );
+  const { addWater, todayMl, dailyGoalMl, loadTodayWater } = useWaterStore(
+    useShallow((s) => ({ addWater: s.addWater, todayMl: s.todayMl, dailyGoalMl: s.dailyGoalMl, loadTodayWater: s.loadTodayWater }))
+  );
   const openCoach = useCoachStore((state) => state.openCoach);
 
   const [textModalVisible, setTextModalVisible] = useState(false);
@@ -142,7 +150,7 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => {
-    fetchMealsForDate(todayStr);
+    fetchTodayMeals();
     fetchWeeklyStats(profile?.target_calories || 2000);
     loadTodayWater();
     getYesterdayMeals().then(setYesterdayMeals).catch(() => {});
@@ -151,7 +159,7 @@ export default function DashboardScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
-      fetchMealsForDate(todayStr),
+      fetchTodayMeals(),
       fetchWeeklyStats(profile?.target_calories || 2000),
       loadTodayWater(),
       getYesterdayMeals().then(setYesterdayMeals).catch(() => {}),
@@ -232,25 +240,6 @@ export default function DashboardScreen() {
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Athlete';
 
   // Real-Time Nutrition Coach User Context Payload
-  const coachUserContext = useMemo(() => ({
-    displayName,
-    goal: profile?.goal_pace || 'Fat Loss / Maintenance',
-    dietType: profile?.diet_type || 'Balanced',
-    targetCalories,
-    targetProtein,
-    targetCarbs,
-    targetFat,
-    consumedCalories: consumedTotals.calories,
-    consumedProtein: consumedTotals.protein_g,
-    consumedCarbs: consumedTotals.carbs_g,
-    consumedFat: consumedTotals.fat_g,
-    remainingCalories: Math.max(0, targetCalories - consumedTotals.calories),
-    remainingProtein: Math.max(0, targetProtein - consumedTotals.protein_g),
-    remainingCarbs: Math.max(0, targetCarbs - consumedTotals.carbs_g),
-    remainingFat: Math.max(0, targetFat - consumedTotals.fat_g),
-    todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
-  }), [displayName, profile, targetCalories, targetProtein, targetCarbs, targetFat, consumedTotals, meals]);
-
   // Hydration metrics with bulletproof fallback
   const safeTodayMl = Number(todayMl) || 0;
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;

@@ -1,4 +1,5 @@
-import { supabase } from '../lib/supabase';
+import { fetch as streamingFetch } from 'expo/fetch';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 export interface AnalyzeMealResponse {
@@ -177,7 +178,10 @@ export async function analyzeMealText(textDescription: string): Promise<AnalyzeM
  * completely stripping any echoed metadata, telemetry dumps, thoughts,
  * role prefixes, and emojis.
  */
-export function cleanCoachReply(raw: string): string {
+export function cleanCoachReply(
+  raw: string,
+  fallback = 'I am ready to help with your meals and daily macronutrient targets.'
+): string {
   if (!raw) return '';
   let text = raw.trim();
 
@@ -247,44 +251,89 @@ export function cleanCoachReply(raw: string): string {
   // 5. Remove any unicode emojis
   text = text.replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
 
-  return text || 'I am ready to help with your meals and daily macronutrient targets.';
+  return text || fallback;
+}
+
+const NEWLINE_BYTE = 10;
+
+/**
+ * Yields one parsed JSON object per line of an NDJSON byte stream. Lines are split on raw
+ * bytes: a newline byte never occurs inside a multi-byte UTF-8 sequence, so every complete
+ * line decodes safely without a streaming decoder.
+ */
+async function* readNdjson(body: ReadableStream<Uint8Array>): AsyncGenerator<Record<string, unknown>> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let pending = new Uint8Array(0);
+  while (true) {
+    const { value, done } = await reader.read();
+    if (value && value.length > 0) {
+      const merged = new Uint8Array(pending.length + value.length);
+      merged.set(pending);
+      merged.set(value, pending.length);
+      pending = merged;
+    }
+    let newline: number;
+    while ((newline = pending.indexOf(NEWLINE_BYTE)) !== -1) {
+      const line = decoder.decode(pending.subarray(0, newline)).trim();
+      pending = pending.slice(newline + 1);
+      if (line) yield JSON.parse(line);
+    }
+    if (done) return;
+  }
 }
 
 /**
- * Sends conversation and user context to Supabase Edge Function 'analyze-meal' (Chat Mode)
- * with circuit breaker protection and on-device telemetry fallback.
+ * Sends the conversation and live nutrition context to the coach and streams the reply.
+ * `onText` receives the cleaned reply-so-far each time new words arrive; the promise
+ * resolves with the final cleaned reply. Server errors (sign-in, hourly limit, outage)
+ * are thrown with their user-facing message.
  */
-export async function sendNutritionCoachMessage(
+export async function streamNutritionCoachMessage(
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[],
-  userContext: UserNutritionContext
+  userContext: UserNutritionContext,
+  onText: (textSoFar: string) => void
 ): Promise<string> {
-  return aiCircuitBreaker.execute(
-    async () => {
-      const { data, error } = await supabase.functions.invoke('analyze-meal', {
-        body: {
-          mode: 'chat',
-          messages,
-          userContext,
-        },
-      });
+  return aiCircuitBreaker.execute(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Please sign in again to chat with Sia.');
 
-      if (error) {
-        const detailedMessage = await extractErrorMessage(error);
-        console.error('Chat Coach Edge Function error:', detailedMessage);
-        throw new Error(detailedMessage);
+    const res = await streamingFetch(`${SUPABASE_URL}/functions/v1/analyze-meal`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mode: 'chat', stream: true, messages, userContext }),
+    });
+
+    // Errors, and instant replies such as the off-topic guardrail, come back as plain JSON.
+    const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
+    if (!res.ok || isJson || !res.body) {
+      const body = (await res.json().catch(() => null)) as { reply?: string; error?: string } | null;
+      if (!res.ok || !body?.reply) {
+        throw new Error(body?.error || "Sia couldn't reach the AI coach right now. Please try again.");
       }
-
-      if (data?.reply) {
-        return cleanCoachReply(data.reply);
-      }
-
-      return 'I am ready to help with your meals and daily macronutrient targets.';
-    },
-    // On-Device Telemetry-Aware Fallback if cloud degrades
-    () => {
-      const cal = userContext.remainingCalories ?? 500;
-      const prot = userContext.remainingProtein ?? 40;
-      return `My whiskers are having trouble catching the cloud signal right now! You currently have ${cal} kcal and ${prot}g protein left to reach your goals today. Keep fueling strong, athlete!`;
+      const reply = cleanCoachReply(body.reply);
+      onText(reply);
+      return reply;
     }
-  );
+
+    let raw = '';
+    for await (const line of readNdjson(res.body)) {
+      if (typeof line.delta === 'string') {
+        raw += line.delta;
+        const visible = cleanCoachReply(raw, '');
+        if (visible) onText(visible);
+      } else if (typeof line.error === 'string') {
+        // Keep whatever Sia already said; only fail if nothing arrived.
+        if (!raw) throw new Error(line.error);
+        console.warn('Coach stream ended early:', line.error);
+        break;
+      }
+    }
+    if (!raw) throw new Error("Sia couldn't reach the AI coach right now. Please try again.");
+    return cleanCoachReply(raw);
+  });
 }

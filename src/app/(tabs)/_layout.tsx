@@ -4,6 +4,7 @@ import { View, Platform } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 import { useAuthStore } from '../../stores/authStore';
 import { hapticFeedback } from '../../utils/haptics';
+import { useShallow } from 'zustand/react/shallow';
 
 // =================================================================
 // Dark-Tech Navigation Icons (High-Precision Athletic Telemetry)
@@ -262,7 +263,9 @@ function ProfileTabIcon({ focused, size = 24 }: TabIconProps) {
 // =================================================================
 
 export default function TabLayout() {
-  const { session, profile, isInitialized } = useAuthStore();
+  const { session, profile, isInitialized } = useAuthStore(
+    useShallow((s) => ({ session: s.session, profile: s.profile, isInitialized: s.isInitialized }))
+  );
 
   if (!isInitialized) {
     return null;

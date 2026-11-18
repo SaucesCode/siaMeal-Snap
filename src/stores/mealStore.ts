@@ -32,8 +32,13 @@ export interface WeeklySummary {
 }
 
 interface MealState {
+  /** Meals for selectedDate, the day open in History. */
   meals: Meal[];
   selectedDate: string; // 'YYYY-MM-DD'
+  /** Today's meals regardless of selectedDate; the source for live totals and the AI coach. */
+  todayMeals: Meal[];
+  /** Local date todayMeals belongs to, so a list from before midnight is never treated as today's. */
+  todayMealsDate: string;
   weeklySummary: WeeklySummary | null;
   draftMeal: {
     name: string;
@@ -57,6 +62,7 @@ interface MealState {
   setSelectedDate: (date: string) => void;
   setDraftMeal: (draft: MealState['draftMeal']) => void;
   fetchMealsForDate: (dateStr?: string) => Promise<void>;
+  fetchTodayMeals: () => Promise<void>;
   fetchWeeklyStats: (targetCalories?: number, weekOffset?: number) => Promise<WeeklySummary | null>;
   logMeal: (mealData: {
     name: string;
@@ -116,9 +122,79 @@ export const getLocalDayBounds = (dateStr: string) => {
   return { startOfDay, endOfDay };
 };
 
+const isOnLocalDate = (meal: Meal, dateStr: string) =>
+  getLocalDateString(new Date(meal.logged_at)) === dateStr;
+
+const NO_MEALS: Meal[] = [];
+
+/** Today's meals, or an empty list if the stored list is from an earlier day. */
+export const selectTodayMeals = (state: MealState): Meal[] =>
+  state.todayMealsDate === getTodayString() ? state.todayMeals : NO_MEALS;
+
+const persistTodayMeals = (meals: Meal[]) => {
+  AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(meals)).catch((err: unknown) => {
+    console.warn("Could not cache today's meals:", err);
+  });
+};
+
+let latestRequestedDate = '';
+
+/**
+ * Loads one local day's meals from Supabase and merges in meals that only exist locally:
+ * optimistic entries in `currentList` and queued offline creates, minus queued deletes.
+ * Returns null if the server request fails.
+ */
+async function loadMealsForDate(dateStr: string, currentList: Meal[]): Promise<Meal[] | null> {
+  try {
+    const { startOfDay, endOfDay } = getLocalDayBounds(dateStr);
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
+    let query = supabase
+      .from('meals')
+      .select('*')
+      .gte('logged_at', startOfDay)
+      .lte('logged_at', endOfDay);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query.order('logged_at', { ascending: false }).limit(100);
+    if (error) {
+      console.error('Error fetching meals:', error);
+      return null;
+    }
+
+    const queued = await getQueuedMutations().catch(() => []);
+    const deletedIds = new Set(
+      queued.filter((q) => q.type === 'DELETE_MEAL' && q.payload?.id).map((q) => q.payload.id)
+    );
+    const serverMeals = ((data as Meal[]) || []).filter((m) => !deletedIds.has(m.id));
+    const serverIds = new Set(serverMeals.map((m) => m.id));
+    const isUnsyncedOnDay = (m: Meal) =>
+      !serverIds.has(m.id) && !deletedIds.has(m.id) && isOnLocalDate(m, dateStr);
+
+    const pendingLocal = currentList.filter(isUnsyncedOnDay);
+    const pendingIds = new Set(pendingLocal.map((m) => m.id));
+    const queuedCreates = queued
+      .filter((q) => q.type === 'CREATE_MEAL' && q.payload?.id)
+      .map((q) => q.payload as Meal)
+      .filter((m) => isUnsyncedOnDay(m) && !pendingIds.has(m.id));
+
+    return [...pendingLocal, ...queuedCreates, ...serverMeals].sort(
+      (a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime()
+    );
+  } catch (err) {
+    console.error('Error loading meals:', err);
+    return null;
+  }
+}
+
 export const useMealStore = create<MealState>((set, get) => ({
   meals: [],
   selectedDate: getTodayString(),
+  todayMeals: [],
+  todayMealsDate: getTodayString(),
   weeklySummary: null,
   draftMeal: null,
   isLoading: false,
@@ -133,96 +209,42 @@ export const useMealStore = create<MealState>((set, get) => ({
 
   fetchMealsForDate: async (dateStr) => {
     const targetDate = dateStr || get().selectedDate;
-    const isToday = targetDate === getTodayString();
+    latestRequestedDate = targetDate;
+    set({ isLoading: true });
+    try {
+      const merged = await loadMealsForDate(targetDate, get().meals);
+      if (!merged) return;
+      // Latest request wins: a slow response for a day the user already left is dropped.
+      if (latestRequestedDate === targetDate) set({ meals: merged, selectedDate: targetDate });
+      if (targetDate === getTodayString()) {
+        set({ todayMeals: merged, todayMealsDate: targetDate });
+        persistTodayMeals(merged);
+      }
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 
-    // 0ms instant local hydration from cache if currently empty
-    if (isToday && get().meals.length === 0) {
+  fetchTodayMeals: async () => {
+    const today = getTodayString();
+
+    // Instant hydration from the on-device cache on a cold start.
+    if (selectTodayMeals(get()).length === 0) {
       try {
         const cached = await AsyncStorage.getItem(TODAY_MEALS_CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0 && get().meals.length === 0) {
-            set({ meals: parsed });
-          }
+        const parsed = cached ? JSON.parse(cached) : null;
+        if (Array.isArray(parsed) && parsed.length > 0 && selectTodayMeals(get()).length === 0) {
+          set({ todayMeals: parsed.filter((m: Meal) => isOnLocalDate(m, today)), todayMealsDate: today });
         }
       } catch (cacheErr) {
         console.warn('Could not read cached meals:', cacheErr);
       }
     }
 
-    set({ isLoading: true });
-
-    try {
-      const { startOfDay, endOfDay } = getLocalDayBounds(targetDate);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-
-      let query = supabase
-        .from('meals')
-        .select('*')
-        .gte('logged_at', startOfDay)
-        .lte('logged_at', endOfDay);
-
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
-
-      const { data, error } = await query
-        .order('logged_at', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        console.error('Error fetching meals:', error);
-        return;
-      }
-
-      const serverMeals = (data as Meal[]) || [];
-
-      // Safe reconciliation: never discard optimistic local meals that haven't hit the server yet
-      const queued = await getQueuedMutations().catch(() => []);
-      const deletedIds = new Set(
-        queued.filter((q) => q.type === 'DELETE_MEAL' && q.payload?.id).map((q) => q.payload.id)
-      );
-
-      // Server meals minus any that were locally deleted
-      const validServerMeals = serverMeals.filter((m) => !deletedIds.has(m.id));
-      const serverIdSet = new Set(validServerMeals.map((m) => m.id));
-
-      // Local meals in current state that belong to this date range and haven't synced to server yet
-      const startMs = new Date(startOfDay).getTime();
-      const endMs = new Date(endOfDay).getTime();
-
-      const pendingLocalMeals = get().meals.filter((m) => {
-        if (serverIdSet.has(m.id) || deletedIds.has(m.id)) return false;
-        const mealTime = new Date(m.logged_at).getTime();
-        return mealTime >= startMs && mealTime <= endMs;
-      });
-
-      // Also recover any queued CREATE_MEAL items that might have been queued offline
-      const queuedCreateMeals = queued
-        .filter((q) => q.type === 'CREATE_MEAL' && q.payload?.id)
-        .map((q) => q.payload as Meal)
-        .filter((m) => {
-          if (serverIdSet.has(m.id) || deletedIds.has(m.id)) return false;
-          if (pendingLocalMeals.some((pl) => pl.id === m.id)) return false;
-          const mealTime = new Date(m.logged_at).getTime();
-          return mealTime >= startMs && mealTime <= endMs;
-        });
-
-      const merged = [...pendingLocalMeals, ...queuedCreateMeals, ...validServerMeals];
-      merged.sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
-
-      set({ meals: merged });
-
-      if (isToday) {
-        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(merged)).catch(() => {});
-      }
-    } catch (err: any) {
-      console.error('Error in fetchMealsForDate:', err);
-    } finally {
-      set({ isLoading: false });
-    }
+    const merged = await loadMealsForDate(today, selectTodayMeals(get()));
+    if (!merged) return;
+    set({ todayMeals: merged, todayMealsDate: today });
+    persistTodayMeals(merged);
   },
 
   fetchWeeklyStats: async (targetCalories = 2000, weekOffset = 0) => {
@@ -418,17 +440,20 @@ export const useMealStore = create<MealState>((set, get) => ({
       created_at: new Date().toISOString(),
     };
 
-    // 1. Instant 0ms Optimistic UI Update in store and cache
+    // 1. Instant optimistic update: the selected day's list only if the meal belongs to it,
+    //    and today's list whenever the meal was logged today.
     set((state) => {
-      const filtered = state.meals.filter((m) => m.id !== newMeal.id);
-      const updatedMeals = [newMeal, ...filtered];
-      if (state.selectedDate === getTodayString()) {
-        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(updatedMeals)).catch(() => {});
+      const next: Partial<MealState> = { draftMeal: null };
+      if (isOnLocalDate(newMeal, state.selectedDate)) {
+        next.meals = [newMeal, ...state.meals.filter((m) => m.id !== newMeal.id)];
       }
-      return {
-        meals: updatedMeals,
-        draftMeal: null,
-      };
+      const today = getTodayString();
+      if (isOnLocalDate(newMeal, today)) {
+        next.todayMeals = [newMeal, ...selectTodayMeals(state).filter((m) => m.id !== newMeal.id)];
+        next.todayMealsDate = today;
+        persistTodayMeals(next.todayMeals);
+      }
+      return next;
     });
 
     // 2. Perform direct write with immediate confirmation, falling back to syncQueue on failure
@@ -485,9 +510,7 @@ export const useMealStore = create<MealState>((set, get) => ({
     try {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-      const startOfDay = new Date(`${yesterdayStr}T00:00:00.000Z`).toISOString();
-      const endOfDay = new Date(`${yesterdayStr}T23:59:59.999Z`).toISOString();
+      const { startOfDay, endOfDay } = getLocalDayBounds(getLocalDateString(yesterday));
 
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
@@ -571,18 +594,17 @@ export const useMealStore = create<MealState>((set, get) => ({
   updateMeal: async (id: string, updates: Partial<Meal>) => {
     let updatedMeal: Meal | null = null;
     set((state) => {
-      const updatedMeals = state.meals.map((m) => {
-        if (m.id === id) {
-          updatedMeal = { ...m, ...updates };
-          return updatedMeal;
-        }
-        return m;
-      });
-      if (state.selectedDate === getTodayString()) {
-        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(updatedMeals)).catch(() => {});
-      }
+      const applyUpdate = (m: Meal) => {
+        if (m.id !== id) return m;
+        updatedMeal = { ...m, ...updates };
+        return updatedMeal;
+      };
+      const todayMeals = selectTodayMeals(state).map(applyUpdate);
+      persistTodayMeals(todayMeals);
       return {
-        meals: updatedMeals,
+        meals: state.meals.map(applyUpdate),
+        todayMeals,
+        todayMealsDate: getTodayString(),
       };
     });
 
@@ -603,12 +625,12 @@ export const useMealStore = create<MealState>((set, get) => ({
 
   deleteMeal: async (id: string) => {
     set((state) => {
-      const filtered = state.meals.filter((m) => m.id !== id);
-      if (state.selectedDate === getTodayString()) {
-        AsyncStorage.setItem(TODAY_MEALS_CACHE_KEY, JSON.stringify(filtered)).catch(() => {});
-      }
+      const todayMeals = selectTodayMeals(state).filter((m) => m.id !== id);
+      persistTodayMeals(todayMeals);
       return {
-        meals: filtered,
+        meals: state.meals.filter((m) => m.id !== id),
+        todayMeals,
+        todayMealsDate: getTodayString(),
       };
     });
 
@@ -627,6 +649,8 @@ export const useMealStore = create<MealState>((set, get) => ({
     set({
       meals: [],
       selectedDate: getTodayString(),
+      todayMeals: [],
+      todayMealsDate: getTodayString(),
       weeklySummary: null,
       draftMeal: null,
       isLoading: false,

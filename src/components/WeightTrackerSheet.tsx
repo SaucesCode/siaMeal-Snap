@@ -8,10 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useWeightStore, WeightEntry } from '../stores/weightStore';
 import { WeightTrendChart } from './WeightTrendChart';
 import { hapticFeedback } from '../utils/haptics';
+import { useShallow } from 'zustand/react/shallow';
 
 interface WeightTrackerSheetProps {
   visible: boolean;
@@ -26,7 +27,9 @@ export function WeightTrackerSheet({
   currentProfileWeight = 75,
   onWeightLogged,
 }: WeightTrackerSheetProps) {
-  const { entries, logWeight, deleteWeightEntry, loadWeightHistory } = useWeightStore();
+  const { entries, logWeight, deleteWeightEntry, loadWeightHistory } = useWeightStore(
+    useShallow((s) => ({ entries: s.entries, logWeight: s.logWeight, deleteWeightEntry: s.deleteWeightEntry, loadWeightHistory: s.loadWeightHistory }))
+  );
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [weightInput, setWeightInput] = useState(String(currentProfileWeight || '75'));
   const [isSubmitting, setIsSubmitting] = useState(false);

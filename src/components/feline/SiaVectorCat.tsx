@@ -26,12 +26,27 @@ import Animated, {
 } from 'react-native-reanimated';
 import { hapticFeedback } from '../../utils/haptics';
 
-const lottieChef = require('../../../assets/lottie/sia-chef.json') as AnimationObject;
-const lottieSitting = require('../../../assets/lottie/sia-sitting.json') as AnimationObject;
-const lottieScanner = require('../../../assets/lottie/sia-scanner.json') as AnimationObject;
-const lottieWater = require('../../../assets/lottie/sia-water.json') as AnimationObject;
-const lottieWalking = require('../../../assets/lottie/sia-walking.json') as AnimationObject;
-const lottieLogo = require('../../../assets/lottie/sia-logo.json') as AnimationObject;
+type LottieScene = 'logo' | 'scanner' | 'water' | 'walking' | 'sitting';
+
+/**
+ * Animations are required on first use rather than at module load: together they are ~2 MB
+ * of JSON, and evaluating all of them would block app startup for scenes not yet on screen.
+ */
+function loadLottieScene(scene: LottieScene): AnimationObject {
+  switch (scene) {
+    case 'walking':
+      return require('../../../assets/lottie/sia-walking.json');
+    case 'scanner':
+      return require('../../../assets/lottie/sia-scanner.json');
+    case 'water':
+      return require('../../../assets/lottie/sia-water.json');
+    case 'logo':
+      return require('../../../assets/lottie/sia-logo.json');
+    case 'sitting':
+    default:
+      return require('../../../assets/lottie/sia-sitting.json');
+  }
+}
 
 export type SiaVectorMood =
   | 'logo'
@@ -162,7 +177,7 @@ export function SiaVectorCat({
   const reducedMotion = useReducedMotion();
   const lottieRef = useRef<LottieView>(null);
 
-  const scene: 'logo' | 'scanner' | 'water' | 'walking' | 'sitting' = React.useMemo(() => {
+  const scene: LottieScene = React.useMemo(() => {
     if (
       animation === 'walk' ||
       mood === 'walking' ||
@@ -177,21 +192,11 @@ export function SiaVectorCat({
     return 'sitting';
   }, [mood, animation]);
 
-  const lottieSource: AnimationObject = React.useMemo(() => {
-    switch (scene) {
-      case 'walking':
-        return lottieWalking;
-      case 'scanner':
-        return lottieScanner;
-      case 'water':
-        return lottieWater;
-      case 'logo':
-        return lottieLogo;
-      case 'sitting':
-      default:
-        return lottieSitting;
-    }
-  }, [scene]);
+  const usesLottie = Platform.OS !== 'web';
+  const lottieSource = React.useMemo(
+    () => (usesLottie ? loadLottieScene(scene) : undefined),
+    [scene, usesLottie]
+  );
 
   const isSleeping = mood === 'sleeping';
   const isRunning = mood === 'running';
@@ -275,6 +280,10 @@ export function SiaVectorCat({
     walkCycle.set(0);
 
     if (reducedMotion || animation === 'none') return;
+    // On iOS/Android Lottie drives the body; the vector rig below is the web fallback.
+    // Only the sleeping "Zzz" overlay needs the phase clock on native, so skip the
+    // endless UI-thread loops for every other mascot instance.
+    if (usesLottie && !isSleeping) return;
 
     masterPhase.set(
       withRepeat(
@@ -287,7 +296,7 @@ export function SiaVectorCat({
       )
     );
 
-    if (scene === 'walking') {
+    if (scene === 'walking' && !usesLottie) {
       walkCycle.set(
         withRepeat(
           withTiming(TWO_PI, { duration: 580, easing: Easing.linear }),
@@ -301,7 +310,7 @@ export function SiaVectorCat({
       cancelAnimation(masterPhase);
       cancelAnimation(walkCycle);
     };
-  }, [scene, animation, reducedMotion]);
+  }, [scene, animation, reducedMotion, usesLottie, isSleeping]);
 
   const rootPetStyle = useAnimatedStyle(() => ({
     transform: [

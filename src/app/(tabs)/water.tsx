@@ -17,9 +17,11 @@ import { useWaterStore } from '../../stores/waterStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { hapticFeedback } from '../../utils/haptics';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { AnimatedProgressRing } from '../../components/AnimatedProgressRing';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useShallow } from 'zustand/react/shallow';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface QuickAmountOption {
   amount: number;
@@ -82,7 +84,9 @@ const getVesselLabel = (amount: number): string => {
 };
 
 export default function WaterScreen() {
-  const { profile } = useAuthStore();
+  const { profile } = useAuthStore(
+    useShallow((s) => ({ profile: s.profile }))
+  );
   const {
     todayMl,
     dailyGoalMl,
@@ -91,7 +95,9 @@ export default function WaterScreen() {
     addWater,
     deleteWaterLog,
     setDailyGoal,
-  } = useWaterStore();
+  } = useWaterStore(
+    useShallow((s) => ({ todayMl: s.todayMl, dailyGoalMl: s.dailyGoalMl, logs: s.logs, loadTodayWater: s.loadTodayWater, addWater: s.addWater, deleteWaterLog: s.deleteWaterLog, setDailyGoal: s.setDailyGoal }))
+  );
 
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
@@ -110,23 +116,10 @@ export default function WaterScreen() {
   const size = 196;
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2; // (196 - 14) / 2 = 91
-  const circumference = 2 * Math.PI * radius;
-
-  // Animated Ring Sweep
-  const animatedStroke = useRef(new Animated.Value(circumference)).current;
 
   useEffect(() => {
     loadTodayWater();
   }, []);
-
-  useEffect(() => {
-    const strokeOffset = circumference - (percentage / 100) * circumference;
-    Animated.timing(animatedStroke, {
-      toValue: strokeOffset,
-      duration: 850,
-      useNativeDriver: false,
-    }).start();
-  }, [percentage, circumference]);
 
   const dismissCelebration = () => {
     if (celebrationTimerRef.current) {
@@ -558,18 +551,14 @@ export default function WaterScreen() {
                 ))}
 
                 {/* Active Animated Ring */}
-                <AnimatedCircle
+                <AnimatedProgressRing
                   cx={size / 2}
                   cy={size / 2}
                   r={radius}
                   stroke="url(#cyanGradient)"
                   strokeWidth={strokeWidth}
-                  strokeDasharray={`${circumference} ${circumference}`}
-                  strokeDashoffset={animatedStroke}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  rotation="-90"
-                  origin={`${size / 2}, ${size / 2}`}
+                  progress={percentage / 100}
+                  durationMs={850}
                 />
               </Svg>
 

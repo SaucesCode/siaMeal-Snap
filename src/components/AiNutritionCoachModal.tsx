@@ -14,22 +14,24 @@ import {
   LayoutAnimation,
   Animated,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import {
-  sendNutritionCoachMessage,
+  streamNutritionCoachMessage,
   cleanCoachReply,
   ChatMessage,
   UserNutritionContext,
 } from '../services/aiService';
 import { hapticFeedback } from '../utils/haptics';
 import { useCoachStore } from '../stores/coachStore';
-import { useMealStore } from '../stores/mealStore';
+import { useMealStore, getTodayString } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import SiaCatMascot from './SiaCatMascot';
 import { ToastBanner, ToastConfig } from './ToastBanner';
+import { useShallow } from 'zustand/react/shallow';
 
 interface AiNutritionCoachModalProps {
   visible: boolean;
@@ -415,10 +417,15 @@ export function AiNutritionCoachModal({
   initialQuery,
 }: AiNutritionCoachModalProps) {
   const router = useRouter();
-  const { setDraftMeal } = useMealStore();
-  const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore();
+  const { setDraftMeal } = useMealStore(
+    useShallow((s) => ({ setDraftMeal: s.setDraftMeal }))
+  );
+  const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore(
+    useShallow((s) => ({ messages: s.messages, isLoaded: s.isLoaded, loadHistory: s.loadHistory, addMessage: s.addMessage, setMessages: s.setMessages, clearHistory: s.clearHistory }))
+  );
   const [inputText, setInputText] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingReply, setStreamingReply] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const scrollViewRef = useRef<any>(null);
@@ -598,7 +605,7 @@ export function AiNutritionCoachModal({
   useEffect(() => {
     if (visible && isLoaded && messages.length === 0) {
       const greeting: ChatMessage = {
-        id: `greeting_${new Date().toISOString().split('T')[0]}`,
+        id: `greeting_${getTodayString()}`,
         role: 'assistant',
         content: `Hey ${userContext.displayName || 'Athlete'}, I'm **Sia**! I've got your live numbers queued up: you have **${remainingCal} kcal** and **${remainingProt}g protein** left to hit today.\n\nWhat are you craving, or should we pounce on a quick meal idea together?`,
         timestamp: new Date().toISOString(),
@@ -659,7 +666,7 @@ export function AiNutritionCoachModal({
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages, visible, isTyping]);
+  }, [messages, visible, isTyping, streamingReply]);
 
   if (!visible) return null;
 
@@ -693,7 +700,7 @@ export function AiNutritionCoachModal({
         content: m.content,
       }));
 
-      const reply = await sendNutritionCoachMessage(conversationPayload, userContext);
+      const reply = await streamNutritionCoachMessage(conversationPayload, userContext, setStreamingReply);
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -714,6 +721,9 @@ export function AiNutritionCoachModal({
       };
       await addMessage(errorMsg);
     } finally {
+      // Cleared together with isTyping, after the final message is saved, so the streamed
+      // bubble hands over to the saved message without a flicker.
+      setStreamingReply('');
       setIsTyping(false);
     }
   };
@@ -1049,8 +1059,23 @@ export function AiNutritionCoachModal({
             </View>
           )}
 
-          {/* Thinking / Typing State with Assistant-Aligned Mascot Head & Bubble */}
-          {isTyping && (
+          {/* Sia's reply streaming in word by word */}
+          {isTyping && streamingReply !== '' && (
+            <View className="mb-3 flex-row justify-start items-start">
+              <View className="mr-2 mt-0.5 self-start">
+                <SiaCatMascot size={28} mood="head" withGlow={false} />
+              </View>
+              <View
+                accessibilityLiveRegion="polite"
+                className="max-w-[84%] rounded-2xl p-3.5 bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm"
+              >
+                <FormattedChatMessage content={streamingReply} isUser={false} />
+              </View>
+            </View>
+          )}
+
+          {/* Thinking state until the first words arrive */}
+          {isTyping && streamingReply === '' && (
             <View className="mb-3 flex-row justify-start items-start">
               <View className="mr-2 mt-0.5 self-start">
                 <SiaCatMascot size={28} mood="head" withGlow={false} />

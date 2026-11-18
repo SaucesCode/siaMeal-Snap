@@ -6,15 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
-import { useMealImageUri } from '../lib/mealImages';
+import { useMealImageSource } from '../lib/mealImages';
+import { Image } from 'expo-image';
 import { hapticFeedback } from '../utils/haptics';
+import { useShallow } from 'zustand/react/shallow';
 
 interface MealDetailModalProps {
   meal: Meal | null;
@@ -40,7 +42,9 @@ const MEAL_TYPES: MealTypeOption[] = [
 ];
 
 export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicate }: MealDetailModalProps) {
-  const { updateMeal, deleteMeal, duplicateMeal } = useMealStore();
+  const { updateMeal, deleteMeal, duplicateMeal } = useMealStore(
+    useShallow((s) => ({ updateMeal: s.updateMeal, deleteMeal: s.deleteMeal, duplicateMeal: s.duplicateMeal }))
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -53,7 +57,7 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const imageUri = useMealImageUri(meal?.image_url);
+  const imageSource = useMealImageSource(meal?.image_url);
 
   useEffect(() => {
     if (meal) {
@@ -204,12 +208,14 @@ export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicat
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Meal Photo */}
-            {imageUri && !imageError ? (
+            {imageSource && !imageError ? (
               <View className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
                 <Image
-                  source={{ uri: imageUri }}
-                  className="w-full h-48"
-                  resizeMode="cover"
+                  source={imageSource}
+                  style={{ width: '100%', height: 192 }}
+                  contentFit="cover"
+                  transition={150}
+                  accessibilityLabel={`Photo of ${meal.name}`}
                   onError={() => setImageError(true)}
                 />
               </View>

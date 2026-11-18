@@ -90,11 +90,14 @@ function getSignedMealImageUrl(path: string): Promise<string> {
 }
 
 /**
- * Display URI for a meal's image_url. Private bucket paths resolve to signed URLs;
- * local file URIs and other URLs are returned unchanged. Returns null while resolving
- * or when the photo cannot be loaded, so callers show their placeholder.
+ * expo-image source for a meal's image_url. Private bucket paths resolve to signed URLs
+ * cached under the object path, so the disk cache survives hourly URL rotation; local file
+ * URIs and other URLs pass through. Returns null while resolving or when the photo cannot
+ * be loaded, so callers show their placeholder.
  */
-export function useMealImageUri(imageUrl: string | null | undefined): string | null {
+export function useMealImageSource(
+  imageUrl: string | null | undefined
+): { uri: string; cacheKey?: string } | null {
   const path = toMealImagePath(imageUrl);
   const [signedUri, setSignedUri] = useState<string | null>(null);
 
@@ -116,5 +119,6 @@ export function useMealImageUri(imageUrl: string | null | undefined): string | n
   }, [path]);
 
   if (!imageUrl) return null;
-  return path ? signedUri : imageUrl;
+  if (!path) return { uri: imageUrl };
+  return signedUri ? { uri: signedUri, cacheKey: path } : null;
 }

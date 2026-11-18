@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { WeeklySummary, DayStat } from '../stores/mealStore';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { hapticFeedback } from '../utils/haptics';
 
 interface WeeklyAdherenceChartProps {
