@@ -8,7 +8,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { useAuthStore } from '../stores/authStore';
 import { useCoachStore } from '../stores/coachStore';
-import { useMealStore } from '../stores/mealStore';
+import { useMealStore, selectTodayMeals } from '../stores/mealStore';
+import { buildCoachContext } from '../utils/coachContext';
 import { SiaRoamingCompanion } from '../components/feline/SiaRoamingCompanion';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
@@ -47,40 +48,15 @@ export default function RootLayout() {
   const { isInitialized, initialize, profile, user } = useAuthStore(
     useShallow((s) => ({ isInitialized: s.isInitialized, initialize: s.initialize, profile: s.profile, user: s.user }))
   );
-  const meals = useMealStore((state) => state.meals);
+  const todayMeals = useMealStore(selectTodayMeals);
   const { isOpen: coachIsOpen, initialQuery: coachInitialQuery, closeCoach } = useCoachStore(
     useShallow((s) => ({ isOpen: s.isOpen, initialQuery: s.initialQuery, closeCoach: s.closeCoach }))
   );
 
-  const coachUserContext = React.useMemo(() => {
-    const consumedCalories = meals.reduce((sum, m) => sum + (m.calories || 0), 0);
-    const consumedProtein = meals.reduce((sum, m) => sum + (m.protein_g || 0), 0);
-    const consumedCarbs = meals.reduce((sum, m) => sum + (m.carbs_g || 0), 0);
-    const consumedFat = meals.reduce((sum, m) => sum + (m.fat_g || 0), 0);
-
-    const targetCalories = profile?.target_calories || 2000;
-    const targetProtein = profile?.target_protein_g || 150;
-    const targetCarbs = profile?.target_carbs_g || 200;
-    const targetFat = profile?.target_fat_g || 65;
-
-    return {
-      displayName: profile?.full_name || user?.email?.split('@')[0] || 'Athlete',
-      goal: profile?.goal_pace || 'Fat Loss / Maintenance',
-      dietType: profile?.diet_type || 'Balanced',
-      targetCalories,
-      targetProtein,
-      targetCarbs,
-      targetFat,
-      consumedCalories: Math.round(consumedCalories),
-      consumedProtein: Math.round(consumedProtein),
-      consumedCarbs: Math.round(consumedCarbs),
-      consumedFat: Math.round(consumedFat),
-      remainingCalories: Math.max(0, Math.round(targetCalories - consumedCalories)),
-      remainingProtein: Math.max(0, Math.round(targetProtein - consumedProtein)),
-      remainingCarbs: Math.max(0, Math.round(targetCarbs - consumedCarbs)),
-      remainingFat: Math.max(0, Math.round(targetFat - consumedFat)),
-    };
-  }, [profile, user, meals]);
+  const coachUserContext = React.useMemo(
+    () => buildCoachContext(profile, user?.email, todayMeals),
+    [profile, user?.email, todayMeals]
+  );
 
   const [fontsLoaded] = useFonts({
     Outfit_600SemiBold,

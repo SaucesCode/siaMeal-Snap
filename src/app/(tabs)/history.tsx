@@ -73,7 +73,6 @@ export default function HistoryScreen() {
   const targetCarbs = profile?.target_carbs_g || 200;
   const targetFat = profile?.target_fat_g || 65;
 
-  const displayName = profile?.full_name?.trim() || 'Athlete';
 
   // Compute daily totals for the selected date
   const totals = useMemo(() => {
@@ -89,25 +88,6 @@ export default function HistoryScreen() {
   }, [meals]);
 
   // Coach Context
-  const coachUserContext = useMemo(() => ({
-    displayName,
-    goal: profile?.goal_pace || 'Fat Loss / Maintenance',
-    dietType: profile?.diet_type || 'Balanced',
-    targetCalories,
-    targetProtein,
-    targetCarbs,
-    targetFat,
-    consumedCalories: totals.calories,
-    consumedProtein: totals.protein_g,
-    consumedCarbs: totals.carbs_g,
-    consumedFat: totals.fat_g,
-    remainingCalories: Math.max(0, targetCalories - totals.calories),
-    remainingProtein: Math.max(0, targetProtein - totals.protein_g),
-    remainingCarbs: Math.max(0, targetCarbs - totals.carbs_g),
-    remainingFat: Math.max(0, targetFat - totals.fat_g),
-    todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
-  }), [displayName, profile, targetCalories, targetProtein, targetCarbs, targetFat, totals, meals]);
-
   // Generate date list for the current weekOffset
   const dateList = useMemo(() => {
     const dates = [];
@@ -579,7 +559,7 @@ export default function HistoryScreen() {
               <TouchableOpacity
                 onPress={() => {
                   hapticFeedback.light();
-                  setSelectedDate(new Date().toISOString().split('T')[0]);
+                  setSelectedDate(getLocalDateString(new Date()));
                 }}
                 activeOpacity={0.8}
                 className="bg-emerald-500/15 border border-emerald-500/35 px-4 py-2 rounded-xl flex-row items-center gap-1.5"

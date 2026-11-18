@@ -26,7 +26,7 @@ import {
 } from '../services/aiService';
 import { hapticFeedback } from '../utils/haptics';
 import { useCoachStore } from '../stores/coachStore';
-import { useMealStore } from '../stores/mealStore';
+import { useMealStore, getTodayString } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import SiaCatMascot from './SiaCatMascot';
@@ -604,7 +604,7 @@ export function AiNutritionCoachModal({
   useEffect(() => {
     if (visible && isLoaded && messages.length === 0) {
       const greeting: ChatMessage = {
-        id: `greeting_${new Date().toISOString().split('T')[0]}`,
+        id: `greeting_${getTodayString()}`,
         role: 'assistant',
         content: `Hey ${userContext.displayName || 'Athlete'}, I'm **Sia**! I've got your live numbers queued up: you have **${remainingCal} kcal** and **${remainingProt}g protein** left to hit today.\n\nWhat are you craving, or should we pounce on a quick meal idea together?`,
         timestamp: new Date().toISOString(),
