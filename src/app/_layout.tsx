@@ -10,7 +10,6 @@ import { useAuthStore } from '../stores/authStore';
 import { useCoachStore } from '../stores/coachStore';
 import { useMealStore, selectTodayMeals } from '../stores/mealStore';
 import { buildCoachContext } from '../utils/coachContext';
-import { SiaRoamingCompanion } from '../components/feline/SiaRoamingCompanion';
 import { LaunchWink } from '../components/sia/LaunchWink';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
@@ -112,9 +111,6 @@ export default function RootLayout() {
           />
         </Stack>
       )}
-
-      {/* Global Roaming Sia Mascot */}
-      {appReady && <SiaRoamingCompanion enabled={true} />}
 
       {/* Global AI Nutrition Coach Modal */}
       {appReady && (

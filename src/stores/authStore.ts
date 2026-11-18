@@ -7,6 +7,8 @@ import { useCoachStore } from './coachStore';
 import { useMealStore } from './mealStore';
 import { useWaterStore } from './waterStore';
 import { useWeightStore } from './weightStore';
+import { useStreakStore } from './streakStore';
+import { useSiaStore } from '../features/sia/siaStore';
 
 const PROFILE_CACHE_KEY = '@calorie_tracker_cached_profile';
 
@@ -174,6 +176,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       useCoachStore.getState().reset();
       useMealStore.getState().reset();
+      useSiaStore.getState().reset();
+      useStreakStore.getState().reset();
       await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
     } catch (cacheErr) {
       console.warn('Failed to clear caches on sign out:', cacheErr);
@@ -202,6 +206,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     useCoachStore.getState().reset();
     useMealStore.getState().reset();
+    useSiaStore.getState().reset();
+    useStreakStore.getState().reset();
     await AsyncStorage.clear();
     // Reload from the now-empty storage so in-memory water and weight history is cleared too.
     await Promise.all([

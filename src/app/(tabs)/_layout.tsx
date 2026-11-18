@@ -4,6 +4,8 @@ import { View, Platform } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 import { useAuthStore } from '../../stores/authStore';
 import { hapticFeedback } from '../../utils/haptics';
+import { SiaTabBar } from '../../features/sia/SiaTabBar';
+import { useSiaEvents } from '../../features/sia/useSiaEvents';
 import { useShallow } from 'zustand/react/shallow';
 
 // =================================================================
@@ -267,6 +269,9 @@ export default function TabLayout() {
     useShallow((s) => ({ session: s.session, profile: s.profile, isInitialized: s.isInitialized }))
   );
 
+  // Sia reacts to app events only on signed-in screens.
+  useSiaEvents();
+
   if (!isInitialized) {
     return null;
   }
@@ -281,6 +286,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <SiaTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
