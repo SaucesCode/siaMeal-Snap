@@ -233,6 +233,14 @@ helps, static).
 - **Auth / Onboarding:** one large static-or-resting Sia + wordmark; no roaming companion; plain copy.
 - **Tab bar:** Today · History · (Snap) · Water · Me on `pointDeep`; Snap is the raised shutter-green
   button with a cream ring.
+- **Launch:** the native splash is the new Sia head (resting) centred on cream `bg`, no box or dark
+  square (today's `splash-icon.png` is the old head on a black square over near-black). The splash
+  stays up until fonts and session are ready (as now — no artificial delay, no walking intro). On
+  hand-off a JS overlay matching the splash exactly shows Sia **winking once** while it fades into
+  the first screen (~300 ms, runs during the fade, adds no wait). Reduced motion: fade only.
+- **App icon + platform assets:** regenerated from Sia's vector art on cream: iOS icon, Android
+  adaptive icon (foreground, background, monochrome), splash image, web favicon. `app.json` splash
+  and adaptive-icon background colours change from `#09090b` to the cream `bg`.
 
 ## 9. Copy rules
 - Plain labels everywhere: Breakfast, Lunch, Dinner, Snack, "Log again", the user's name (no
