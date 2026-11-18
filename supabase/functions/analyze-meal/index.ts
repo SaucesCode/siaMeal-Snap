@@ -234,6 +234,12 @@ function geminiGenerate(
     maxOutputTokens: number;
     responseMimeType?: string;
     stream?: boolean;
+    /**
+     * Gemini 3 thinking depth. Coach chat uses "minimal" (flash-lite's own default; a short
+     * coaching reply doesn't need deliberation, and thinking time is spent before any word
+     * streams). Meal analysis uses "low" to reason about portion sizes.
+     */
+    thinkingLevel: "minimal" | "low";
   },
   timeoutMs: number,
   signal?: AbortSignal
@@ -249,7 +255,7 @@ function geminiGenerate(
         contents: request.contents,
         generationConfig: {
           maxOutputTokens: request.maxOutputTokens,
-          thinkingConfig: { thinkingLevel: "low" },
+          thinkingConfig: { thinkingLevel: request.thinkingLevel },
           ...(request.responseMimeType ? { responseMimeType: request.responseMimeType } : {}),
         },
       }),
@@ -384,24 +390,25 @@ function geminiText(data: any): string {
     .join("");
 }
 
-/**
- * Resolves the caller from their Supabase session JWT. getClaims verifies the signature
- * locally against the project's cached ES256 JWKS (no Auth round trip once warm) and only
- * falls back to a getUser call for symmetric keys. The anon key has no user and is rejected.
- */
-async function authenticate(req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const supabase = createClient(
+/** Supabase client that acts as the caller (their JWT is forwarded to PostgREST). */
+function userClient(authHeader: string): SupabaseClient {
+  return createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     { global: { headers: { Authorization: authHeader } } }
   );
+}
+
+/**
+ * Verifies the caller's session JWT. getClaims checks the signature locally against the
+ * project's cached ES256 JWKS (no Auth round trip once warm) and only falls back to a
+ * getUser call for symmetric keys. The anon key has no user and is rejected.
+ */
+async function authenticate(supabase: SupabaseClient, authHeader: string) {
   const { data, error } = await supabase.auth.getClaims(authHeader.slice("Bearer ".length));
   const claims = data?.claims;
   if (error || !claims?.sub || claims.role !== "authenticated") return null;
-  return { supabase, userId: claims.sub };
+  return { userId: claims.sub };
 }
 
 /**
@@ -535,8 +542,8 @@ async function handleAnalyzeMeal(req: Request, trace: RequestTrace): Promise<Res
       return jsonResponse({ error: "That photo is too large. Please try again." }, 413);
     }
 
-    const auth = await trace.time("auth", () => authenticate(req));
-    if (!auth) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return jsonResponse({ error: "Please sign in again to use Sia's AI features." }, 401);
     }
 
@@ -561,7 +568,17 @@ async function handleAnalyzeMeal(req: Request, trace: RequestTrace): Promise<Res
 
     const isChat = body.mode === "chat" || (Array.isArray(body.messages) && body.messages.length > 0);
     trace.mode = isChat ? "chat" : "analyze";
-    const quota = await trace.time("quota", () => consumeQuota(auth.supabase, trace.mode as QuotaKind, requestId));
+
+    // Auth and quota run in parallel: PostgREST verifies the same JWT on the quota RPC and
+    // consume_ai_quota rejects callers without a user, so neither depends on the other.
+    const supabase = userClient(authHeader);
+    const [auth, quota] = await Promise.all([
+      trace.time("auth", () => authenticate(supabase, authHeader)),
+      trace.time("quota", () => consumeQuota(supabase, trace.mode as QuotaKind, requestId)),
+    ]);
+    if (!auth) {
+      return jsonResponse({ error: "Please sign in again to use Sia's AI features." }, 401);
+    }
     if (quota === "exceeded") {
       return jsonResponse(
         { error: "Sia needs a short catnap. You've hit the hourly AI limit; please try again soon." },
@@ -737,7 +754,7 @@ ${text}`;
             (signal) => geminiGenerate(
               modelName,
               geminiKey,
-              { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200 },
+              { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200, thinkingLevel: "minimal" },
               CHAT_ATTEMPT_TIMEOUT_MS,
               signal
             ),
@@ -769,7 +786,7 @@ ${text}`;
               (signal) => geminiGenerate(
                 modelName,
                 geminiKey,
-                { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200, stream: true },
+                { systemPrompt: coachSystemPrompt, contents: geminiContents, maxOutputTokens: 1200, stream: true, thinkingLevel: "minimal" },
                 CHAT_STREAM_TIMEOUT_MS,
                 signal
               ),
@@ -919,6 +936,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
               contents: [{ role: "user", parts: geminiParts }],
               maxOutputTokens: 2048,
               responseMimeType: "application/json",
+              thinkingLevel: "low",
             },
             ANALYZE_ATTEMPT_TIMEOUT_MS,
             signal
