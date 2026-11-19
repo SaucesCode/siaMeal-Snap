@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { linkError, linkParams } from '../../features/auth/linkParams';
+import { routeAfterAuth } from '../../features/auth/afterAuth';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { Sia } from '../../components/sia';
@@ -8,51 +11,38 @@ import { palette, space, type } from '../../theme';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ code?: string; access_token?: string; refresh_token?: string; error?: string }>();
+  const search = useLocalSearchParams<Record<string, string>>();
+  const url = Linking.useURL();
   const fetchProfile = useAuthStore((state) => state.fetchProfile);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    async function handleAuth() {
+    if (url === null) return;
+    // Email-confirmation and implicit-flow links carry their tokens after "#", which route params never see.
+    const params = { ...search, ...linkParams(url) };
+    const giveUp = (message: string) => {
+      setErrorMsg(message);
+      setTimeout(() => router.replace('/(auth)/login' as any), 2500);
+    };
+    (async () => {
       try {
-        if (params.error) {
-          setErrorMsg(params.error);
-          setTimeout(() => router.replace('/(auth)/login' as any), 2000);
-          return;
-        }
-
-        // 1. PKCE code exchange
+        const failed = linkError(params);
+        if (failed) return giveUp(failed);
         if (params.code) {
-          console.log('[Auth Callback] Exchanging code for session...');
           const { error } = await supabase.auth.exchangeCodeForSession(params.code);
           if (error) throw error;
-        }
-        // 2. Implicit token session
-        else if (params.access_token && params.refresh_token) {
-          console.log('[Auth Callback] Setting session from tokens...');
-          const { error } = await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
-          });
+        } else if (params.access_token && params.refresh_token) {
+          const { error } = await supabase.auth.setSession({ access_token: params.access_token, refresh_token: params.refresh_token });
           if (error) throw error;
         }
-
-        // 3. Check profile and navigate
-        const profile = await fetchProfile();
-        if (!profile || !profile.target_calories) {
-          router.replace('/(auth)/onboarding' as any);
-        } else {
-          router.replace('/(tabs)' as any);
-        }
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) return giveUp('That link didn’t sign you in.');
+        await routeAfterAuth(router, fetchProfile);
       } catch (err: any) {
-        console.error('[Auth Callback] Error handling callback:', err);
-        setErrorMsg(err.message || 'Authentication failed');
-        setTimeout(() => router.replace('/(auth)/login' as any), 2500);
+        giveUp(err?.message || 'Please try again.');
       }
-    }
-
-    handleAuth();
-  }, [params]);
+    })();
+  }, [url]);
 
   return (
     <View style={styles.screen}>

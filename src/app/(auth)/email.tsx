@@ -62,7 +62,11 @@ export default function EmailScreen() {
         setMode('signin');
         setNotice(`If there's an account for ${email.trim()}, we sent it a link. Open it on this phone to set a new password.`);
       } else if (creating) {
-        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { emailRedirectTo: makeRedirectUri({ scheme: 'siamealsnap', path: 'auth/callback' }) },
+        });
         if (error) throw error;
         if (data.session) {
           hapticFeedback.success();
