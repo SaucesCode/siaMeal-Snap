@@ -167,13 +167,18 @@ export function SiaPeek({ reaction, onPress }: SiaPeekProps = {}) {
       return;
     }
     if (current.line && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(current.line);
-    if (busy.current) pending.current = current;
+    // Before the card is measured she can't know where "right" is; wait for the width.
+    if (busy.current || width === 0) pending.current = current;
     else play(current);
   }, [current]);
 
-  // Keep her on her spot when the card is first measured or resized.
+  // Keep her on her spot when the card is first measured or resized, and play anything that was waiting.
   useEffect(() => {
-    if (!busy.current) x.set(peekX(spot.current, width));
+    if (width === 0 || busy.current) return;
+    x.set(peekX(spot.current, width));
+    const waiting = pending.current;
+    pending.current = null;
+    if (waiting) play(waiting);
   }, [width]);
 
   // A barely-there breath while she rests.
@@ -202,9 +207,9 @@ export function SiaPeek({ reaction, onPress }: SiaPeekProps = {}) {
   if (hidden) return null;
 
   return (
-    <View style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+    <View testID="sia-peek-zone" style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
       <View style={styles.strip} pointerEvents="box-none">
-        <Animated.View style={[styles.sia, siaStyle]}>
+        <Animated.View testID="sia-peek" style={[styles.sia, siaStyle]}>
           <Pressable
             onPress={() => {
               hapticFeedback.light();
