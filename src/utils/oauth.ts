@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../lib/supabase';
 import { linkError, linkParams } from '../features/auth/linkParams';
+import { appReturnUrl } from '../features/auth/returnUrl';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -33,10 +33,7 @@ export async function performGoogleOAuth() {
     await supabase.auth.signOut();
   } catch {}
 
-  const redirectUrl = makeRedirectUri({
-    scheme: 'siamealsnap',
-    path: 'auth/callback',
-  });
+  const redirectUrl = await appReturnUrl('auth/callback');
 
   console.log('[OAuth Mobile] Generated redirect URL:', redirectUrl);
 

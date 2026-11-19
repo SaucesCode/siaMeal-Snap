@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { makeRedirectUri } from 'expo-auth-session';
+import { appReturnUrl } from '../../features/auth/returnUrl';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -55,7 +55,7 @@ export default function EmailScreen() {
       hapticFeedback.medium();
       if (forgot) {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: makeRedirectUri({ scheme: 'siamealsnap', path: 'auth/reset' }),
+          redirectTo: await appReturnUrl('auth/reset'),
         });
         if (error) throw error;
         hapticFeedback.success();
@@ -65,7 +65,7 @@ export default function EmailScreen() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: makeRedirectUri({ scheme: 'siamealsnap', path: 'auth/callback' }) },
+          options: { emailRedirectTo: await appReturnUrl('auth/callback') },
         });
         if (error) throw error;
         if (data.session) {
