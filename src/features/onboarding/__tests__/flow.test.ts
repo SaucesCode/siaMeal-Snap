@@ -1,4 +1,4 @@
-import { FOODS_TO_AVOID, mealReminderTimes, onboardingSteps, validateGoalWeight, weeksToGoal } from '../flow';
+import { FOODS_TO_AVOID, mealReminderTimes, onboardingSteps, shiftTime, validateGoalWeight, weeksToGoal } from '../flow';
 
 describe('onboardingSteps', () => {
   it('asks for a name only when sign-up did not give one, and goal weight only when changing weight', () => {
@@ -42,5 +42,14 @@ describe('FOODS_TO_AVOID', () => {
   it('is a short local list', () => {
     expect(FOODS_TO_AVOID).toContain('No pork');
     expect(FOODS_TO_AVOID.length).toBeLessThanOrEqual(10);
+  });
+});
+
+describe('shiftTime', () => {
+  it('moves a time by minutes, wrapping around midnight', () => {
+    expect(shiftTime('08:00', 30)).toBe('08:30');
+    expect(shiftTime('08:00', -30)).toBe('07:30');
+    expect(shiftTime('23:45', 30)).toBe('00:15');
+    expect(shiftTime('00:00', -30)).toBe('23:30');
   });
 });

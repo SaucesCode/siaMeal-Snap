@@ -2,6 +2,7 @@ import React from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { useShallow } from 'zustand/react/shallow';
+import { palette } from '../../theme';
 
 export default function AuthLayout() {
   const { session, profile, isInitialized } = useAuthStore(
@@ -16,10 +17,11 @@ export default function AuthLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#09090b' },
+        contentStyle: { backgroundColor: palette.bg },
       }}
     >
       <Stack.Screen name="login" />
+      <Stack.Screen name="email" />
       <Stack.Screen name="register" />
       <Stack.Screen name="onboarding" />
     </Stack>

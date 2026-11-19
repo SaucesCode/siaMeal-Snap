@@ -61,3 +61,16 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function mealReminderTimes(times: string[]): string[] {
   return [...new Set(times.filter((t) => HHMM.test(t)))].sort().slice(0, 6);
 }
+
+/** "08:00" moved by `minutes` (wraps around midnight). */
+export function shiftTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** "19:00" → "7:00 PM" for display. */
+export function displayTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
