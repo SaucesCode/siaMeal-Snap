@@ -32,17 +32,9 @@ import { openPrivacyPolicy } from '../../lib/legal';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
-import SiaCatMascot, { SiaMood } from '../../components/SiaCatMascot';
+import { Sia } from '../../components/sia';
 import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
 import { useShallow } from 'zustand/react/shallow';
-
-export const CAT_AVATARS: { id: string; mood: SiaMood; label: string }[] = [
-  { id: 'cat_scanning', mood: 'scanning', label: 'Vision Eye Sia' },
-  { id: 'cat_chef', mood: 'chef', label: 'Chef Sia' },
-  { id: 'cat_water', mood: 'water', label: 'Hydra Sia' },
-  { id: 'cat_celebrating', mood: 'celebrating', label: 'Champion Sia' },
-  { id: 'cat_happy', mood: 'happy', label: 'Purring Sia' },
-];
 
 const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   'person',
@@ -408,11 +400,7 @@ export default function ProfileScreen() {
           className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-4 mb-4 flex-row items-center justify-between shadow-lg shadow-black/40"
         >
           <View className="flex-row items-center gap-3.5 flex-1 mr-2">
-            <SiaCatMascot
-              size={52}
-              mood={avatarIcon?.startsWith('cat_') ? (avatarIcon.replace('cat_', '') as SiaMood) : 'logo'}
-              withGlow={true}
-            />
+            <Sia expression="happy" size={52} />
 
             <View className="flex-1">
               <View className="flex-row items-center gap-1.5">
@@ -1031,43 +1019,6 @@ export default function ProfileScreen() {
               placeholderTextColor="#52525b"
               className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold mb-5"
             />
-
-            {/* Sia Mascot Avatars */}
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase mb-2">
-              Sia Feline Avatars
-            </Text>
-            <View className="flex-row gap-2 mb-4">
-              {CAT_AVATARS.map((cat) => {
-                const isSelected = avatarIcon === cat.id;
-                return (
-                  <Pressable
-                    key={cat.id}
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setAvatarIcon(cat.id as any);
-                    }}
-                    style={({ pressed }) => [
-                      { transform: [{ scale: pressed ? 0.93 : 1 }] },
-                    ]}
-                    className={`flex-1 p-2 rounded-2xl items-center border ${
-                      isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500'
-                        : 'bg-zinc-950 border-zinc-800'
-                    }`}
-                  >
-                    <SiaCatMascot size={34} mood={cat.mood} withGlow={isSelected} />
-                    <Text
-                      numberOfLines={1}
-                      className={`text-[9px] font-bold mt-1.5 ${
-                        isSelected ? 'text-emerald-400' : 'text-zinc-500'
-                      }`}
-                    >
-                      {cat.label.split(' ')[0]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
 
             {/* Classic Athlete Icons */}
             <Text className="text-zinc-400 text-[11px] font-bold uppercase mb-2">

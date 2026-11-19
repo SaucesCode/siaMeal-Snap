@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import SiaCatMascot from './SiaCatMascot';
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,10 +12,6 @@ export function BrandLogo({ size = 'md', showTagline = true }: BrandLogoProps) {
 
   return (
     <View className="items-center">
-      {/* SiaMeal Cat Mascot Icon Avatar */}
-      <View className="mb-3 items-center justify-center">
-        <SiaCatMascot size={imageDimension} mood="happy" withGlow={true} standalone={true} />
-      </View>
 
       {/* Styled Brand Title */}
       <View className="flex-row items-baseline">

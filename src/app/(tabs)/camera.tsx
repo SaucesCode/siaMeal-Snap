@@ -18,15 +18,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType, BarcodeScanningResult } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { compressImage, analyzeMealPhoto } from '../../services/aiService';
+import { compressImage, analyzeMealPhoto, NotFoodError } from '../../services/aiService';
 import { lookupBarcode } from '../../services/barcodeService';
 import { useMealStore } from '../../stores/mealStore';
 import { hapticFeedback } from '../../utils/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { MealType } from '../../types';
-import SiaCatMascot from '../../components/SiaCatMascot';
-import { SiaMascotHero, SiaWalkingLoader, SiaContextualLoader } from '../../components/feline';
+import { Sia } from '../../components/sia';
 
 type ScanMode = 'photo' | 'barcode';
 
@@ -34,10 +33,10 @@ const CATEGORY_NAMES: Record<
   string,
   { title: string; color: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
 > = {
-  breakfast: { title: 'Morning Pounce', color: '#f59e0b', icon: 'cat' },
-  lunch: { title: 'Midday Catch', color: '#10b981', icon: 'fish' },
-  dinner: { title: 'Night Prowl', color: '#818cf8', icon: 'weather-night' },
-  snack: { title: 'Paws & Treats', color: '#06b6d4', icon: 'paw' },
+  breakfast: { title: 'Breakfast', color: '#f59e0b', icon: 'cat' },
+  lunch: { title: 'Lunch', color: '#10b981', icon: 'fish' },
+  dinner: { title: 'Dinner', color: '#818cf8', icon: 'weather-night' },
+  snack: { title: 'Snack', color: '#06b6d4', icon: 'paw' },
 };
 
 export default function CameraScreen() {
@@ -209,13 +208,12 @@ export default function CameraScreen() {
       hapticFeedback.success();
       router.push('/review' as any);
     } catch (err: any) {
-      hapticFeedback.error();
-      console.error('Error analyzing image:', err);
-      const errMsg = err?.message || 'Could not analyze the photo. Please try again.';
-      if (/not edible|not on the menu|not food|laptop|computer|phone|gadget|non-food/i.test(errMsg)) {
-        setNonFoodModalText(errMsg);
+      if (err instanceof NotFoodError) {
+        hapticFeedback.medium();
+        setNonFoodModalText(err.message);
       } else {
-        Alert.alert('Analysis Error', errMsg);
+        hapticFeedback.error();
+        Alert.alert("Couldn't read that photo", err?.message || 'Please try again.');
       }
     } finally {
       setIsProcessing(false);
@@ -759,12 +757,11 @@ export default function CameraScreen() {
           className="bg-black/92 items-center justify-center px-6"
         >
           <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/30">
-            <SiaContextualLoader
-              mode="scan"
-              size={112}
-              label={processingStatus || 'Sia is scanning your meal...'}
-              sublabel="Aperture vision eye calculating calories & macros"
-            />
+            <Sia expression="thinking" size={112} />
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base text-center mt-3">
+              {processingStatus || 'Looking at your plate…'}
+            </Text>
+            <Text className="text-zinc-400 text-xs text-center mt-1">Usually takes a few seconds.</Text>
           </View>
         </View>
       )}
@@ -779,12 +776,7 @@ export default function CameraScreen() {
         <View className="flex-1 bg-black/85 items-center justify-center px-6">
           <View className="bg-zinc-900 border border-rose-500/40 p-6 rounded-3xl items-center w-full max-w-sm shadow-2xl shadow-rose-500/25">
             <View className="mb-2">
-              <SiaMascotHero
-                size={88}
-                pose="chef"
-                badge="NOT EDIBLE"
-                withGlow={false}
-              />
+              <Sia expression="puzzled" size={88} />
             </View>
 
             <Text

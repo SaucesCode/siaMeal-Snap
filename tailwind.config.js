@@ -11,6 +11,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Colorpoint tokens (bg-point, text-textMuted, …). Legacy keys below are removed in Task 16.
+        ...require('./src/theme/palette'),
         background: '#09090b',
         card: '#18181b',
         cardBorder: '#27272a',

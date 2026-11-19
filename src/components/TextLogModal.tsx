@@ -9,11 +9,11 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { analyzeMealText } from '../services/aiService';
+import { analyzeMealText, NotFoodError } from '../services/aiService';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import { MealType } from '../types';
-import { SiaContextualLoader } from './feline/SiaContextualLoader';
+import { Sia } from './sia';
 
 interface TextLogModalProps {
   visible: boolean;
@@ -85,8 +85,10 @@ export function TextLogModal({
       onSuccess();
     } catch (error: any) {
       hapticFeedback.error();
-      console.error('Analysis error:', error);
-      Alert.alert('Analysis Failed', error.message || 'Unable to estimate nutrients. Please try again or log manually.');
+      Alert.alert(
+        error instanceof NotFoodError ? "That doesn't sound like food" : "Couldn't read that meal",
+        error?.message || 'Please try again, or log it manually.'
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -138,12 +140,11 @@ export function TextLogModal({
 
           {isAnalyzing ? (
             <View className="py-4 items-center justify-center bg-zinc-950/80 border border-emerald-500/20 rounded-2xl">
-              <SiaContextualLoader
-                mode="chef"
-                size={104}
-                label="Chef Sia is evaluating your recipe..."
-                sublabel="Matching natural ingredients to verified macros"
-              />
+              <Sia expression="thinking" size={104} />
+              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base text-center mt-3">
+                Reading your meal…
+              </Text>
+              <Text className="text-zinc-400 text-xs text-center mt-1">Usually takes a few seconds.</Text>
             </View>
           ) : (
             <>

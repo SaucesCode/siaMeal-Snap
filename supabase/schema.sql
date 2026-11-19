@@ -220,3 +220,51 @@ $$;
 
 REVOKE ALL ON FUNCTION public.consume_ai_quota(TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.consume_ai_quota(TEXT, INTEGER, INTEGER) TO authenticated;
+
+-- 6. Logging streak (consecutive local days with at least one meal)
+-- p_tz is the device's IANA time zone so "today" matches the user's calendar, not UTC.
+-- If nothing is logged yet today the streak counts back from yesterday: it isn't broken until
+-- the day is over. Each step is an indexed range query on meals(user_id, logged_at).
+CREATE OR REPLACE FUNCTION public.get_logging_streak(p_tz TEXT)
+RETURNS TABLE (streak INTEGER, includes_today BOOLEAN)
+LANGUAGE plpgsql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID := (select auth.uid());
+  v_today DATE := (now() AT TIME ZONE p_tz)::date;
+  v_day DATE;
+  v_count INTEGER := 0;
+  v_has_today BOOLEAN;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.meals
+    WHERE user_id = v_user_id
+      AND logged_at >= (v_today::timestamp AT TIME ZONE p_tz)
+      AND logged_at < ((v_today + 1)::timestamp AT TIME ZONE p_tz)
+  ) INTO v_has_today;
+
+  v_day := CASE WHEN v_has_today THEN v_today ELSE v_today - 1 END;
+  LOOP
+    EXIT WHEN NOT EXISTS (
+      SELECT 1 FROM public.meals
+      WHERE user_id = v_user_id
+        AND logged_at >= (v_day::timestamp AT TIME ZONE p_tz)
+        AND logged_at < ((v_day + 1)::timestamp AT TIME ZONE p_tz)
+    );
+    v_count := v_count + 1;
+    v_day := v_day - 1;
+  END LOOP;
+
+  RETURN QUERY SELECT v_count, v_has_today;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_logging_streak(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_logging_streak(TEXT) TO authenticated;

@@ -1,337 +1,127 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { AnimatedProgressRing } from './AnimatedProgressRing';
+import { StyleSheet, Text, View } from 'react-native';
+import { palette, radius, space, type } from '../theme';
+import { calorieSummary, macroProgress } from '../utils/todaySummary';
+import { ProgressBar } from './ProgressBar';
 
-
-interface DailySummaryCardProps {
-  targetCalories: number;
-  consumedCalories: number;
-  protein: { consumed: number; target: number };
-  carbs: { consumed: number; target: number };
-  fat: { consumed: number; target: number };
+interface MacroAmount {
+  consumed: number;
+  target: number;
 }
 
-function CatEarTabs({ borderColor = '#27272a' }: { borderColor?: string }) {
+interface DailyMacroSummaryProps {
+  targetCalories: number;
+  consumedCalories: number;
+  protein: MacroAmount;
+  carbs: MacroAmount;
+  fat: MacroAmount;
+}
+
+const nf = new Intl.NumberFormat('en-US');
+
+function Macro({ label, amount, color }: { label: string; amount: MacroAmount; color: string }) {
+  const p = macroProgress(amount.consumed, amount.target);
   return (
-    <>
-      {/* Left Feline Ear Silhouette Tab */}
-      <View style={{ position: 'absolute', top: -10, left: 24, zIndex: 2 }}>
-        <Svg width={26} height={12} viewBox="0 0 26 12" fill="none">
-          <Path
-            d="M 2 12 L 11 2 C 12 1 14 1 15 2 L 24 12"
-            fill="#09090b"
-            stroke={borderColor}
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-          />
-          <Path
-            d="M 7 12 L 12 4.5 C 12.5 4 13.5 4 14 4.5 L 19 12"
-            fill="#fda4af"
-            fillOpacity={0.25}
-          />
-        </Svg>
-      </View>
-      {/* Right Feline Ear Silhouette Tab */}
-      <View style={{ position: 'absolute', top: -10, right: 24, zIndex: 2 }}>
-        <Svg width={26} height={12} viewBox="0 0 26 12" fill="none">
-          <Path
-            d="M 2 12 L 11 2 C 12 1 14 1 15 2 L 24 12"
-            fill="#09090b"
-            stroke={borderColor}
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-          />
-          <Path
-            d="M 7 12 L 12 4.5 C 12.5 4 13.5 4 14 4.5 L 19 12"
-            fill="#fda4af"
-            fillOpacity={0.25}
-          />
-        </Svg>
-      </View>
-    </>
+    <View
+      style={styles.macro}
+      accessible
+      accessibilityLabel={`${label}: ${p.eaten} of ${p.target} grams`}
+    >
+      <Text style={styles.macroLabel}>{label}</Text>
+      <Text style={styles.macroValue}>
+        {p.eaten}
+        <Text style={styles.macroTarget}> / {p.target} g</Text>
+      </Text>
+      <ProgressBar fraction={p.fraction} fill={color} track={palette.pointTrack} height={5} />
+    </View>
   );
 }
 
-export function DailyMacroSummary({
-  targetCalories,
-  consumedCalories,
-  protein,
-  carbs,
-  fat,
-}: DailySummaryCardProps) {
-  const safeTargetCal = Number(targetCalories) > 0 ? Number(targetCalories) : 2000;
-  const safeConsumedCal = Number(consumedCalories) || 0;
-  const safeProtConsumed = Number(protein?.consumed) || 0;
-  const safeProtTarget = Number(protein?.target) > 0 ? Number(protein?.target) : 150;
-  const safeCarbConsumed = Number(carbs?.consumed) || 0;
-  const safeCarbTarget = Number(carbs?.target) > 0 ? Number(carbs?.target) : 200;
-  const safeFatConsumed = Number(fat?.consumed) || 0;
-  const safeFatTarget = Number(fat?.target) > 0 ? Number(fat?.target) : 65;
-
-  const isOverCalories = safeConsumedCal > safeTargetCal;
-  const overCaloriesAmount = Math.max(0, safeConsumedCal - safeTargetCal);
-  const remainingCalories = Math.max(0, safeTargetCal - safeConsumedCal);
-
-  const calPct = Math.max(0, Math.min(100, Math.round((safeConsumedCal / safeTargetCal) * 100))) || 0;
-  const protPct = Math.max(0, Math.min(100, Math.round((safeProtConsumed / safeProtTarget) * 100))) || 0;
-  const carbPct = Math.max(0, Math.min(100, Math.round((safeCarbConsumed / safeCarbTarget) * 100))) || 0;
-  const fatPct = Math.max(0, Math.min(100, Math.round((safeFatConsumed / safeFatTarget) * 100))) || 0;
-
-  // Concentric Multi-Orbital Radii
-  const size = 216;
-  const center = size / 2;
-
-  // Outer Ring: Calories (Radius 94, Stroke 11)
-  const rCal = 94;
-  const strokeCal = 11;
-
-  // Middle Ring: Protein (Radius 78, Stroke 7.5)
-  const rProt = 78;
-  const strokeProt = 7.5;
-
-  // Inner Ring: Carbs (Radius 64, Stroke 6.5)
-  const rCarb = 64;
-  const strokeCarb = 6.5;
-
+/** Today's hero card: calories eaten, what's left, and the three macros, on the cocoa "point". */
+export function DailyMacroSummary({ targetCalories, consumedCalories, protein, carbs, fat }: DailyMacroSummaryProps) {
+  const s = calorieSummary(consumedCalories, targetCalories);
+  const status = s.over > 0 ? `${nf.format(s.over)} over` : `${nf.format(s.left)} left`;
 
   return (
-    <View
-      className={`relative rounded-3xl p-5 mb-4 border ${
-        isOverCalories
-          ? 'bg-zinc-900/95 border-rose-500/40 shadow-xl shadow-rose-500/10'
-          : 'bg-zinc-900/95 border-zinc-800/90 shadow-xl shadow-black/60'
-      }`}
-    >
-      {/* Sleek Feline Ear Silhouette Tabs */}
-      <CatEarTabs borderColor={isOverCalories ? 'rgba(244,63,94,0.45)' : 'rgba(16,185,129,0.35)'} />
-
-      {/* Top Header Tag Row */}
-      <View className="flex-row items-center justify-between mb-1 px-1">
-        <View className="flex-row items-center gap-2">
-          <View
-            className={`w-2.5 h-2.5 rounded-full ${
-              isOverCalories ? 'bg-rose-500' : 'bg-emerald-500'
-            }`}
-          />
-          <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
-            {isOverCalories ? 'Energy Limit Exceeded' : 'Sia Macro Aperture HUD'}
-          </Text>
-        </View>
-
-        <View className="bg-zinc-950 px-2.5 py-1 rounded-xl border border-emerald-500/30 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/10">
-          <MaterialCommunityIcons
-            name="cat"
-            size={13}
-            color={isOverCalories ? '#fb7185' : '#10b981'}
-          />
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className={`text-[10px] uppercase tracking-wider ${
-              isOverCalories ? 'text-rose-400' : 'text-emerald-400'
-            }`}
-          >
-            {isOverCalories ? 'Prowl Mode' : 'Deficit Locked'}
-          </Text>
-        </View>
+    <View style={styles.card}>
+      <View
+        accessible
+        accessibilityLabel={`${nf.format(s.eaten)} of ${nf.format(s.target)} calories eaten, ${status}`}
+      >
+        <Text style={styles.caption}>Eaten today</Text>
+        <Text style={styles.hero}>{nf.format(s.eaten)}</Text>
+        <Text style={styles.of}>
+          of {nf.format(s.target)} kcal · <Text style={styles.status}>{status}</Text>
+        </Text>
       </View>
-
-      {/* Hero Multi-Tier Concentric Orbital Dial */}
-      <View className="items-center justify-center my-2">
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-          <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#34d399" />
-                <Stop offset="100%" stopColor="#059669" />
-              </LinearGradient>
-              <LinearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#fb7185" />
-                <Stop offset="100%" stopColor="#e11d48" />
-              </LinearGradient>
-              <LinearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#38bdf8" />
-                <Stop offset="100%" stopColor="#0284c7" />
-              </LinearGradient>
-              <LinearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#fbbf24" />
-                <Stop offset="100%" stopColor="#d97706" />
-              </LinearGradient>
-            </Defs>
-
-            {/* Orbit Tracks */}
-            <Circle cx={center} cy={center} r={rCal} stroke="#18181b" strokeWidth={strokeCal} fill="transparent" />
-            <Circle cx={center} cy={center} r={rProt} stroke="#18181b" strokeWidth={strokeProt} fill="transparent" />
-            <Circle cx={center} cy={center} r={rCarb} stroke="#18181b" strokeWidth={strokeCarb} fill="transparent" />
-
-            {/* Concentric Active Rings */}
-            {/* 1. Outer Calorie Ring */}
-            <AnimatedProgressRing
-              cx={center}
-              cy={center}
-              r={rCal}
-              stroke={isOverCalories ? 'url(#roseGrad)' : 'url(#emeraldGrad)'}
-              strokeWidth={strokeCal}
-              progress={calPct / 100}
-              durationMs={950}
-            />
-
-            {/* 2. Middle Protein Ring */}
-            <AnimatedProgressRing
-              cx={center}
-              cy={center}
-              r={rProt}
-              stroke={"url(#skyGrad)"}
-              strokeWidth={strokeProt}
-              progress={protPct / 100}
-              durationMs={900}
-            />
-
-            {/* 3. Inner Carbs Ring */}
-            <AnimatedProgressRing
-              cx={center}
-              cy={center}
-              r={rCarb}
-              stroke={"url(#amberGrad)"}
-              strokeWidth={strokeCarb}
-              progress={carbPct / 100}
-              durationMs={850}
-            />
-          </Svg>
-
-          {/* Center Aperture Core Readout */}
-          <View className="items-center justify-center px-4">
-            <View className="flex-row items-center gap-1 mb-0.5">
-              <MaterialCommunityIcons
-                name="paw"
-                size={13}
-                color={isOverCalories ? '#fb7185' : '#10b981'}
-              />
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className={`text-[9px] uppercase tracking-wider ${
-                  isOverCalories ? 'text-rose-400' : 'text-emerald-400'
-                }`}
-              >
-                {isOverCalories ? 'Exceeded' : 'Remaining'}
-              </Text>
-            </View>
-
-            <Text
-              style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
-              className={`text-3xl tracking-tight ${
-                isOverCalories ? 'text-rose-400' : 'text-white'
-              }`}
-            >
-              {isOverCalories
-                ? `+${Math.round(overCaloriesAmount)}`
-                : Math.round(remainingCalories).toLocaleString()}
-            </Text>
-
-            {/* Micro Whisker Detail */}
-            <View className="flex-row items-center gap-1 my-0.5 opacity-60">
-              <View className="w-3 h-px bg-zinc-600" />
-              <View className="w-1 h-1 rounded-full bg-emerald-400" />
-              <View className="w-3 h-px bg-zinc-600" />
-            </View>
-
-            <Text className="text-zinc-500 text-[10px] font-bold mt-0.5">
-              {calPct}% of {Math.round(safeTargetCal)} kcal
-            </Text>
-          </View>
-        </View>
+      <View style={styles.calorieBar}>
+        <ProgressBar fraction={s.fraction} fill={s.over > 0 ? palette.carbs : palette.leaf} track={palette.pointTrack} />
       </View>
-
-      {/* Celebratory Goal Hit Banner */}
-      {protPct >= 100 && (
-        <View className="bg-emerald-500/15 border border-emerald-500/40 rounded-2xl px-3.5 py-2 my-1 flex-row items-center justify-between shadow-sm shadow-emerald-500/10">
-          <View className="flex-row items-center gap-1.5">
-            <MaterialCommunityIcons name="trophy" size={14} color="#34d399" />
-            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-emerald-400 text-xs">
-              Protein Target Reached
-            </Text>
-          </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold' }} className="text-emerald-300 text-xs">
-            {Math.round(safeProtConsumed)}g ({protPct}%)
-          </Text>
-        </View>
-      )}
-
-      {/* 3 Athletic Telemetry Bars (Protein, Carbs, Fat) */}
-      <View className="flex-row gap-2 mt-2 pt-3 border-t border-zinc-800/70">
-        {/* Protein Pod */}
-        <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-2.5">
-          <View className="flex-row items-center justify-between mb-1">
-            <View className="flex-row items-center gap-1">
-              <View className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-              <Text className="text-sky-400 text-[9px] font-black uppercase">Protein</Text>
-            </View>
-            <Text className="text-zinc-400 text-[10px] font-bold">{protPct}%</Text>
-          </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
-            {Math.round(safeProtConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeProtTarget)}g</Text>
-          </Text>
-          {/* Micro Progress Track */}
-          <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
-            <View
-              style={{ width: `${Math.min(100, protPct)}%` }}
-              className="h-full bg-sky-400 rounded-full"
-            />
-          </View>
-          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
-            {safeProtConsumed >= safeProtTarget ? 'Target Met' : `${Math.round(Math.max(0, safeProtTarget - safeProtConsumed))}g left`}
-          </Text>
-        </View>
-
-        {/* Carbs Pod */}
-        <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-2.5">
-          <View className="flex-row items-center justify-between mb-1">
-            <View className="flex-row items-center gap-1">
-              <View className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <Text className="text-amber-400 text-[9px] font-black uppercase">Carbs</Text>
-            </View>
-            <Text className="text-zinc-400 text-[10px] font-bold">{carbPct}%</Text>
-          </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
-            {Math.round(safeCarbConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeCarbTarget)}g</Text>
-          </Text>
-          {/* Micro Progress Track */}
-          <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
-            <View
-              style={{ width: `${Math.min(100, carbPct)}%` }}
-              className="h-full bg-amber-400 rounded-full"
-            />
-          </View>
-          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
-            {safeCarbConsumed >= safeCarbTarget ? 'Target Met' : `${Math.round(Math.max(0, safeCarbTarget - safeCarbConsumed))}g left`}
-          </Text>
-        </View>
-
-        {/* Fat Pod */}
-        <View className="flex-1 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-2.5">
-          <View className="flex-row items-center justify-between mb-1">
-            <View className="flex-row items-center gap-1">
-              <View className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-              <Text className="text-rose-400 text-[9px] font-black uppercase">Fat</Text>
-            </View>
-            <Text className="text-zinc-400 text-[10px] font-bold">{fatPct}%</Text>
-          </View>
-          <Text style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }} className="text-white text-sm">
-            {Math.round(safeFatConsumed)} <Text className="text-[10px] text-zinc-500 font-normal">/ {Math.round(safeFatTarget)}g</Text>
-          </Text>
-          {/* Micro Progress Track */}
-          <View className="w-full h-1 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
-            <View
-              style={{ width: `${Math.min(100, fatPct)}%` }}
-              className="h-full bg-rose-400 rounded-full"
-            />
-          </View>
-          <Text className="text-zinc-500 text-[9px] font-semibold mt-1">
-            {safeFatConsumed >= safeFatTarget ? 'Target Met' : `${Math.round(Math.max(0, safeFatTarget - safeFatConsumed))}g left`}
-          </Text>
-        </View>
+      <View style={styles.macros}>
+        <Macro label="Protein" amount={protein} color={palette.protein} />
+        <Macro label="Carbs" amount={carbs} color={palette.carbs} />
+        <Macro label="Fat" amount={fat} color={palette.fat} />
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: palette.point,
+    borderRadius: radius.hero,
+    padding: space[4] + space[1],
+    marginBottom: space[4],
+  },
+  caption: {
+    fontFamily: type.bodySemibold,
+    fontSize: type.size.caption,
+    color: palette.pointMuted,
+  },
+  hero: {
+    fontFamily: type.display,
+    fontSize: type.size.hero,
+    lineHeight: 46,
+    color: palette.pointText,
+    fontVariant: ['tabular-nums'],
+    marginTop: space[1],
+  },
+  of: {
+    fontFamily: type.bodySemibold,
+    fontSize: type.size.secondary,
+    color: palette.pointMuted,
+    fontVariant: ['tabular-nums'],
+  },
+  status: {
+    color: palette.pointText,
+  },
+  calorieBar: {
+    marginTop: space[3],
+  },
+  macros: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginTop: space[4],
+  },
+  macro: {
+    flex: 1,
+  },
+  macroLabel: {
+    fontFamily: type.bodyBold,
+    fontSize: type.size.caption,
+    color: palette.pointMuted,
+  },
+  macroValue: {
+    fontFamily: type.displayBold,
+    fontSize: type.size.body,
+    color: palette.pointText,
+    fontVariant: ['tabular-nums'],
+    marginTop: 2,
+    marginBottom: space[1] + 2,
+  },
+  macroTarget: {
+    fontFamily: type.body,
+    fontSize: type.size.caption,
+    color: palette.pointMuted,
+  },
+});

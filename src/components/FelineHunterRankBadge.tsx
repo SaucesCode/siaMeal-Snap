@@ -4,7 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getFelineHunterRank, FELINE_TIERS } from '../utils/felineGamification';
 import { hapticFeedback } from '../utils/haptics';
-import SiaCatMascot from './SiaCatMascot';
+import { Sia } from './sia';
 
 interface FelineHunterRankBadgeProps {
   streakDays: number;
@@ -101,11 +101,7 @@ export function FelineHunterRankBadge({ streakDays, compact = false }: FelineHun
 
         <View className="flex-row items-center gap-3.5 mb-3">
           <View className="items-center justify-center">
-            <SiaCatMascot
-              size={54}
-              mood={rank.streakDays >= 7 ? 'celebrating' : 'happy'}
-              withGlow={false}
-            />
+            <Sia expression={rank.streakDays >= 7 ? 'celebrating' : 'happy'} size={54} />
           </View>
 
           <View className="flex-1">
@@ -206,7 +202,7 @@ function MilestonesModal({ visible, onClose, currentStreak, rank }: MilestonesMo
           <ScrollView className="p-5" showsVerticalScrollIndicator={false}>
             {/* Active Tier Highlight Card */}
             <View className="bg-emerald-500/10 border border-emerald-500/30 rounded-3xl p-4 mb-4 flex-row items-center gap-3.5">
-              <SiaCatMascot size={46} mood="celebrating" withGlow={false} />
+              <Sia expression="celebrating" size={48} />
               <View className="flex-1">
                 <Text
                   style={{ fontFamily: 'Outfit_700Bold' }}

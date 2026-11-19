@@ -39,6 +39,8 @@ interface MealState {
   todayMeals: Meal[];
   /** Local date todayMeals belongs to, so a list from before midnight is never treated as today's. */
   todayMealsDate: string;
+  /** The most recent meal logged on this device for today (drives Sia's reaction). */
+  lastLoggedMeal: { id: string; name: string } | null;
   weeklySummary: WeeklySummary | null;
   draftMeal: {
     name: string;
@@ -87,26 +89,8 @@ interface MealState {
   reset: () => void;
 }
 
-/**
- * Returns today's calendar date string (YYYY-MM-DD) in the user's local timezone.
- */
-export const getTodayString = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-/**
- * Converts any Date object to a local YYYY-MM-DD string.
- */
-export const getLocalDateString = (d: Date): string => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+export { getTodayString, getLocalDateString } from '../utils/localDate';
+import { getLocalDateString, getTodayString } from '../utils/localDate';
 
 /**
  * Computes exact start-of-day and end-of-day timestamps in ISO UTC
@@ -195,6 +179,7 @@ export const useMealStore = create<MealState>((set, get) => ({
   selectedDate: getTodayString(),
   todayMeals: [],
   todayMealsDate: getTodayString(),
+  lastLoggedMeal: null,
   weeklySummary: null,
   draftMeal: null,
   isLoading: false,
@@ -451,6 +436,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       if (isOnLocalDate(newMeal, today)) {
         next.todayMeals = [newMeal, ...selectTodayMeals(state).filter((m) => m.id !== newMeal.id)];
         next.todayMealsDate = today;
+        next.lastLoggedMeal = { id: newMeal.id, name: newMeal.name };
         persistTodayMeals(next.todayMeals);
       }
       return next;
@@ -651,6 +637,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       selectedDate: getTodayString(),
       todayMeals: [],
       todayMealsDate: getTodayString(),
+      lastLoggedMeal: null,
       weeklySummary: null,
       draftMeal: null,
       isLoading: false,
