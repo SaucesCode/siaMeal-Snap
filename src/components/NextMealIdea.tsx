@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Meal } from '../types';
 import { useMealStore } from '../stores/mealStore';
@@ -7,6 +7,7 @@ import { hapticFeedback } from '../utils/haptics';
 import { getSiaForecastRecommendation } from '../utils/mealForecastEngine';
 import { mealTypeLabel } from '../constants/mealTypes';
 import { palette, radius, space, type } from '../theme';
+import { Tap } from './Tap';
 
 interface Macros {
   calories: number;
@@ -60,15 +61,15 @@ export function NextMealIdea({ targets, consumed, loggedMeals }: NextMealIdeaPro
         {Math.round(idea.calories)} kcal · {Math.round(idea.protein_g)} g protein
       </Text>
       <View style={styles.actions}>
-        <Pressable
+        <Tap
           onPress={logIt}
           accessibilityRole="button"
           accessibilityLabel={`Log ${idea.name}`}
           style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed]}
         >
           <Text style={styles.primaryText}>Log this</Text>
-        </Pressable>
-        <Pressable
+        </Tap>
+        <Tap
           onPress={() => {
             hapticFeedback.selection();
             setCycleIndex((i) => i + 1);
@@ -77,7 +78,7 @@ export function NextMealIdea({ targets, consumed, loggedMeals }: NextMealIdeaPro
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
           <Text style={styles.secondaryText}>Another idea</Text>
-        </Pressable>
+        </Tap>
       </View>
     </View>
   );

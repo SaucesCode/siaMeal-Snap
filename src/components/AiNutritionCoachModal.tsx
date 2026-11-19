@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   ActivityIndicator,
   Platform,
@@ -32,6 +31,7 @@ import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggesti
 import { Sia } from './sia';
 import { ToastBanner, ToastConfig } from './ToastBanner';
 import { useShallow } from 'zustand/react/shallow';
+import { Tap } from './Tap';
 
 interface AiNutritionCoachModalProps {
   visible: boolean;
@@ -268,7 +268,7 @@ function FormattedChatMessage({
       {/* Bubble Footer: 1-Tap Copy Action for Sia's responses */}
       {!isUser && onCopy && (
         <View className="flex-row items-center justify-end mt-2 pt-0.5">
-          <Pressable
+          <Tap
             onPress={() => onCopy(cleanedContent)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={({ pressed }) => [{ opacity: pressed ? 0.5 : 0.8 }]}
@@ -276,7 +276,7 @@ function FormattedChatMessage({
           >
             <Ionicons name="copy-outline" size={11} color="#a1a1aa" />
             <Text className="text-[9px] text-zinc-400 font-semibold">Copy</Text>
-          </Pressable>
+          </Tap>
         </View>
       )}
     </View>
@@ -832,7 +832,7 @@ export function AiNutritionCoachModal({
 
           <View className="flex-row gap-1.5">
             {/* Calories Pill */}
-            <Pressable
+            <Tap
               onPress={() => {
                 hapticFeedback.selection();
                 handleSendMessage(`What can I eat with my remaining ${remainingCal} kcal?`);
@@ -850,10 +850,10 @@ export function AiNutritionCoachModal({
               >
                 {remainingCal}
               </Text>
-            </Pressable>
+            </Tap>
 
             {/* Protein Pill */}
-            <Pressable
+            <Tap
               onPress={() => {
                 hapticFeedback.selection();
                 handleSendMessage(`High-protein ideas for my remaining ${remainingProt}g protein?`);
@@ -871,10 +871,10 @@ export function AiNutritionCoachModal({
               >
                 {remainingProt}g
               </Text>
-            </Pressable>
+            </Tap>
 
             {/* Carbs Pill */}
-            <Pressable
+            <Tap
               onPress={() => {
                 hapticFeedback.selection();
                 handleSendMessage(`What clean carb sources fit my remaining ${remainingCarbs}g carbs?`);
@@ -892,10 +892,10 @@ export function AiNutritionCoachModal({
               >
                 {remainingCarbs}g
               </Text>
-            </Pressable>
+            </Tap>
 
             {/* Fat Pill */}
-            <Pressable
+            <Tap
               onPress={() => {
                 hapticFeedback.selection();
                 handleSendMessage(`What healthy fat options fit my remaining ${remainingFat}g fat?`);
@@ -913,7 +913,7 @@ export function AiNutritionCoachModal({
               >
                 {remainingFat}g
               </Text>
-            </Pressable>
+            </Tap>
           </View>
         </View>
 
@@ -941,7 +941,7 @@ export function AiNutritionCoachModal({
                     </View>
                   </View>
                 ) : (
-                  <Pressable
+                  <Tap
                     onPress={() => toggleDateGroup(group.dateKey)}
                     style={({ pressed }) => [
                       {
@@ -1008,7 +1008,7 @@ export function AiNutritionCoachModal({
                         color={isExpanded ? '#a1a1aa' : '#10b981'}
                       />
                     </View>
-                  </Pressable>
+                  </Tap>
                 )}
 
                 {/* Render Messages for this Day (when expanded or when Today) */}
@@ -1097,7 +1097,7 @@ export function AiNutritionCoachModal({
             className="flex-row"
           >
             {dynamicPrompts.map((item, idx) => (
-              <Pressable
+              <Tap
                 key={idx}
                 onPress={() => handleSendMessage(item.query)}
                 disabled={isTyping}
@@ -1111,7 +1111,7 @@ export function AiNutritionCoachModal({
               >
                 <MaterialCommunityIcons name={item.icon} size={12} color="#10b981" />
                 <Text className="text-zinc-300 text-[11px] font-semibold">{item.label}</Text>
-              </Pressable>
+              </Tap>
             ))}
           </ScrollView>
         </View>
@@ -1129,7 +1129,7 @@ export function AiNutritionCoachModal({
             editable={!isTyping}
           />
 
-          <Pressable
+          <Tap
             onPress={() => handleSendMessage()}
             disabled={!inputText.trim() || isTyping}
             style={({ pressed }) => [
@@ -1143,7 +1143,7 @@ export function AiNutritionCoachModal({
             }`}
           >
             <Ionicons name="arrow-up" size={16} color="#ffffff" />
-          </Pressable>
+          </Tap>
         </View>
         <Text className="text-zinc-400 text-xs text-center mt-2">
           Sia shares general nutrition info, not medical advice.

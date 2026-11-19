@@ -2,18 +2,8 @@ import { fetch as streamingFetch } from 'expo/fetch';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
 
-export interface AnalyzeMealResponse {
-  meal_name: string;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  ingredients: string[];
-  confidence_score?: number;
-  portion_notes?: string;
-  dietary_tags?: string[];
-  feline_verdict?: string;
-}
+import type { AnalyzeMealResponse } from '../types';
+export type { AnalyzeMealResponse };
 
 export interface ChatMessage {
   id: string;

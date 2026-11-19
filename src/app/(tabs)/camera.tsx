@@ -6,7 +6,6 @@ import {
   Linking,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +31,7 @@ import { EyeViewfinder } from '../../features/camera/EyeViewfinder';
 import { NotFoodSheet } from '../../features/camera/NotFoodSheet';
 import type { ViewfinderMode } from '../../features/camera/viewfinderGeometry';
 import { palette, radius, space, type } from '../../theme';
+import { Tap } from '../../components/Tap';
 
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'] as const;
 const LOOKING = { title: 'Looking at your plate…', subtitle: 'Usually takes a few seconds.' };
@@ -43,7 +43,7 @@ const nextMealType = (t: MealType): MealType => MEAL_TYPES[(MEAL_TYPES.findIndex
 
 function RoundButton({ icon, label, onPress, disabled }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; disabled?: boolean }) {
   return (
-    <Pressable
+    <Tap
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
@@ -52,7 +52,7 @@ function RoundButton({ icon, label, onPress, disabled }: { icon: React.Component
       style={({ pressed }) => [styles.round, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Ionicons name={icon} size={22} color={palette.pointText} />
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -103,6 +103,9 @@ export default function CameraScreen() {
         protein_g: result.protein_g,
         carbs_g: result.carbs_g,
         fat_g: result.fat_g,
+        fiber_g: result.fiber_g,
+        sugar_g: result.sugar_g,
+        sodium_mg: result.sodium_mg,
         food_items: result.ingredients,
         image_url: compressed.uri,
         confidence_score: result.confidence_score,
@@ -212,13 +215,13 @@ export default function CameraScreen() {
         <Sia expression="resting" size={96} animated={false} />
         <Text style={styles.permTitle}>Snap your meals</Text>
         <Text style={styles.permBody}>SiaMeal needs your camera to see what you're eating. Photos stay private to you.</Text>
-        <Pressable
+        <Tap
           onPress={blocked ? () => Linking.openSettings() : requestPermission}
           accessibilityRole="button"
           style={({ pressed }) => [styles.permButton, pressed && styles.pressed]}
         >
           <Text style={styles.permButtonText}>{blocked ? 'Open settings' : 'Allow camera'}</Text>
-        </Pressable>
+        </Tap>
       </SafeAreaView>
     );
   }
@@ -250,7 +253,7 @@ export default function CameraScreen() {
           <RoundButton icon="close" label="Close camera" onPress={() => router.back()} />
           <View style={styles.modes} accessibilityRole="tablist">
             {(['photo', 'barcode'] as const).map((m) => (
-              <Pressable
+              <Tap
                 key={m}
                 onPress={() => {
                   hapticFeedback.selection();
@@ -261,13 +264,13 @@ export default function CameraScreen() {
                 style={[styles.mode, mode === m && styles.modeOn]}
               >
                 <Text style={[styles.modeText, mode === m && styles.modeTextOn]}>{m === 'photo' ? 'Photo' : 'Barcode'}</Text>
-              </Pressable>
+              </Tap>
             ))}
           </View>
           <RoundButton icon={torch ? 'flash' : 'flash-off'} label={torch ? 'Turn flash off' : 'Turn flash on'} onPress={() => setTorch((t) => !t)} />
         </View>
 
-        <Pressable
+        <Tap
           onPress={() => {
             hapticFeedback.selection();
             setMealType(nextMealType(mealType));
@@ -279,7 +282,7 @@ export default function CameraScreen() {
         >
           <Text style={styles.mealChipText}>{mealTypeLabel(mealType)}</Text>
           <Ionicons name="chevron-down" size={14} color={palette.pointText} />
-        </Pressable>
+        </Tap>
         </View>
 
         <View style={styles.bottom}>
@@ -287,7 +290,7 @@ export default function CameraScreen() {
           {mode === 'photo' ? (
             <View style={styles.controls}>
               <RoundButton icon="images-outline" label="Choose from your photos" onPress={pickFromGallery} disabled={!!busy} />
-              <Pressable
+              <Tap
                 onPress={capture}
                 disabled={!!busy}
                 accessibilityRole="button"
@@ -295,7 +298,7 @@ export default function CameraScreen() {
                 style={({ pressed }) => [styles.shutter, pressed && styles.shutterPressed, busy && styles.disabled]}
               >
                 <View style={styles.shutterDot} />
-              </Pressable>
+              </Tap>
               <RoundButton
                 icon="camera-reverse-outline"
                 label="Flip camera"
@@ -305,14 +308,14 @@ export default function CameraScreen() {
             </View>
           ) : (
             <View style={styles.controls}>
-              <Pressable
+              <Tap
                 onPress={() => setBarcodeEntry(true)}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.typeButton, pressed && styles.pressed]}
               >
                 <Ionicons name="keypad-outline" size={18} color={palette.text} />
                 <Text style={styles.typeButtonText}>Type the number</Text>
-              </Pressable>
+              </Tap>
             </View>
           )}
         </View>
@@ -343,7 +346,7 @@ export default function CameraScreen() {
 
       <Modal visible={barcodeEntry} transparent animationType="slide" onRequestClose={() => setBarcodeEntry(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetBackdrop}>
-          <Pressable style={styles.backdrop} onPress={() => setBarcodeEntry(false)} accessibilityLabel="Close" />
+          <Tap style={styles.backdrop} onPress={() => setBarcodeEntry(false)} accessibilityLabel="Close" />
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Type the barcode number</Text>
             <Text style={styles.sheetBody}>The digits under the stripes, usually 8 to 13.</Text>
@@ -359,7 +362,7 @@ export default function CameraScreen() {
               style={styles.sheetInput}
               autoFocus
             />
-            <Pressable
+            <Tap
               onPress={() => lookUp(barcodeText)}
               disabled={!barcodeText.trim() || !!busy}
               accessibilityRole="button"
@@ -367,7 +370,7 @@ export default function CameraScreen() {
               style={({ pressed }) => [styles.sheetButton, pressed && styles.pressed, (!barcodeText.trim() || busy) && styles.disabled]}
             >
               {busy ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.sheetButtonText}>Look it up</Text>}
-            </Pressable>
+            </Tap>
           </View>
         </KeyboardAvoidingView>
       </Modal>

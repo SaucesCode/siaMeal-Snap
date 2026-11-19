@@ -60,6 +60,8 @@ export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps
   const reduceMotion = useReducedMotion();
 
   const [width, setWidth] = useState(0);
+  /** Latest measured width, read when she actually moves (the card can resize mid-animation). */
+  const widthRef = useRef(0);
   const [expression, setExpression] = useState<SiaExpression>('resting');
   const spot = useRef<SiaSpot>('center');
   const busy = useRef(false);
@@ -91,13 +93,13 @@ export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps
       }
 
       busy.current = true;
-      const x1 = peekX(to, width);
       const finish = (afterMs: number) =>
         later(() => {
           busy.current = false;
           const next = pending.current;
           pending.current = null;
           if (next) play(next);
+          else x.set(peekX(spot.current, widthRef.current));
         }, afterMs);
 
       if (reduceMotion) {
@@ -106,7 +108,7 @@ export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps
         later(() => {
           spot.current = to;
           setExpression(reaction.expression);
-          x.set(x1);
+          x.set(peekX(to, widthRef.current));
           opacity.set(withTiming(1, { duration: PEEK_MS.fade }));
           pawOpacity.set(withTiming(1, { duration: PEEK_MS.fade }));
         }, PEEK_MS.fade);
@@ -123,7 +125,7 @@ export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps
       later(() => {
         spot.current = to;
         setExpression(reaction.expression);
-        x.set(x1);
+        x.set(peekX(to, widthRef.current));
       }, PEEK_MS.duck);
 
       // 3. Rise with a small settle, leaning toward the middle; paws grab the edge once her chin clears it.
@@ -209,7 +211,10 @@ export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps
   if (hidden) return null;
 
   return (
-    <View testID="sia-peek-zone" style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+    <View testID="sia-peek-zone" style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => {
+        widthRef.current = e.nativeEvent.layout.width;
+        setWidth(e.nativeEvent.layout.width);
+      }}>
       <View style={styles.strip} pointerEvents="box-none">
         <Animated.View testID="sia-peek" style={[styles.sia, siaStyle]}>
           <Pressable

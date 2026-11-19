@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SiaPeek } from '../sia/SiaPeek';
 import type { SiaReaction } from '../sia/siaReactions';
 import { palette, radius, space, type } from '../../theme';
+import { Tap } from '../../components/Tap';
 
 interface NotFoodSheetProps {
   reason: string;
@@ -20,12 +21,12 @@ export function NotFoodSheet({ reason, onTryAgain, onTypeInstead }: NotFoodSheet
         That doesn't look like food
       </Text>
       <Text style={styles.reason}>{reason}</Text>
-      <Pressable onPress={onTryAgain} accessibilityRole="button" style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed]}>
+      <Tap onPress={onTryAgain} accessibilityRole="button" style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed]}>
         <Text style={styles.primaryText}>Try again</Text>
-      </Pressable>
-      <Pressable onPress={onTypeInstead} accessibilityRole="button" style={({ pressed }) => [styles.button, styles.secondary, pressed && styles.pressed]}>
+      </Tap>
+      <Tap onPress={onTypeInstead} accessibilityRole="button" style={({ pressed }) => [styles.button, styles.secondary, pressed && styles.pressed]}>
         <Text style={styles.secondaryText}>Type it instead</Text>
-      </Pressable>
+      </Tap>
     </View>
   );
 }

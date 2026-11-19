@@ -4,7 +4,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useCoachStore } from '../stores/coachStore';
 import { useMealImageSource } from '../lib/mealImages';
 import { CalorieEyeRing } from '../components/CalorieEyeRing';
+import { MacroAfterBar } from '../components/MacroAfterBar';
 import { SiaPeek } from '../features/sia/SiaPeek';
 import { PEEK_SHOWN_Y, PEEK_SIZE } from '../features/sia/peekMotion';
 import type { SiaReaction } from '../features/sia/siaReactions';
@@ -30,6 +30,7 @@ import { getDefaultMealType, reconcileCaloriesWithMacros } from '../utils/nutrit
 import { mealFit, scaleMacros, type Macros } from '../utils/reviewMath';
 import { hapticFeedback } from '../utils/haptics';
 import { palette, radius, space, type } from '../theme';
+import { Tap } from '../components/Tap';
 
 const PORTIONS: Array<{ value: number; label: string }> = [
   { value: 0.5, label: '½' },
@@ -93,11 +94,18 @@ export default function ReviewScreen() {
   const today = useMemo(
     () =>
       todayMeals.reduce(
-        (acc, m) => ({ calories: acc.calories + (Number(m.calories) || 0), protein: acc.protein + (Number(m.protein_g) || 0) }),
-        { calories: 0, protein: 0 }
+        (acc, m) => ({
+          calories: acc.calories + (Number(m.calories) || 0),
+          protein: acc.protein + (Number(m.protein_g) || 0),
+          carbs: acc.carbs + (Number(m.carbs_g) || 0),
+          fat: acc.fat + (Number(m.fat_g) || 0),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
       ),
     [todayMeals]
   );
+  const targetCarbs = Number(profile?.target_carbs_g) || 200;
+  const targetFat = Number(profile?.target_fat_g) || 65;
   const fit = mealFit(today.calories, today.protein, meal, targetCalories, targetProtein);
 
   // Sia's face follows how this meal fits; a new face makes her duck and pop up again.
@@ -162,13 +170,22 @@ export default function ReviewScreen() {
   };
 
   const notes = [draftMeal.portion_notes, draftMeal.feline_verdict].filter(Boolean) as string[];
+  // Extras the AI reported, scaled with the portion (edits to the main numbers don't change them).
+  const extras = [
+    { label: 'Fiber', value: draftMeal.fiber_g, unit: 'g' },
+    { label: 'Sugar', value: draftMeal.sugar_g, unit: 'g' },
+    { label: 'Sodium', value: draftMeal.sodium_mg, unit: 'mg' },
+  ].flatMap(({ label, value, unit }) => {
+    const n = Math.round((Number(value) || 0) * portion);
+    return n > 0 ? [`${label} ${nf.format(n)} ${unit}`] : [];
+  });
   const status = fit.over > 0 ? `${nf.format(fit.over)} over after` : `${nf.format(fit.left)} left after`;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable
+          <Tap
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Retake"
@@ -176,8 +193,8 @@ export default function ReviewScreen() {
           >
             <Ionicons name="close" size={20} color={palette.text} />
             <Text style={styles.headerText}>Retake</Text>
-          </Pressable>
-          <Pressable
+          </Tap>
+          <Tap
             onPress={() => {
               hapticFeedback.selection();
               setMealType(nextMealType(mealType));
@@ -189,7 +206,7 @@ export default function ReviewScreen() {
           >
             <Text style={styles.mealChipText}>{mealTypeLabel(mealType)}</Text>
             <Ionicons name="chevron-down" size={14} color={palette.text} />
-          </Pressable>
+          </Tap>
         </View>
 
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -216,6 +233,7 @@ export default function ReviewScreen() {
 
           <View style={styles.cardZone}>
             <View style={styles.card}>
+              <View style={styles.cardTop}>
               <CalorieEyeRing
                 size={112}
                 eaten={meal.calories}
@@ -239,15 +257,33 @@ export default function ReviewScreen() {
                 ))}
                 <Text style={styles.after}>{status}</Text>
               </View>
+              </View>
+              <View style={styles.divider} />
+              <Text style={styles.cardSection}>Today after this meal</Text>
+              <View style={styles.bars}>
+                <MacroAfterBar label="Protein" before={today.protein} add={meal.protein_g} target={targetProtein} color={palette.protein} />
+                <MacroAfterBar label="Carbs" before={today.carbs} add={meal.carbs_g} target={targetCarbs} color={palette.carbs} />
+                <MacroAfterBar label="Fat" before={today.fat} add={meal.fat_g} target={targetFat} color={palette.fat} />
+              </View>
             </View>
             <SiaPeek reaction={siaReaction} onPress={askSia} />
           </View>
+
+          {extras.length > 0 && (
+            <View style={styles.extras}>
+              {extras.map((e) => (
+                <View key={e} style={styles.extra}>
+                  <Text style={styles.extraText}>{e}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.portions} accessibilityRole="radiogroup">
             {PORTIONS.map((p) => {
               const on = !edited && portion === p.value;
               return (
-                <Pressable
+                <Tap
                   key={p.value}
                   onPress={() => choosePortion(p.value)}
                   accessibilityRole="radio"
@@ -256,12 +292,12 @@ export default function ReviewScreen() {
                   style={({ pressed }) => [styles.portion, on && styles.portionOn, pressed && styles.pressed]}
                 >
                   <Text style={[styles.portionText, on && styles.portionTextOn]}>{p.label}</Text>
-                </Pressable>
+                </Tap>
               );
             })}
           </View>
 
-          <Pressable
+          <Tap
             onPress={() => setDetailsOpen((o) => !o)}
             accessibilityRole="button"
             accessibilityState={{ expanded: detailsOpen }}
@@ -269,7 +305,7 @@ export default function ReviewScreen() {
           >
             <Text style={styles.detailsText}>Edit details</Text>
             <Ionicons name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={18} color={palette.text} />
-          </Pressable>
+          </Tap>
 
           {detailsOpen && (
             <View style={styles.details}>
@@ -295,7 +331,7 @@ export default function ReviewScreen() {
               <Text style={styles.fieldLabel}>Ingredients</Text>
               <View style={styles.chips}>
                 {foodItems.map((item, i) => (
-                  <Pressable
+                  <Tap
                     key={`${item}-${i}`}
                     onPress={() => setFoodItems((items) => items.filter((_, j) => j !== i))}
                     accessibilityRole="button"
@@ -304,7 +340,7 @@ export default function ReviewScreen() {
                   >
                     <Text style={styles.chipText}>{item}</Text>
                     <Ionicons name="close" size={14} color={palette.textMuted} />
-                  </Pressable>
+                  </Tap>
                 ))}
               </View>
               <TextInput
@@ -324,17 +360,17 @@ export default function ReviewScreen() {
                 </Text>
               ))}
 
-              <Pressable onPress={askSia} accessibilityRole="button" style={({ pressed }) => [styles.askSia, pressed && styles.pressed]}>
+              <Tap onPress={askSia} accessibilityRole="button" style={({ pressed }) => [styles.askSia, pressed && styles.pressed]}>
                 <Ionicons name="chatbubble-ellipses-outline" size={18} color={palette.text} />
                 <Text style={styles.detailsText}>Ask Sia about this meal</Text>
-              </Pressable>
+              </Tap>
             </View>
           )}
         </ScrollView>
 
         <View style={styles.footer}>
           <Text style={styles.caption}>{draftMeal.image_url ? 'Estimated from your photo.' : 'Estimated values.'}</Text>
-          <Pressable
+          <Tap
             onPress={save}
             disabled={isSaving}
             accessibilityRole="button"
@@ -342,7 +378,7 @@ export default function ReviewScreen() {
             style={({ pressed }) => [styles.save, pressed && styles.pressed, isSaving && styles.saving]}
           >
             {isSaving ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.saveText}>Save</Text>}
-          </Pressable>
+          </Tap>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -381,13 +417,25 @@ const styles = StyleSheet.create({
   error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
   cardZone: { marginTop: PEEK_SIZE - PEEK_SHOWN_Y + space[2] },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[4],
     padding: space[4],
     borderRadius: radius.hero,
     backgroundColor: palette.point,
   },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  divider: { height: 1, backgroundColor: palette.pointTrack, marginVertical: space[4] },
+  cardSection: { fontFamily: type.bodyBold, fontSize: type.size.caption, color: palette.pointMuted, marginBottom: space[2] },
+  bars: { gap: space[3] },
+  extras: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[3] },
+  extra: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: space[3],
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  extraText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text, fontVariant: ['tabular-nums'] },
   adds: { flex: 1, gap: space[1] + 2 },
   add: { fontVariant: ['tabular-nums'] },
   addValue: { fontFamily: type.displayBold, fontSize: type.size.body, color: palette.pointText },

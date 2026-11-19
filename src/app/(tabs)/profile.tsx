@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -35,6 +34,7 @@ import { FelineHunterRankBadge } from '../../components/FelineHunterRankBadge';
 import { Sia } from '../../components/sia';
 import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
 import { useShallow } from 'zustand/react/shallow';
+import { Tap } from '../../components/Tap';
 
 const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   'person',
@@ -389,7 +389,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* 1. User Profile Pedestal (Tap to Edit Identity) */}
-        <Pressable
+        <Tap
           onPress={() => {
             hapticFeedback.light();
             setActiveSheet('edit_profile');
@@ -422,7 +422,7 @@ export default function ProfileScreen() {
           <View className="w-8 h-8 rounded-full bg-zinc-800/80 border border-zinc-700/50 items-center justify-center">
             <Ionicons name="chevron-forward" size={15} color="#a1a1aa" />
           </View>
-        </Pressable>
+        </Tap>
 
         {/* 2. Athlete Performance Snapshot Bento (4 Badges) */}
         <View className="flex-row gap-2 mb-5">
@@ -469,7 +469,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Weight Entries */}
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setShowWeightTracker(true);
@@ -487,7 +487,7 @@ export default function ProfileScreen() {
               {weight}kg
             </Text>
             <Text className="text-zinc-500 text-[9px] font-bold uppercase mt-0.5">Weight</Text>
-          </Pressable>
+          </Tap>
         </View>
 
         {/* Feline Hunter Rank & Milestones Card */}
@@ -598,7 +598,7 @@ export default function ProfileScreen() {
           </Text>
 
           {/* Row 1: Primary Goal */}
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('goal');
@@ -627,10 +627,10 @@ export default function ProfileScreen() {
               <Text className="text-emerald-400 font-bold text-xs">{currentGoalObj.tag}</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </Pressable>
+          </Tap>
 
           {/* Row 2: Physical Activity */}
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('activity');
@@ -659,10 +659,10 @@ export default function ProfileScreen() {
               <Text className="text-zinc-400 font-semibold text-xs">{currentActivityObj.multiplier}× BMR</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </Pressable>
+          </Tap>
 
           {/* Row 3: Macro Distribution */}
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('diet');
@@ -693,10 +693,10 @@ export default function ProfileScreen() {
               </Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </Pressable>
+          </Tap>
 
           {/* Row 4: Biometrics */}
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setActiveSheet('biometrics');
@@ -725,7 +725,7 @@ export default function ProfileScreen() {
               <Text className="text-emerald-400 font-bold text-xs">{weight} kg</Text>
               <Ionicons name="chevron-forward" size={15} color="#71717a" />
             </View>
-          </Pressable>
+          </Tap>
         </View>
 
         {/* 5. Body Weight Velocity & Trend Graph Card */}
@@ -1028,7 +1028,7 @@ export default function ProfileScreen() {
               {AVATAR_ICONS.map((iconName) => {
                 const isSelected = avatarIcon === iconName;
                 return (
-                  <Pressable
+                  <Tap
                     key={iconName}
                     onPress={() => {
                       hapticFeedback.selection();
@@ -1048,13 +1048,13 @@ export default function ProfileScreen() {
                       size={18}
                       color={isSelected ? '#10b981' : '#71717a'}
                     />
-                  </Pressable>
+                  </Tap>
                 );
               })}
             </View>
 
             {/* Save Button */}
-            <Pressable
+            <Tap
               onPress={() => persistChanges({ full_name: fullName.trim(), avatar_icon: avatarIcon })}
               disabled={isSaving}
               style={({ pressed }) => [
@@ -1069,7 +1069,7 @@ export default function ProfileScreen() {
                   Save Profile
                 </Text>
               )}
-            </Pressable>
+            </Tap>
           </View>
         </KeyboardAvoidingView>
       </Modal>

@@ -67,6 +67,17 @@ describe('<SiaPeek /> before the card is measured', () => {
     const style = StyleSheet.flatten(screen.getByTestId('sia-peek').props.style);
     expect(style.transform).toEqual(expect.arrayContaining([{ translateX: 228 }]));
   });
+
+  it('a card that resizes while she is moving still ends with her at the right spot for the final width', async () => {
+    await render(<SiaPeek reaction={{ expression: 'happy', line: null, spot: 'right' }} />);
+    const zone = screen.getByTestId('sia-peek-zone');
+    await fireEvent(zone, 'layout', { nativeEvent: { layout: { width: 408, height: 90 } } });
+    await act(() => jest.advanceTimersByTime(100));
+    await fireEvent(zone, 'layout', { nativeEvent: { layout: { width: 320, height: 90 } } });
+    await act(() => jest.advanceTimersByTime(2000));
+    const style = StyleSheet.flatten(screen.getByTestId('sia-peek').props.style);
+    expect(style.transform).toEqual(expect.arrayContaining([{ translateX: 228 }]));
+  });
 });
 
 describe('<SiaPeek startHidden />', () => {

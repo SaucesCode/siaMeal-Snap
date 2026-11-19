@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Pressable,
   StatusBar,
   Animated,
   StyleSheet,
@@ -21,6 +20,7 @@ import { AnimatedProgressRing } from '../../components/AnimatedProgressRing';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useShallow } from 'zustand/react/shallow';
+import { Tap } from '../../components/Tap';
 
 
 interface QuickAmountOption {
@@ -280,7 +280,7 @@ export default function WaterScreen() {
           }}
         >
           {/* Backdrop tap to dismiss */}
-          <Pressable
+          <Tap
             style={StyleSheet.absoluteFill}
             onPress={dismissCelebration}
           />
@@ -758,7 +758,7 @@ export default function WaterScreen() {
 
           <View className="flex-row gap-2">
             {QUICK_AMOUNTS.map((item) => (
-              <Pressable
+              <Tap
                 key={item.amount}
                 onPress={() => handleAddWater(item.amount, item.label)}
                 style={({ pressed }) => [
@@ -785,7 +785,7 @@ export default function WaterScreen() {
                 >
                   {item.desc}
                 </Text>
-              </Pressable>
+              </Tap>
             ))}
           </View>
         </View>
@@ -859,7 +859,7 @@ export default function WaterScreen() {
                   </View>
                 </View>
 
-                <Pressable
+                <Tap
                   onPress={() => handleDeleteLog(log.id, log.amount_ml)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   style={({ pressed }) => [
@@ -871,7 +871,7 @@ export default function WaterScreen() {
                   className="w-8 h-8 rounded-full bg-zinc-800/70 border border-zinc-700/40 items-center justify-center"
                 >
                   <Ionicons name="trash-outline" size={14} color="#a1a1aa" />
-                </Pressable>
+                </Tap>
               </View>
             ))
           )}
@@ -930,7 +930,7 @@ export default function WaterScreen() {
               {/* Quick Preset Chips */}
               <View className="flex-row gap-2 mb-5">
                 {[150, 330, 450, 600].map((val) => (
-                  <Pressable
+                  <Tap
                     key={val}
                     onPress={() => {
                       hapticFeedback.selection();
@@ -950,12 +950,12 @@ export default function WaterScreen() {
                     >
                       +{val}
                     </Text>
-                  </Pressable>
+                  </Tap>
                 ))}
               </View>
 
               {/* Submit Button */}
-              <Pressable
+              <Tap
                 onPress={handleCustomAdd}
                 style={({ pressed }) => [
                   {
@@ -971,7 +971,7 @@ export default function WaterScreen() {
                 >
                   Log Fluid Intake
                 </Text>
-              </Pressable>
+              </Tap>
             </View>
           </View>
         </Modal>

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Meal } from '../types';
 import { hapticFeedback } from '../utils/haptics';
 import { useMealImageSource } from '../lib/mealImages';
 import { Sia } from './sia';
 import { palette, radius, space, type } from '../theme';
+import { Tap } from './Tap';
 
 interface MealItemCardProps {
   meal: Meal;
@@ -37,7 +38,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
   };
 
   return (
-    <Pressable
+    <Tap
       onPress={() => {
         hapticFeedback.light();
         onPress?.(meal);
@@ -80,7 +81,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
         {kcal}
         <Text style={styles.unit}> kcal</Text>
       </Text>
-    </Pressable>
+    </Tap>
   );
 }
 
