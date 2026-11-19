@@ -4,6 +4,9 @@ import { useCoachStore } from '../../../stores/coachStore';
 import { useSiaStore } from '../siaStore';
 import { SiaPeek } from '../SiaPeek';
 
+// The coach store imports the Supabase client, which needs env vars this test doesn't use.
+jest.mock('../../../lib/supabase', () => ({ supabase: {}, SUPABASE_URL: '', SUPABASE_ANON_KEY: '' }));
+
 configure({ defaultIncludeHiddenElements: true });
 
 describe('<SiaPeek />', () => {
