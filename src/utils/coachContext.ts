@@ -32,7 +32,7 @@ export function buildCoachContext(
   };
 
   return {
-    displayName: profile?.full_name?.trim() || email?.split('@')[0] || 'Athlete',
+    displayName: profile?.full_name?.trim() || email?.split('@')[0] || undefined,
     goal: profile?.fitness_goal ? humanize(profile.fitness_goal) : 'fat loss',
     dietType: profile?.diet_type ? humanize(profile.diet_type) : 'balanced',
     targetCalories: target.calories,
