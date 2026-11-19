@@ -1,5 +1,7 @@
 import React from 'react';
+import { processColor } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
+import { palette } from '../../theme';
 import { CalorieEyeRing } from '../CalorieEyeRing';
 
 describe('<CalorieEyeRing />', () => {
@@ -18,5 +20,10 @@ describe('<CalorieEyeRing />', () => {
     expect(screen.getByText('+680')).toBeTruthy();
     expect(screen.getByText('kcal')).toBeTruthy();
     expect(screen.queryByText('of 2,000')).toBeNull();
+  });
+
+  it('can fill in another colour (water)', async () => {
+    await render(<CalorieEyeRing eaten={0} target={2500} fraction={0.5} over={false} color={palette.water} centerLabel="1.3 L" centerCaption="of 2.5 L" />);
+    expect(screen.getByTestId('calorie-eye-arc').props.stroke.payload).toBe(processColor(palette.water));
   });
 });

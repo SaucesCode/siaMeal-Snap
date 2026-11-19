@@ -30,4 +30,10 @@ describe('<DailyMacroSummary />', () => {
     expect(screen.queryByText(/left/)).toBeNull();
     expect(arcStroke()).toBe(processColor(palette.carbs));
   });
+
+  it('a past day says how far under or over the goal it ended', async () => {
+    await render(<DailyMacroSummary targetCalories={2000} consumedCalories={1760} {...macros} variant="past" />);
+    expect(screen.getByText('240 under goal')).toBeTruthy();
+    expect(screen.queryByText(/today/)).toBeNull();
+  });
 });
