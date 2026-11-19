@@ -41,10 +41,19 @@ const PAW_DROP = 16;
  * Sia peeking over the top edge of Today's calories card. She stays put until a reaction
  * arrives, then ducks behind the card and rises at the reaction's spot (left over the ring,
  * right over the macros, centre to say hi). Under reduced motion she fades instead.
- * Render it after the card inside a wrapper whose top edge is the card's top edge.
+ * Render it after the card inside a wrapper whose top edge is the card's top edge. Screens
+ * other than Today can pass their own `reaction` (e.g. Review, Camera).
  */
-export function SiaPeek() {
-  const { current, hidden, pet } = useSiaStore(useShallow((s) => ({ current: s.current, hidden: s.hidden, pet: s.pet })));
+interface SiaPeekProps {
+  /** Drive her from one screen (e.g. Review) instead of the shared reaction store. */
+  reaction?: SiaReaction;
+  /** Replaces opening the coach when she is tapped. */
+  onPress?: () => void;
+}
+
+export function SiaPeek({ reaction, onPress }: SiaPeekProps = {}) {
+  const { storeCurrent, hidden, pet } = useSiaStore(useShallow((s) => ({ storeCurrent: s.current, hidden: s.hidden, pet: s.pet })));
+  const current = reaction ?? storeCurrent;
   const openCoach = useCoachStore((s) => s.openCoach);
   const reduceMotion = useReducedMotion();
 
@@ -199,11 +208,13 @@ export function SiaPeek() {
           <Pressable
             onPress={() => {
               hapticFeedback.light();
-              openCoach();
+              if (onPress) onPress();
+              else openCoach();
             }}
             onLongPress={() => {
               hapticFeedback.purr();
-              pet();
+              if (reaction) play({ expression: 'loves', line: null });
+              else pet();
             }}
             accessibilityRole="button"
             accessibilityLabel="Chat with Sia"

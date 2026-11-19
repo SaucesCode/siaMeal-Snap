@@ -31,3 +31,23 @@ describe('<SiaPeek />', () => {
     expect(screen.queryByLabelText('Chat with Sia')).toBeNull();
   });
 });
+
+describe('<SiaPeek reaction={…} />', () => {
+  beforeEach(() => useSiaStore.setState({ hidden: false, current: null, queue: [] }));
+
+  it('can be driven by one screen instead of the shared store, with its own tap action', async () => {
+    const onPress = jest.fn();
+    const openCoach = jest.fn();
+    useCoachStore.setState({ openCoach });
+    await render(<SiaPeek reaction={{ expression: 'happy', line: null, spot: 'right' }} onPress={onPress} />);
+    fireEvent.press(screen.getByLabelText('Chat with Sia'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(openCoach).not.toHaveBeenCalled();
+  });
+
+  it('still respects "Show Sia" being off', async () => {
+    useSiaStore.setState({ hidden: true });
+    await render(<SiaPeek reaction={{ expression: 'happy', line: null, spot: 'right' }} />);
+    expect(screen.queryByLabelText('Chat with Sia')).toBeNull();
+  });
+});
