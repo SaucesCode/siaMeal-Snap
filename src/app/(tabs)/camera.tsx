@@ -107,6 +107,7 @@ export default function CameraScreen() {
         sugar_g: result.sugar_g,
         sodium_mg: result.sodium_mg,
         food_items: result.ingredients,
+        items: result.items,
         image_url: compressed.uri,
         confidence_score: result.confidence_score,
         portion_notes: result.portion_notes,
