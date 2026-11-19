@@ -37,7 +37,7 @@ interface ChatDateGroup {
  * stays dark (the macro colours are too light for text on white).
  */
 function boldColor(text: string): string {
-  return /kcal|calories|cal/i.test(text) ? palette.leafText : palette.text;
+  return /\b(kcal|calories|cal)\b/i.test(text) ? palette.leafText : palette.text;
 }
 
 const MACRO_AMOUNT = /(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/i;
