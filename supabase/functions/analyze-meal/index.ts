@@ -83,6 +83,7 @@ interface RequestPayload {
     remainingCarbs?: number;
     remainingFat?: number;
     todayMeals?: string[];
+    foodsAvoided?: string[];
   };
 }
 
@@ -471,6 +472,9 @@ function sanitizeUserContext(raw: unknown): RequestPayload["userContext"] | unde
     remainingProtein: finiteNumber(uc.remainingProtein),
     remainingCarbs: finiteNumber(uc.remainingCarbs),
     remainingFat: finiteNumber(uc.remainingFat),
+    foodsAvoided: Array.isArray(uc.foodsAvoided)
+      ? uc.foodsAvoided.slice(0, 10).map((f) => clampString(f, 30)).filter(Boolean)
+      : [],
     todayMeals: Array.isArray(uc.todayMeals)
       ? uc.todayMeals.slice(-8).map((m) => clampString(m, MAX_CONTEXT_STRING_CHARS)).filter(Boolean)
       : undefined,
@@ -628,6 +632,7 @@ async function handleAnalyzeMeal(req: Request, trace: RequestTrace): Promise<Res
           `CONSUMED    : ${uc.consumedCalories ?? 0}kcal | ${uc.consumedProtein ?? 0}g Protein | ${uc.consumedCarbs ?? 0}g Carbs | ${uc.consumedFat ?? 0}g Fat`,
           `REMAINING   : ${uc.remainingCalories ?? uc.targetCalories ?? "?"}kcal | ${uc.remainingProtein ?? uc.targetProtein ?? "?"}g Protein | ${uc.remainingCarbs ?? uc.targetCarbs ?? "?"}g Carbs | ${uc.remainingFat ?? uc.targetFat ?? "?"}g Fat`,
           `TODAY'S LOG : ${mealsStr}`,
+          `AVOIDS      : ${uc.foodsAvoided?.length ? `${uc.foodsAvoided.join(", ")} (never suggest these)` : "nothing"}`,
         ].join("\n");
       }
 

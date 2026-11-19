@@ -30,6 +30,26 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS goal_pace TEXT DEFAULT 'standard',
   ADD COLUMN IF NOT EXISTS diet_type TEXT DEFAULT 'balanced';
 
+-- Onboarding extras: daily water target, goal weight, foods to avoid, usual meal times (HH:MM).
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS target_water_ml INTEGER,
+  ADD COLUMN IF NOT EXISTS target_weight_kg NUMERIC(5, 2),
+  ADD COLUMN IF NOT EXISTS foods_avoided TEXT[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS meal_times TEXT[] NOT NULL DEFAULT '{}';
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_target_water_ml_range;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_target_water_ml_range
+  CHECK (target_water_ml IS NULL OR target_water_ml BETWEEN 500 AND 8000);
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_target_weight_range;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_target_weight_range
+  CHECK (target_weight_kg IS NULL OR target_weight_kg BETWEEN 30 AND 300);
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_foods_avoided_size;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_foods_avoided_size
+  CHECK (cardinality(foods_avoided) <= 20);
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_meal_times_valid;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_meal_times_valid
+  CHECK (cardinality(meal_times) <= 6 AND array_to_string(meal_times, ',') ~ '^([01][0-9]|2[0-3]):[0-5][0-9](,([01][0-9]|2[0-3]):[0-5][0-9])*$|^$');
+
 -- Enable RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 

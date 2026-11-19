@@ -35,10 +35,12 @@ interface CalorieEyeRingProps {
   centerLabel?: string;
   /** Replaces "of 2,000" under it (e.g. "kcal"). */
   centerCaption?: string;
+  /** Fill colour when not over (default: Sia's eye green). */
+  color?: string;
 }
 
 /** Calories eaten inside a ring drawn like Sia's green shutter eye; turns amber when over target. */
-export function CalorieEyeRing({ eaten, target, fraction, over, size = 120, baseFraction, centerLabel, centerCaption }: CalorieEyeRingProps) {
+export function CalorieEyeRing({ eaten, target, fraction, over, size = 120, baseFraction, centerLabel, centerCaption, color = palette.eye }: CalorieEyeRingProps) {
   const reduceMotion = useReducedMotion();
   const fill = useSharedValue(fraction);
   const shown = useCountUp(eaten, RING_FILL_MS);
@@ -60,7 +62,7 @@ export function CalorieEyeRing({ eaten, target, fraction, over, size = 120, base
           cy={60}
           r={R}
           fill="none"
-          stroke={over ? palette.carbs : palette.eye}
+          stroke={over ? palette.carbs : color}
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}

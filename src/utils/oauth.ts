@@ -1,8 +1,9 @@
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../lib/supabase';
+import { linkError, linkParams } from '../features/auth/linkParams';
+import { appReturnUrl } from '../features/auth/returnUrl';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -32,10 +33,7 @@ export async function performGoogleOAuth() {
     await supabase.auth.signOut();
   } catch {}
 
-  const redirectUrl = makeRedirectUri({
-    scheme: 'siamealsnap',
-    path: 'auth/callback',
-  });
+  const redirectUrl = await appReturnUrl('auth/callback');
 
   console.log('[OAuth Mobile] Generated redirect URL:', redirectUrl);
 
@@ -68,7 +66,9 @@ export async function performGoogleOAuth() {
           WebBrowser.dismissAuthSession();
         } catch {}
 
-        const params = parseOAuthParams(callbackUrl);
+        const params = linkParams(callbackUrl);
+        const failed = linkError(params);
+        if (failed) throw new Error(failed);
 
         if (params.code) {
           console.log('[OAuth Mobile] Exchanging code for session...');
@@ -140,33 +140,4 @@ export async function performGoogleOAuth() {
       sub.remove();
     }
   });
-}
-
-function parseOAuthParams(url: string): Record<string, string> {
-  const hashIndex = url.indexOf('#');
-  const queryIndex = url.indexOf('?');
-
-  const hashPart = hashIndex !== -1 ? url.substring(hashIndex + 1) : '';
-  const queryPart =
-    queryIndex !== -1
-      ? hashIndex !== -1 && hashIndex > queryIndex
-        ? url.substring(queryIndex + 1, hashIndex)
-        : url.substring(queryIndex + 1)
-      : '';
-
-  const params: Record<string, string> = {};
-
-  const parseString = (str: string) => {
-    str.split('&').forEach((item) => {
-      const [k, v] = item.split('=');
-      if (k && v) {
-        params[k] = decodeURIComponent(v);
-      }
-    });
-  };
-
-  if (queryPart) parseString(queryPart);
-  if (hashPart) parseString(hashPart);
-
-  return params;
 }

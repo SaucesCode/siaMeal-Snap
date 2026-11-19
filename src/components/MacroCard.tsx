@@ -16,6 +16,8 @@ interface DailyMacroSummaryProps {
   protein: MacroAmount;
   carbs: MacroAmount;
   fat: MacroAmount;
+  /** A past day in History: "240 under goal" instead of "760 left today". */
+  variant?: 'today' | 'past';
 }
 
 const nf = new Intl.NumberFormat('en-US');
@@ -33,10 +35,12 @@ function Macro({ label, amount, color }: { label: string; amount: MacroAmount; c
 }
 
 /** Today's hero card: the calorie eye ring, the three macros, and what's left, on the cocoa "point". */
-export function DailyMacroSummary({ targetCalories, consumedCalories, protein, carbs, fat }: DailyMacroSummaryProps) {
+export function DailyMacroSummary({ targetCalories, consumedCalories, protein, carbs, fat, variant = 'today' }: DailyMacroSummaryProps) {
   const s = calorieSummary(consumedCalories, targetCalories);
   const over = s.over > 0;
-  const status = over ? `${nf.format(s.over)} over` : `${nf.format(s.left)} left`;
+  const past = variant === 'past';
+  const status = over ? `${nf.format(s.over)} over` : past ? `${nf.format(s.left)} under` : `${nf.format(s.left)} left`;
+  const suffix = past ? ' goal' : ' today';
 
   return (
     <View style={styles.card}>
@@ -51,7 +55,8 @@ export function DailyMacroSummary({ targetCalories, consumedCalories, protein, c
         </View>
       </View>
       <Text style={styles.status}>
-        <Text style={styles.statusStrong}>{status}</Text> today
+        <Text style={styles.statusStrong}>{status}</Text>
+        {suffix}
       </Text>
     </View>
   );

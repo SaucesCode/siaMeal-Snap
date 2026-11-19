@@ -1,50 +1,28 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-  Keyboard,
-  StyleSheet,
-  Alert,
-  LayoutAnimation,
-  Animated,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Keyboard, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import {
-  streamNutritionCoachMessage,
-  cleanCoachReply,
-  ChatMessage,
-  UserNutritionContext,
-} from '../services/aiService';
+import { useShallow } from 'zustand/react/shallow';
+import { streamNutritionCoachMessage, cleanCoachReply, ChatMessage, UserNutritionContext } from '../services/aiService';
 import { hapticFeedback } from '../utils/haptics';
 import { useCoachStore } from '../stores/coachStore';
 import { useMealStore, getTodayString } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
+import { getLocalDateString } from '../utils/localDate';
+import { dayLabel } from '../utils/historyText';
+import { greetingName } from '../utils/todaySummary';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
 import { Sia } from './sia';
 import { ToastBanner, ToastConfig } from './ToastBanner';
-import { useShallow } from 'zustand/react/shallow';
 import { Tap } from './Tap';
+import { palette, radius, space, type } from '../theme';
 
 interface AiNutritionCoachModalProps {
   visible: boolean;
   onClose: () => void;
   userContext: UserNutritionContext;
   initialQuery?: string;
-}
-
-interface FormattedChatMessageProps {
-  content: string;
-  isUser: boolean;
-  onLogMeal?: (meal: ParsedSuggestedMeal) => void;
-  onCopy?: (text: string) => void;
 }
 
 interface ChatDateGroup {
@@ -55,516 +33,206 @@ interface ChatDateGroup {
 }
 
 /**
- * Returns user-friendly calendar day divider label (e.g. "Today", "Yesterday", "Mon, Sep 21")
+ * Colour for a **bold** token in Sia's replies. Calories use the readable leaf green; everything else
+ * stays dark (the macro colours are too light for text on white).
  */
-function getDateDividerLabel(isoString?: string): string {
-  if (!isoString) return 'Today';
-  try {
-    const msgDate = new Date(isoString);
-    const now = new Date();
-
-    const isSameDay =
-      msgDate.getFullYear() === now.getFullYear() &&
-      msgDate.getMonth() === now.getMonth() &&
-      msgDate.getDate() === now.getDate();
-    if (isSameDay) return 'Today';
-
-    const yesterday = new Date();
-    yesterday.setDate(now.getDate() - 1);
-    const isYesterday =
-      msgDate.getFullYear() === yesterday.getFullYear() &&
-      msgDate.getMonth() === yesterday.getMonth() &&
-      msgDate.getDate() === yesterday.getDate();
-    if (isYesterday) return 'Yesterday';
-
-    return msgDate.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return 'Today';
-  }
+function boldColor(text: string): string {
+  return /\b(kcal|calories|cal)\b/i.test(text) ? palette.leafText : palette.text;
 }
 
-/**
- * Helper to assign theme styling to bold tokens
- */
-function getBoldTextColor(text: string, isUser: boolean): string {
-  if (isUser) return 'text-white font-extrabold';
-  const lower = text.toLowerCase();
-  if (/(?:protein|prot\b)/i.test(lower)) return 'text-sky-400 font-extrabold';
-  if (/(?:carbs?|carb\b)/i.test(lower)) return 'text-amber-400 font-extrabold';
-  if (/(?:fats?|fat\b)/i.test(lower)) return 'text-rose-400 font-extrabold';
-  if (/(?:water|hydration|\bml\b)/i.test(lower)) return 'text-cyan-400 font-extrabold';
-  return 'text-emerald-400 font-extrabold';
-}
+const MACRO_AMOUNT = /(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/i;
 
-/**
- * Parses markdown bold (**text**) and renders clean styled Text components
- * without showing raw markdown asterisks (**) or stray metadata headers,
- * renders interactive 1-tap quick log cards for meal recommendations,
- * and provides a 1-tap copy action.
- */
+/** A chat message: **bold** without asterisks, macro amounts highlighted, meal ideas as "Log" cards, Copy. */
 function FormattedChatMessage({
   content,
   isUser,
   onLogMeal,
   onCopy,
-}: FormattedChatMessageProps) {
-  const cleanedContent = isUser ? content : cleanCoachReply(content);
-  const suggestedMeals = useMemo(() => {
-    return isUser || !onLogMeal ? [] : parseMealSuggestions(cleanedContent);
-  }, [cleanedContent, isUser, onLogMeal]);
-
-  const lines = cleanedContent.split('\n');
+}: {
+  content: string;
+  isUser: boolean;
+  onLogMeal?: (meal: ParsedSuggestedMeal) => void;
+  onCopy?: (text: string) => void;
+}) {
+  const cleaned = isUser ? content : cleanCoachReply(content);
+  const meals = useMemo(() => (isUser || !onLogMeal ? [] : parseMealSuggestions(cleaned)), [cleaned, isUser, onLogMeal]);
+  const textStyle = isUser ? styles.userText : styles.siaText;
 
   return (
     <View>
-      {lines.map((line, lineIndex) => {
-        const trimmed = line.trim();
-        const isBullet = trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ');
-        const isHeader = trimmed.startsWith('###');
+      {cleaned.split('\n').map((line, i) => (
+        <Text key={i} style={[textStyle, i > 0 && styles.lineGap]}>
+          {line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+              const bold = part.slice(2, -2);
+              return (
+                <Text key={j} style={[styles.bold, !isUser && { color: boldColor(bold) }]}>
+                  {bold}
+                </Text>
+              );
+            }
+            const clean = part.replace(/\*\*/g, '');
+            if (isUser || !MACRO_AMOUNT.test(clean)) return <Text key={j}>{clean}</Text>;
+            return (
+              <Text key={j}>
+                {clean.split(new RegExp(MACRO_AMOUNT.source, 'gi')).map((sub, k) =>
+                  MACRO_AMOUNT.test(sub) && sub.trim().length === sub.length ? (
+                    <Text key={k} style={[styles.bold, { color: boldColor(sub) }]}>
+                      {sub}
+                    </Text>
+                  ) : (
+                    <Text key={k}>{sub}</Text>
+                  )
+                )}
+              </Text>
+            );
+          })}
+        </Text>
+      ))}
 
-        // Split line by **bold** tokens
-        const parts = line.split(/(\*\*.*?\*\*)/g);
-
-        return (
-          <Text
-            key={lineIndex}
-            className={`text-xs leading-5 ${
-              lineIndex > 0 ? 'mt-1' : ''
-            } ${
-              isUser
-                ? 'text-white font-medium'
-                : isHeader
-                ? 'text-zinc-100 font-semibold'
-                : isBullet
-                ? 'text-zinc-200 pl-1'
-                : 'text-zinc-300'
-            }`}
-          >
-            {parts.map((part, partIndex) => {
-              if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-                const boldText = part.slice(2, -2);
-                return (
-                  <Text
-                    key={partIndex}
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className={getBoldTextColor(boldText, isUser)}
-                  >
-                    {boldText}
-                  </Text>
-                );
-              }
-
-              // Clean any stray markdown asterisks
-              const cleanPart = part.replace(/\*\*/g, '');
-
-              // For assistant replies, also auto-bold any bare macro metrics (e.g. "35g protein", "450 kcal")
-              if (!isUser && /(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/i.test(cleanPart)) {
-                const subTokens = cleanPart.split(/(\b\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)\b)/gi);
-                return (
-                  <Text key={partIndex}>
-                    {subTokens.map((sub, subIdx) => {
-                      if (/^\d+(?:\.\d+)?\s*(?:g\s*(?:protein|carbs?|fat)|kcal|calories|cal)$/i.test(sub.trim())) {
-                        return (
-                          <Text
-                            key={subIdx}
-                            style={{ fontFamily: 'Outfit_700Bold' }}
-                            className={getBoldTextColor(sub, false)}
-                          >
-                            {sub}
-                          </Text>
-                        );
-                      }
-                      return <Text key={subIdx}>{sub}</Text>;
-                    })}
-                  </Text>
-                );
-              }
-
-              return <Text key={partIndex}>{cleanPart}</Text>;
-            })}
-          </Text>
-        );
-      })}
-
-      {/* Suggested Meal Cards */}
-      {suggestedMeals.length > 0 && onLogMeal && (
-        <View className="mt-3 pt-2.5 border-t border-zinc-800/80 gap-2">
-          <View className="flex-row items-center gap-1.5 mb-0.5">
-            <Ionicons name="sparkles" size={11} color="#10b981" />
-            <Text className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
-              Quick Log Suggestions
-            </Text>
-          </View>
-          {suggestedMeals.map((meal, mIdx) => (
-            <View
-              key={mIdx}
-              className="bg-zinc-900/90 border border-emerald-500/30 rounded-xl p-2.5 flex-row items-center justify-between"
-            >
-              <View className="flex-1 mr-2.5">
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs"
-                  numberOfLines={1}
-                >
+      {meals.length > 0 && onLogMeal && (
+        <View style={styles.ideas}>
+          {meals.map((meal, i) => (
+            <View key={i} style={styles.idea}>
+              <View style={styles.flex}>
+                <Text style={styles.ideaName} numberOfLines={1}>
                   {meal.name}
                 </Text>
-                <View className="flex-row items-center gap-1.5 mt-1 flex-wrap">
-                  <View className="bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                    <Text
-                      style={{ fontVariant: ['tabular-nums'] }}
-                      className="text-emerald-400 text-[10px] font-extrabold"
-                    >
-                      {meal.calories} kcal
-                    </Text>
-                  </View>
-                  <View className="bg-sky-500/15 px-1.5 py-0.5 rounded border border-sky-500/30">
-                    <Text
-                      style={{ fontVariant: ['tabular-nums'] }}
-                      className="text-sky-400 text-[10px] font-bold"
-                    >
-                      {meal.protein_g}g P
-                    </Text>
-                  </View>
-                  {meal.carbs_g > 0 && (
-                    <View className="bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30">
-                      <Text
-                        style={{ fontVariant: ['tabular-nums'] }}
-                        className="text-amber-400 text-[10px] font-medium"
-                      >
-                        {meal.carbs_g}g C
-                      </Text>
-                    </View>
-                  )}
-                  {meal.fat_g > 0 && (
-                    <View className="bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/30">
-                      <Text
-                        style={{ fontVariant: ['tabular-nums'] }}
-                        className="text-rose-400 text-[10px] font-medium"
-                      >
-                        {meal.fat_g}g F
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                <Text style={styles.ideaMeta}>
+                  {`${meal.calories} kcal · P ${meal.protein_g}${meal.carbs_g > 0 ? ` · C ${meal.carbs_g}` : ''}${meal.fat_g > 0 ? ` · F ${meal.fat_g}` : ''}`}
+                </Text>
               </View>
-
-              <TouchableOpacity
+              <Tap
                 onPress={() => onLogMeal(meal)}
-                className="bg-emerald-500 active:bg-emerald-400 px-3 py-1.5 rounded-lg flex-row items-center gap-1 shadow-sm"
-                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`Log ${meal.name}`}
+                style={({ pressed }) => [styles.logButton, pressed && styles.pressed]}
               >
-                <Ionicons name="add" size={14} color="#ffffff" />
-                <Text className="text-white text-[11px] font-bold">Log</Text>
-              </TouchableOpacity>
+                <Text style={styles.logText}>Log</Text>
+              </Tap>
             </View>
           ))}
         </View>
       )}
 
-      {/* Bubble Footer: 1-Tap Copy Action for Sia's responses */}
       {!isUser && onCopy && (
-        <View className="flex-row items-center justify-end mt-2 pt-0.5">
-          <Tap
-            onPress={() => onCopy(cleanedContent)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => [{ opacity: pressed ? 0.5 : 0.8 }]}
-            className="flex-row items-center gap-1 bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded-md"
-          >
-            <Ionicons name="copy-outline" size={11} color="#a1a1aa" />
-            <Text className="text-[9px] text-zinc-400 font-semibold">Copy</Text>
-          </Tap>
-        </View>
+        <Tap
+          onPress={() => onCopy(cleaned)}
+          accessibilityRole="button"
+          accessibilityLabel="Copy Sia's reply"
+          style={({ pressed }) => [styles.copy, pressed && styles.pressed]}
+        >
+          <Ionicons name="copy-outline" size={14} color={palette.textMuted} />
+          <Text style={styles.copyText}>Copy</Text>
+        </Tap>
       )}
     </View>
   );
 }
 
-function ChatTypingDots() {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
-
+/** Three dots pulsing in turn while Sia thinks; still under reduced motion is handled by the OS animation scale. */
+function ThinkingDots() {
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
   useEffect(() => {
-    const createPulse = (dotVal: Animated.Value, delay: number) => {
-      return Animated.loop(
+    const loops = dots.map((v, i) =>
+      Animated.loop(
         Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dotVal, {
-            toValue: 1,
-            duration: 320,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dotVal, {
-            toValue: 0.3,
-            duration: 320,
-            useNativeDriver: true,
-          }),
-          Animated.delay(Math.max(0, 360 - delay)),
+          Animated.delay(i * 160),
+          Animated.timing(v, { toValue: 1, duration: 320, useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0.3, duration: 320, useNativeDriver: true }),
+          Animated.delay(Math.max(0, 360 - i * 160)),
         ])
-      );
-    };
-
-    const a1 = createPulse(dot1, 0);
-    const a2 = createPulse(dot2, 160);
-    const a3 = createPulse(dot3, 320);
-
-    a1.start();
-    a2.start();
-    a3.start();
-
-    return () => {
-      a1.stop();
-      a2.stop();
-      a3.stop();
-    };
-  }, [dot1, dot2, dot3]);
-
+      )
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [dots]);
   return (
-    <View style={typingStyles.container}>
-      <Animated.View
-        style={[
-          typingStyles.dot,
-          {
-            opacity: dot1,
-            transform: [
-              {
-                translateY: dot1.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0, -3.5],
-                }),
-              },
-              {
-                scale: dot1.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0.85, 1.2],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          typingStyles.dot,
-          {
-            opacity: dot2,
-            transform: [
-              {
-                translateY: dot2.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0, -3.5],
-                }),
-              },
-              {
-                scale: dot2.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0.85, 1.2],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          typingStyles.dot,
-          {
-            opacity: dot3,
-            transform: [
-              {
-                translateY: dot3.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0, -3.5],
-                }),
-              },
-              {
-                scale: dot3.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0.85, 1.2],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
+    <View style={styles.dots}>
+      {dots.map((v, i) => (
+        <Animated.View key={i} style={[styles.dot, { opacity: v }]} />
+      ))}
     </View>
   );
 }
 
-const typingStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: 14,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10b981',
-  },
-});
-
-export function AiNutritionCoachModal({
-  visible,
-  onClose,
-  userContext,
-  initialQuery,
-}: AiNutritionCoachModalProps) {
+/** Sia the nutrition coach: a cream chat sheet with today's numbers one tap away. */
+export function AiNutritionCoachModal({ visible, onClose, userContext, initialQuery }: AiNutritionCoachModalProps) {
   const router = useRouter();
-  const { setDraftMeal } = useMealStore(
-    useShallow((s) => ({ setDraftMeal: s.setDraftMeal }))
-  );
+  const setDraftMeal = useMealStore((s) => s.setDraftMeal);
   const { messages, isLoaded, loadHistory, addMessage, setMessages, clearHistory } = useCoachStore(
-    useShallow((s) => ({ messages: s.messages, isLoaded: s.isLoaded, loadHistory: s.loadHistory, addMessage: s.addMessage, setMessages: s.setMessages, clearHistory: s.clearHistory }))
+    useShallow((s) => ({
+      messages: s.messages,
+      isLoaded: s.isLoaded,
+      loadHistory: s.loadHistory,
+      addMessage: s.addMessage,
+      setMessages: s.setMessages,
+      clearHistory: s.clearHistory,
+    }))
   );
   const [inputText, setInputText] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingReply, setStreamingReply] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [toast, setToast] = useState<ToastConfig | null>(null);
-  const scrollViewRef = useRef<any>(null);
-  const lastSendTimeRef = useRef<number>(0);
-
-  // Expanded state for past date groups (minimized by default)
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
-
-  const toggleDateGroup = useCallback((dateKey: string) => {
-    hapticFeedback.selection();
-    try {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    } catch {
-      // ignore
-    }
-    setExpandedDates((prev) => ({
-      ...prev,
-      [dateKey]: !prev[dateKey],
-    }));
-  }, []);
-
-  // Group messages chronologically by calendar day
-  const dateGroups = useMemo<ChatDateGroup[]>(() => {
-    if (!messages.length) return [];
-    const now = new Date();
-    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    const groups: ChatDateGroup[] = [];
-
-    for (const msg of messages) {
-      let dateKey = todayKey;
-      let label = 'Today';
-      let isToday = true;
-
-      if (msg.timestamp) {
-        try {
-          const d = new Date(msg.timestamp);
-          if (!isNaN(d.getTime())) {
-            dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            label = getDateDividerLabel(msg.timestamp);
-            isToday = dateKey === todayKey;
-          }
-        } catch {
-          // fallback to today
-        }
-      }
-
-      const currentGroup = groups[groups.length - 1];
-      if (currentGroup && currentGroup.dateKey === dateKey) {
-        currentGroup.messages.push(msg);
-      } else {
-        groups.push({
-          dateKey,
-          label,
-          isToday,
-          messages: [msg],
-        });
-      }
-    }
-
-    return groups;
-  }, [messages]);
-
-  useEffect(() => {
-    if (visible && initialQuery) {
-      setInputText(initialQuery);
-    }
-  }, [visible, initialQuery]);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView> | null>(null);
+  const lastSendTimeRef = useRef(0);
 
   const remainingCal = userContext.remainingCalories ?? 2000;
   const remainingProt = userContext.remainingProtein ?? 150;
   const remainingCarbs = userContext.remainingCarbs ?? 200;
   const remainingFat = userContext.remainingFat ?? 65;
 
-  // Dynamic context-aware prompts grouped by intent
-  const dynamicPrompts = useMemo(() => {
-    const list: { label: string; query: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [];
+  const toggleDateGroup = useCallback((dateKey: string) => {
+    hapticFeedback.selection();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedDates((prev) => ({ ...prev, [dateKey]: !prev[dateKey] }));
+  }, []);
 
-    if (remainingProt > 35) {
-      list.push({
-        label: `Hit ${remainingProt}g Protein`,
-        query: `High-protein meal and snack ideas to hit my remaining ${remainingProt}g protein today.`,
-        icon: 'food-drumstick',
-      });
-    } else {
-      list.push({
-        label: 'Exact Protein Hit',
-        query: `Suggest a lean snack to hit my remaining ${remainingProt}g protein target exactly.`,
-        icon: 'target',
-      });
+  // Messages grouped by local calendar day; earlier days start folded away.
+  const dateGroups = useMemo<ChatDateGroup[]>(() => {
+    const todayKey = getLocalDateString(new Date());
+    const groups: ChatDateGroup[] = [];
+    for (const msg of messages) {
+      const d = msg.timestamp ? new Date(msg.timestamp) : new Date();
+      const dateKey = Number.isNaN(d.getTime()) ? todayKey : getLocalDateString(d);
+      const last = groups[groups.length - 1];
+      if (last && last.dateKey === dateKey) last.messages.push(msg);
+      else groups.push({ dateKey, label: dayLabel(dateKey), isToday: dateKey === todayKey, messages: [msg] });
     }
+    return groups;
+  }, [messages]);
 
-    if (remainingCal < 400 && remainingCal > 0) {
-      list.push({
-        label: `Snacks < ${remainingCal} kcal`,
-        query: `What are delicious, filling low-calorie snacks under ${remainingCal} kcal?`,
-        icon: 'flash-outline',
-      });
-    } else if (remainingCal <= 0) {
-      list.push({
-        label: 'Over Budget Reset',
-        query: 'I exceeded my calories today. How should I balance my hydration and macros for the rest of the day?',
-        icon: 'scale-balance',
-      });
-    } else {
-      list.push({
-        label: `Meal ~${Math.min(650, remainingCal)} kcal`,
-        query: `Give me a high-satiety meal idea fitting roughly ${Math.min(650, remainingCal)} kcal.`,
-        icon: 'silverware-fork-knife',
-      });
-    }
+  const prompts = useMemo(
+    () => [
+      remainingProt > 35
+        ? { label: `Reach ${remainingProt} g protein`, query: `High-protein meal and snack ideas to reach my remaining ${remainingProt}g protein today.` }
+        : { label: 'Finish my protein', query: `Suggest a lean snack for my last ${remainingProt}g of protein today.` },
+      remainingCal <= 0
+        ? { label: "I'm over today", query: 'I went over my calories today. How should I handle the rest of the day?' }
+        : remainingCal < 400
+          ? { label: `Snacks under ${remainingCal} kcal`, query: `What are filling snacks under ${remainingCal} kcal?` }
+          : { label: `A ${Math.min(650, remainingCal)} kcal meal`, query: `Give me a filling meal idea of about ${Math.min(650, remainingCal)} kcal.` },
+      { label: 'How am I doing today?', query: 'Look at my macros so far today and tell me what to adjust.' },
+      { label: 'Before a workout', query: 'What is a quick pre-workout snack that fits what I have left today?' },
+      { label: 'Filling sides', query: 'What are low-calorie, filling vegetables and side dishes?' },
+    ],
+    [remainingCal, remainingProt]
+  );
 
-    list.push({
-      label: 'Macro Audit',
-      query: 'Analyze my current macro balance for today and tell me what to adjust.',
-      icon: 'chart-pie',
-    });
-
-    list.push({
-      label: 'Pre-Workout Fuel',
-      query: 'What is a quick pre-workout energy snack that fits my remaining macros?',
-      icon: 'lightning-bolt',
-    });
-
-    list.push({
-      label: 'High-Volume Sides',
-      query: 'What are the best low-calorie high-volume vegetables and side dishes to feel full?',
-      icon: 'leaf',
-    });
-
-    return list;
-  }, [remainingCal, remainingProt]);
+  const macroChips = [
+    { label: 'kcal', value: `${remainingCal}`, query: `What can I eat with my remaining ${remainingCal} kcal?` },
+    { label: 'protein', value: `${remainingProt} g`, query: `High-protein ideas for my remaining ${remainingProt}g protein?` },
+    { label: 'carbs', value: `${remainingCarbs} g`, query: `Which carbs fit my remaining ${remainingCarbs}g carbs?` },
+    { label: 'fat', value: `${remainingFat} g`, query: `Which healthy fats fit my remaining ${remainingFat}g fat?` },
+  ];
 
   const handleLogSuggestedMeal = useCallback(
     (meal: ParsedSuggestedMeal) => {
       hapticFeedback.medium();
       Keyboard.dismiss();
       onClose();
-
       setDraftMeal({
         name: meal.name,
         meal_type: getDefaultMealType(),
@@ -575,11 +243,8 @@ export function AiNutritionCoachModal({
         food_items: meal.food_items,
         image_url: null,
       });
-
-      // Allow modal exit animation before presenting review modal
-      setTimeout(() => {
-        router.push('/review' as any);
-      }, 120);
+      // Let the sheet close before Review opens.
+      setTimeout(() => router.push('/review' as any), 120);
     },
     [onClose, router, setDraftMeal]
   );
@@ -587,568 +252,397 @@ export function AiNutritionCoachModal({
   const handleCopyMessage = useCallback(async (text: string) => {
     hapticFeedback.light();
     await Clipboard.setStringAsync(text);
-    setToast({
-      title: 'Copied to Clipboard',
-      message: "Sia's advice is ready to paste anywhere.",
-      type: 'info',
-    });
+    setToast({ title: 'Copied', message: "Sia's reply is ready to paste.", type: 'info' });
   }, []);
 
-  // Load persisted history on mount or whenever modal opens
   useEffect(() => {
-    if (visible) {
-      loadHistory();
-    }
+    if (visible && initialQuery) setInputText(initialQuery);
+  }, [visible, initialQuery]);
+
+  useEffect(() => {
+    if (visible) loadHistory();
   }, [visible]);
 
-  // Inject friendly conversational feline greeting when history is empty
+  // A first hello when there's no history yet.
   useEffect(() => {
     if (visible && isLoaded && messages.length === 0) {
-      const greeting: ChatMessage = {
-        id: `greeting_${getTodayString()}`,
-        role: 'assistant',
-        content: `Hey ${userContext.displayName || 'Athlete'}, I'm **Sia**! I've got your live numbers queued up: you have **${remainingCal} kcal** and **${remainingProt}g protein** left to hit today.\n\nWhat are you craving, or should we pounce on a quick meal idea together?`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages([greeting]);
+      setMessages([
+        {
+          id: `greeting_${getTodayString()}`,
+          role: 'assistant',
+          content: `Hi ${greetingName(userContext.displayName, null)}, I'm **Sia**! You have **${remainingCal} kcal** and **${remainingProt}g protein** left today.\n\nWhat are you in the mood for?`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
     }
   }, [visible, isLoaded]);
 
   const handleClearHistory = useCallback(() => {
     hapticFeedback.light();
-    Alert.alert(
-      'Clear Chat',
-      'Start a fresh conversation with Sia? Message history will be cleared.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: () => {
-            hapticFeedback.error();
-            setExpandedDates({});
-            clearHistory();
-          },
+    Alert.alert('Clear the chat?', 'This removes your conversation with Sia from this phone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          setExpandedDates({});
+          clearHistory();
         },
-      ]
-    );
+      },
+    ]);
   }, [clearHistory]);
 
-  // Robust native keyboard listener for both iOS and Android
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => {
       const height = e?.endCoordinates?.height || 0;
-      if (height > 0) {
-        setKeyboardHeight(height);
-      }
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      if (height > 0) setKeyboardHeight(height);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     });
-
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      show.remove();
+      hide.remove();
     };
   }, []);
 
-  // Auto scroll on new messages or typing state changes
   useEffect(() => {
-    if (visible) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
+    if (visible) setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
   }, [messages, visible, isTyping, streamingReply]);
 
   if (!visible) return null;
 
   const handleSendMessage = async (textToSend?: string) => {
-    const messageContent = (textToSend || inputText).trim();
-    if (!messageContent || isTyping) return;
-
-    // Client anti-spam debounce: minimum 2 seconds between sends
+    const content = (textToSend || inputText).trim();
+    if (!content || isTyping) return;
+    // At most one send every 2 seconds.
     const now = Date.now();
-    if (now - lastSendTimeRef.current < 2000) {
-      return;
-    }
+    if (now - lastSendTimeRef.current < 2000) return;
     lastSendTimeRef.current = now;
 
     hapticFeedback.light();
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: messageContent,
-      timestamp: new Date().toISOString(),
-    };
-
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content, timestamp: new Date().toISOString() };
     await addMessage(userMsg);
     setInputText('');
     setIsTyping(true);
 
     try {
-      // Sliding window: send only the 4 most recent messages to conserve tokens
-      const conversationPayload = [...messages, userMsg].slice(-4).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const reply = await streamNutritionCoachMessage(conversationPayload, userContext, setStreamingReply);
-
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: reply,
-        timestamp: new Date().toISOString(),
-      };
-
+      // Only the 4 most recent messages go to the server, to keep replies fast and cheap.
+      const payload = [...messages, userMsg].slice(-4).map((m) => ({ role: m.role, content: m.content }));
+      const reply = await streamNutritionCoachMessage(payload, userContext, setStreamingReply);
       hapticFeedback.success();
-      await addMessage(assistantMsg);
+      await addMessage({ id: (Date.now() + 1).toString(), role: 'assistant', content: reply, timestamp: new Date().toISOString() });
     } catch (err: any) {
       hapticFeedback.error();
-      const errorMsg: ChatMessage = {
+      await addMessage({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${err.message || 'Unable to connect with AI coach. Please try again.'}`,
+        content: `Sorry, I couldn't answer just now. ${err?.message || 'Please check your connection and try again.'}`,
         timestamp: new Date().toISOString(),
-      };
-      await addMessage(errorMsg);
+      });
     } finally {
-      // Cleared together with isTyping, after the final message is saved, so the streamed
-      // bubble hands over to the saved message without a flicker.
+      // Cleared together with isTyping, after the reply is saved, so the streamed bubble hands over without a flicker.
       setStreamingReply('');
       setIsTyping(false);
     }
   };
 
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        justifyContent: 'flex-end',
-      }}
-    >
-      {/* Dynamic Toast HUD inside modal */}
-      <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
+  const sheetPadding =
+    keyboardHeight > 0 ? (Platform.OS === 'ios' ? keyboardHeight + 4 : Math.max(8, keyboardHeight - 24)) : Platform.OS === 'ios' ? 32 : 16;
+  const canSend = inputText.trim() !== '' && !isTyping;
 
-      {/* 1. Absolute Backdrop Overlay - tap to dismiss keyboard & modal */}
-      <TouchableOpacity
-        activeOpacity={1}
+  return (
+    <View style={styles.overlay}>
+      <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
+      <Tap
+        style={styles.backdrop}
         onPress={() => {
           Keyboard.dismiss();
           onClose();
         }}
-        style={StyleSheet.absoluteFill}
+        accessibilityLabel="Close the coach"
       />
 
-      {/* 2. Main High-Impact Bottom Sheet (88% Height, padded flush above keyboard) */}
-      <View
-        style={{
-          height: '88%',
-          backgroundColor: '#18181b',
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
-          borderTopWidth: 1,
-          borderColor: '#27272a',
-          paddingHorizontal: 18,
-          paddingTop: 16,
-          paddingBottom:
-            keyboardHeight > 0
-              ? (Platform.OS === 'ios' ? keyboardHeight + 4 : Math.max(8, keyboardHeight - 24))
-              : (Platform.OS === 'ios' ? 32 : 16),
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 16,
-          elevation: 24,
-        }}
-      >
-        {/* Header */}
-        <View className="flex-row items-center justify-between pb-3 border-b border-zinc-800/80">
-          <View className="flex-row items-center gap-2.5">
-            <Sia expression="resting" size={48} />
-            <View>
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-white text-base"
-              >
-                Sia Nutrition Intelligence
-              </Text>
-              <View className="flex-row items-center gap-1.5 mt-0.5">
-                <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                  Sia is Active & Listening
-                </Text>
-              </View>
-            </View>
+      <View style={[styles.sheet, { paddingBottom: sheetPadding }]} accessibilityViewIsModal>
+        <View style={styles.header}>
+          <Sia expression="resting" size={48} />
+          <View style={styles.flex}>
+            <Text style={styles.title} accessibilityRole="header">
+              Sia
+            </Text>
+            <Text style={styles.subtitle}>Your nutrition coach</Text>
           </View>
-
-          <View className="flex-row items-center gap-2">
-            <TouchableOpacity
-              onPress={handleClearHistory}
-              className="w-8 h-8 rounded-full bg-zinc-800/90 border border-zinc-700/50 items-center justify-center"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="trash-outline" size={14} color="#a1a1aa" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                Keyboard.dismiss();
-                hapticFeedback.light();
-                onClose();
-              }}
-              className="w-8 h-8 rounded-full bg-zinc-800/90 border border-zinc-700/50 items-center justify-center"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={16} color="#e4e4e7" />
-            </TouchableOpacity>
-          </View>
+          <Tap
+            onPress={handleClearHistory}
+            accessibilityRole="button"
+            accessibilityLabel="Clear the chat"
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="trash-outline" size={18} color={palette.textMuted} />
+          </Tap>
+          <Tap
+            onPress={() => {
+              Keyboard.dismiss();
+              hapticFeedback.light();
+              onClose();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Close the coach"
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="close" size={22} color={palette.text} />
+          </Tap>
         </View>
 
-        {/* 4-Macro Interactive HUD Ribbon (Tap-to-Ask) */}
-        <View className="my-2.5">
-          <View className="flex-row items-center justify-between mb-1.5 px-0.5">
-            <View className="flex-row items-center gap-1">
-              <MaterialCommunityIcons name="paw" size={11} color="#10b981" />
-              <Text className="text-zinc-500 text-[9px] font-extrabold uppercase tracking-wider">
-                Live Targets • Tap to ask Sia
-              </Text>
-            </View>
-          </View>
-
-          <View className="flex-row gap-1.5">
-            {/* Calories Pill */}
+        <Text style={styles.leftLabel}>Left today · tap to ask</Text>
+        <View style={styles.macros}>
+          {macroChips.map((m) => (
             <Tap
+              key={m.label}
               onPress={() => {
                 hapticFeedback.selection();
-                handleSendMessage(`What can I eat with my remaining ${remainingCal} kcal?`);
+                handleSendMessage(m.query);
               }}
-              style={({ pressed }) => [
-                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
-              ]}
-              className="flex-1 bg-zinc-950/85 border border-emerald-500/25 p-2 rounded-xl items-center"
+              disabled={isTyping}
+              accessibilityRole="button"
+              accessibilityLabel={`${m.value} ${m.label} left. Ask Sia about it.`}
+              style={({ pressed }) => [styles.macro, pressed && styles.pressed]}
             >
-              <Text className="text-zinc-500 text-[8px] font-extrabold uppercase">Cal</Text>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-white text-xs mt-0.5"
-                numberOfLines={1}
-              >
-                {remainingCal}
+              <Text style={styles.macroValue} numberOfLines={1}>
+                {m.value}
               </Text>
+              <Text style={styles.macroLabel}>{m.label}</Text>
             </Tap>
-
-            {/* Protein Pill */}
-            <Tap
-              onPress={() => {
-                hapticFeedback.selection();
-                handleSendMessage(`High-protein ideas for my remaining ${remainingProt}g protein?`);
-              }}
-              style={({ pressed }) => [
-                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
-              ]}
-              className="flex-1 bg-zinc-950/85 border border-sky-500/25 p-2 rounded-xl items-center"
-            >
-              <Text className="text-sky-400 text-[8px] font-extrabold uppercase">Prot</Text>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-sky-400 text-xs mt-0.5"
-                numberOfLines={1}
-              >
-                {remainingProt}g
-              </Text>
-            </Tap>
-
-            {/* Carbs Pill */}
-            <Tap
-              onPress={() => {
-                hapticFeedback.selection();
-                handleSendMessage(`What clean carb sources fit my remaining ${remainingCarbs}g carbs?`);
-              }}
-              style={({ pressed }) => [
-                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
-              ]}
-              className="flex-1 bg-zinc-950/85 border border-amber-500/25 p-2 rounded-xl items-center"
-            >
-              <Text className="text-amber-400 text-[8px] font-extrabold uppercase">Carb</Text>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-amber-400 text-xs mt-0.5"
-                numberOfLines={1}
-              >
-                {remainingCarbs}g
-              </Text>
-            </Tap>
-
-            {/* Fat Pill */}
-            <Tap
-              onPress={() => {
-                hapticFeedback.selection();
-                handleSendMessage(`What healthy fat options fit my remaining ${remainingFat}g fat?`);
-              }}
-              style={({ pressed }) => [
-                { transform: [{ scale: pressed ? 0.95 : 1 }], opacity: pressed ? 0.8 : 1 },
-              ]}
-              className="flex-1 bg-zinc-950/85 border border-rose-500/25 p-2 rounded-xl items-center"
-            >
-              <Text className="text-rose-400 text-[8px] font-extrabold uppercase">Fat</Text>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                className="text-rose-400 text-xs mt-0.5"
-                numberOfLines={1}
-              >
-                {remainingFat}g
-              </Text>
-            </Tap>
-          </View>
+          ))}
         </View>
 
-        {/* Chat Messages List with Calendar Date Dividers */}
         <ScrollView
           ref={scrollViewRef}
-          className="flex-1 py-1"
+          style={styles.flex}
+          contentContainerStyle={styles.chat}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 12 }}
         >
           {dateGroups.map((group) => {
-            const isExpanded = group.isToday || !!expandedDates[group.dateKey];
-
+            const expanded = group.isToday || !!expandedDates[group.dateKey];
             return (
-              <View key={group.dateKey} className="mb-1">
-                {/* Calendar Date Divider Badge or Collapsible Accordion Header */}
+              <View key={group.dateKey}>
                 {group.isToday ? (
-                  <View className="items-center my-3">
-                    <View className="bg-zinc-950/90 border border-zinc-800/90 px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm">
-                      <MaterialCommunityIcons name="calendar-today" size={10} color="#10b981" />
-                      <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                        Today
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={styles.day}>Today</Text>
                 ) : (
                   <Tap
                     onPress={() => toggleDateGroup(group.dateKey)}
-                    style={({ pressed }) => [
-                      {
-                        transform: [{ scale: pressed ? 0.98 : 1 }],
-                        opacity: pressed ? 0.85 : 1,
-                      },
-                    ]}
-                    className={`my-2 p-2.5 rounded-2xl flex-row items-center justify-between border ${
-                      isExpanded
-                        ? 'bg-zinc-950/80 border-zinc-800/90'
-                        : 'bg-zinc-900/90 border-zinc-800 shadow-sm'
-                    }`}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    style={({ pressed }) => [styles.pastDay, pressed && styles.pressed]}
                   >
-                    <View className="flex-row items-center gap-2.5">
-                      <View
-                        className={`w-7 h-7 rounded-full items-center justify-center border ${
-                          isExpanded
-                            ? 'bg-zinc-900 border-zinc-800'
-                            : 'bg-emerald-500/10 border-emerald-500/25'
-                        }`}
-                      >
-                        <MaterialCommunityIcons
-                          name="history"
-                          size={14}
-                          color={isExpanded ? '#a1a1aa' : '#10b981'}
-                        />
-                      </View>
-                      <View>
-                        <View className="flex-row items-center gap-1.5">
-                          <Text className="text-zinc-200 text-xs font-bold">
-                            {group.label}
-                          </Text>
-                          <View className="bg-zinc-800/80 px-1.5 py-0.5 rounded-md">
-                            <Text className="text-zinc-400 text-[10px] font-semibold">
-                              {group.messages.length} msg{group.messages.length !== 1 ? 's' : ''}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text className="text-zinc-500 text-[10px] mt-0.5">
-                          {isExpanded
-                            ? 'Tap to minimize previous conversation'
-                            : 'Minimized • Tap to expand previous chat'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View
-                      className={`flex-row items-center gap-1 px-2.5 py-1 rounded-full border ${
-                        isExpanded
-                          ? 'bg-zinc-900 border-zinc-800'
-                          : 'bg-emerald-500/10 border-emerald-500/30'
-                      }`}
-                    >
-                      <Text
-                        className={`text-[10px] font-bold ${
-                          isExpanded ? 'text-zinc-400' : 'text-emerald-400'
-                        }`}
-                      >
-                        {isExpanded ? 'Hide' : 'Expand'}
-                      </Text>
-                      <MaterialCommunityIcons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={14}
-                        color={isExpanded ? '#a1a1aa' : '#10b981'}
-                      />
-                    </View>
+                    <Ionicons name="time-outline" size={16} color={palette.textMuted} />
+                    <Text style={styles.pastDayText}>
+                      {group.label} · {group.messages.length} message{group.messages.length === 1 ? '' : 's'}
+                    </Text>
+                    <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={palette.textMuted} />
                   </Tap>
                 )}
 
-                {/* Render Messages for this Day (when expanded or when Today) */}
-                {isExpanded &&
-                  group.messages.map((msg: ChatMessage) => (
-                    <View
-                      key={msg.id}
-                      className={`mb-3 flex-row items-start ${
-                        msg.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}
-                    >
-                      {msg.role === 'assistant' && (
-                        <View className="mr-2 mt-0.5 self-start">
-                          <Sia expression="happy" size={28} />
+                {expanded &&
+                  group.messages.map((msg) => {
+                    const isUser = msg.role === 'user';
+                    return (
+                      <View key={msg.id} style={[styles.messageRow, isUser && styles.messageRowUser]}>
+                        {!isUser && (
+                          <View style={styles.avatar}>
+                            <Sia expression="happy" size={28} />
+                          </View>
+                        )}
+                        <View style={[styles.bubble, isUser ? styles.userBubble : styles.siaBubble]}>
+                          <FormattedChatMessage
+                            content={msg.content}
+                            isUser={isUser}
+                            onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
+                            onCopy={isUser ? undefined : handleCopyMessage}
+                          />
                         </View>
-                      )}
-
-                      <View
-                        className={`max-w-[84%] rounded-2xl p-3.5 ${
-                          msg.role === 'user'
-                            ? 'bg-emerald-600 rounded-tr-sm shadow-md shadow-emerald-600/20'
-                            : 'bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm'
-                        }`}
-                      >
-                        <FormattedChatMessage
-                          content={msg.content}
-                          isUser={msg.role === 'user'}
-                          onLogMeal={msg.id.startsWith('greeting_') ? undefined : handleLogSuggestedMeal}
-                          onCopy={msg.role === 'assistant' ? handleCopyMessage : undefined}
-                        />
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
               </View>
             );
           })}
 
-          {/* Friendly prompt if all history belongs to previous days and today is fresh */}
           {dateGroups.length > 0 && dateGroups.every((g) => !g.isToday) && (
-            <View className="my-3 p-3 bg-zinc-950/60 border border-dashed border-zinc-800 rounded-2xl items-center flex-row gap-2.5">
+            <View style={styles.newDay}>
               <Sia expression="happy" size={28} />
-              <View className="flex-1">
-                <Text className="text-zinc-300 text-xs font-bold">New Day, Fresh Macros!</Text>
-                <Text className="text-zinc-500 text-[10px] leading-3 mt-0.5">
-                  Previous chats are tucked away above. Tap a quick chip below or ask Sia anything!
-                </Text>
-              </View>
+              <Text style={styles.newDayText}>A new day. Earlier chats are folded above — ask me anything.</Text>
             </View>
           )}
 
-          {/* Sia's reply streaming in word by word */}
           {isTyping && streamingReply !== '' && (
-            <View className="mb-3 flex-row justify-start items-start">
-              <View className="mr-2 mt-0.5 self-start">
+            <View style={styles.messageRow}>
+              <View style={styles.avatar}>
                 <Sia expression="happy" size={28} />
               </View>
-              <View
-                accessibilityLiveRegion="polite"
-                className="max-w-[84%] rounded-2xl p-3.5 bg-zinc-950 border border-zinc-800/90 rounded-tl-sm shadow-sm"
-              >
+              <View style={[styles.bubble, styles.siaBubble]} accessibilityLiveRegion="polite">
                 <FormattedChatMessage content={streamingReply} isUser={false} />
               </View>
             </View>
           )}
 
-          {/* Thinking state until the first words arrive */}
           {isTyping && streamingReply === '' && (
-            <View className="mb-3 flex-row justify-start items-start">
-              <View className="mr-2 self-start">
+            <View style={styles.messageRow}>
+              <View style={styles.thinkingAvatar}>
                 <Sia expression="thinking" size={48} />
               </View>
-              <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-row items-center gap-2 mt-2">
-                <Text className="text-zinc-400 text-xs font-semibold">Sia is thinking</Text>
-                <ChatTypingDots />
+              <View style={[styles.bubble, styles.siaBubble, styles.thinking]}>
+                <Text style={styles.thinkingText}>Sia is thinking</Text>
+                <ThinkingDots />
               </View>
             </View>
           )}
         </ScrollView>
 
-        {/* Quick Suggestion Chips Carousel with Icons & Spring Physics */}
-        <View className="mb-2.5">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            className="flex-row"
-          >
-            {dynamicPrompts.map((item, idx) => (
-              <Tap
-                key={idx}
-                onPress={() => handleSendMessage(item.query)}
-                disabled={isTyping}
-                style={({ pressed }) => [
-                  {
-                    transform: [{ scale: pressed ? 0.94 : 1 }],
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-                className="bg-zinc-950 border border-zinc-800/90 px-3 py-1.5 rounded-xl mr-2 flex-row items-center gap-1.5 shadow-sm"
-              >
-                <MaterialCommunityIcons name={item.icon} size={12} color="#10b981" />
-                <Text className="text-zinc-300 text-[11px] font-semibold">{item.label}</Text>
-              </Tap>
-            ))}
-          </ScrollView>
-        </View>
+        <ScrollView
+          horizontal
+          style={styles.promptRow}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.prompts}
+        >
+          {prompts.map((p) => (
+            <Tap
+              key={p.label}
+              onPress={() => handleSendMessage(p.query)}
+              disabled={isTyping}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.prompt, pressed && styles.pressed, isTyping && styles.disabled]}
+            >
+              <Text style={styles.promptText}>{p.label}</Text>
+            </Tap>
+          ))}
+        </ScrollView>
 
-        {/* Input Bar (Directly Above Keyboard) */}
-        <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl p-1.5 pr-2 shadow-sm">
+        <View style={styles.inputBar}>
           <TextInput
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask Sia about meals, macros, or ideas..."
-            placeholderTextColor="#52525b"
+            placeholder="Ask Sia about meals or macros…"
+            placeholderTextColor={palette.textMuted}
             multiline
             maxLength={200}
-            className="flex-1 text-white text-xs px-3 py-2 max-h-20"
             editable={!isTyping}
+            accessibilityLabel="Message Sia"
+            style={styles.input}
           />
-
           <Tap
             onPress={() => handleSendMessage()}
-            disabled={!inputText.trim() || isTyping}
-            style={({ pressed }) => [
-              {
-                transform: [{ scale: pressed ? 0.92 : 1 }],
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-            className={`w-9 h-9 rounded-xl items-center justify-center ${
-              inputText.trim() && !isTyping ? 'bg-emerald-500' : 'bg-zinc-800 opacity-40'
-            }`}
+            disabled={!canSend}
+            accessibilityRole="button"
+            accessibilityLabel="Send"
+            accessibilityState={{ disabled: !canSend }}
+            style={({ pressed }) => [styles.send, !canSend && styles.disabled, pressed && styles.pressed]}
           >
-            <Ionicons name="arrow-up" size={16} color="#ffffff" />
+            <Ionicons name="arrow-up" size={20} color={palette.pointText} />
           </Tap>
         </View>
-        <Text className="text-zinc-400 text-xs text-center mt-2">
-          Sia shares general nutrition info, not medical advice.
-        </Text>
+        <Text style={styles.disclaimer}>Sia shares general nutrition info, not medical advice.</Text>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.4 },
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 9999, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: palette.pointDeep, opacity: 0.7 },
+  sheet: {
+    height: '88%',
+    paddingHorizontal: space[4],
+    paddingTop: space[3],
+    borderTopLeftRadius: radius.hero + 6,
+    borderTopRightRadius: radius.hero + 6,
+    backgroundColor: palette.bg,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingBottom: space[3], borderBottomWidth: 1, borderBottomColor: palette.line },
+  title: { fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  subtitle: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  leftLabel: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginTop: space[3], marginBottom: space[1] },
+  macros: { flexDirection: 'row', gap: space[2] },
+  macro: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.control,
+    backgroundColor: palette.point,
+  },
+  macroValue: { fontFamily: type.displayBold, fontSize: type.size.body, color: palette.pointText, fontVariant: ['tabular-nums'] },
+  macroLabel: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.pointMuted },
+  chat: { paddingTop: space[2], paddingBottom: space[3] },
+  day: { alignSelf: 'center', fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginVertical: space[2] },
+  pastDay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    minHeight: 48,
+    paddingHorizontal: space[3],
+    marginVertical: space[1],
+    borderRadius: radius.card,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  pastDayText: { flex: 1, fontFamily: type.bodySemibold, fontSize: type.size.secondary, color: palette.text },
+  messageRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: space[3] },
+  messageRowUser: { justifyContent: 'flex-end' },
+  avatar: { marginRight: space[2], marginTop: 2 },
+  thinkingAvatar: { marginRight: space[2] },
+  bubble: { maxWidth: '84%', padding: space[3], borderRadius: radius.card },
+  siaBubble: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderTopLeftRadius: 4 },
+  userBubble: { backgroundColor: palette.point, borderTopRightRadius: 4 },
+  siaText: { fontFamily: type.body, fontSize: type.size.secondary + 1, lineHeight: 21, color: palette.text },
+  userText: { fontFamily: type.bodySemibold, fontSize: type.size.secondary + 1, lineHeight: 21, color: palette.pointText },
+  lineGap: { marginTop: space[1] },
+  bold: { fontFamily: type.bodyBold },
+  thinking: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: space[2] },
+  thinkingText: { fontFamily: type.bodySemibold, fontSize: type.size.secondary, color: palette.textMuted },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: palette.leafOnLight },
+  ideas: { marginTop: space[3], paddingTop: space[2], borderTopWidth: 1, borderTopColor: palette.line, gap: space[2] },
+  idea: { flexDirection: 'row', alignItems: 'center', gap: space[2], padding: space[2], borderRadius: radius.control, backgroundColor: palette.bg },
+  ideaName: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  ideaMeta: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted, fontVariant: ['tabular-nums'], marginTop: 2 },
+  logButton: { minHeight: 44, minWidth: 56, paddingHorizontal: space[3], alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: palette.point },
+  logText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointText },
+  copy: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: space[1], minHeight: 32, paddingHorizontal: space[2], marginTop: space[1] },
+  copyText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted },
+  newDay: { flexDirection: 'row', alignItems: 'center', gap: space[2], padding: space[3], marginVertical: space[2], borderRadius: radius.card, borderWidth: 1, borderStyle: 'dashed', borderColor: palette.line },
+  newDayText: { flex: 1, fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted },
+  // A horizontal list in a column would otherwise grow to fill the sheet.
+  promptRow: { flexGrow: 0, flexShrink: 0 },
+  prompts: { gap: space[2], paddingBottom: space[2], alignItems: 'center' },
+  prompt: {
+    minHeight: 40,
+    paddingHorizontal: space[3],
+    justifyContent: 'center',
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  promptText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: space[2],
+    padding: space[1],
+    paddingLeft: space[3],
+    borderRadius: radius.card,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  input: { flex: 1, maxHeight: 96, minHeight: 44, paddingVertical: space[2], fontFamily: type.body, fontSize: type.size.secondary + 1, color: palette.text },
+  send: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: palette.point },
+  disclaimer: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted, textAlign: 'center', marginTop: space[2] },
+});

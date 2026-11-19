@@ -1,6 +1,7 @@
 import { isRunningInExpoGo } from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { reminderSchedule } from '../features/onboarding/reminders';
 
 const STORAGE_KEY_NOTIF_ENABLED = '@siameal_notifications_enabled';
 const STORAGE_KEY_NOTIF_PROMPTED = '@siameal_notifications_prompted';
@@ -80,7 +81,7 @@ export async function getNotificationStatus(): Promise<NotificationState> {
 /**
  * Request notification permissions from user and toggle active reminder schedules.
  */
-export async function requestNotificationPermission(): Promise<boolean> {
+export async function requestNotificationPermission(mealTimes: string[] = []): Promise<boolean> {
   if (isExpoGo || !Notifications || Platform.OS === 'web') {
     return false;
   }
@@ -99,7 +100,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
     const granted = finalStatus === 'granted';
     if (granted) {
       await AsyncStorage.setItem(STORAGE_KEY_NOTIF_ENABLED, 'true');
-      await scheduleFelineDailyReminders();
+      if (mealTimes.length > 0) await scheduleMealReminders(mealTimes);
+      else await scheduleFelineDailyReminders();
     } else {
       await AsyncStorage.setItem(STORAGE_KEY_NOTIF_ENABLED, 'false');
     }
@@ -114,13 +116,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
 /**
  * Set user notification toggle (e.g. from Profile settings)
  */
-export async function setNotificationsEnabled(enable: boolean): Promise<boolean> {
+export async function setNotificationsEnabled(enable: boolean, mealTimes: string[] = []): Promise<boolean> {
   if (isExpoGo || !Notifications || Platform.OS === 'web') {
     return false;
   }
 
   if (enable) {
-    return await requestNotificationPermission();
+    return await requestNotificationPermission(mealTimes);
   } else {
     try {
       await AsyncStorage.setItem(STORAGE_KEY_NOTIF_ENABLED, 'false');
@@ -129,6 +131,22 @@ export async function setNotificationsEnabled(enable: boolean): Promise<boolean>
     } catch {
       return false;
     }
+  }
+}
+
+/** Daily reminders at the person's usual meal times (replaces any earlier schedule). */
+export async function scheduleMealReminders(mealTimes: string[]): Promise<void> {
+  if (isExpoGo || !Notifications || Platform.OS === 'web') return;
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    for (const slot of reminderSchedule(mealTimes)) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: slot.title, body: slot.body, data: { screen: '/(tabs)/camera' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: slot.hour, minute: slot.minute },
+      });
+    }
+  } catch (err) {
+    console.warn('[NotificationService] Failed to schedule meal reminders:', err);
   }
 }
 

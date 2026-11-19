@@ -14,6 +14,8 @@ export interface ChatMessage {
 
 export interface UserNutritionContext {
   displayName?: string;
+  /** Foods to keep out of suggestions, e.g. "No pork". */
+  foodsAvoided?: string[];
   goal?: string;
   dietType?: string;
   targetCalories?: number;

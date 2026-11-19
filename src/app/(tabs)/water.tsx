@@ -1,981 +1,314 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Animated,
-  StyleSheet,
-  TextInput,
-  Modal,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useShallow } from 'zustand/react/shallow';
 import { useWaterStore } from '../../stores/waterStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
-import { hapticFeedback } from '../../utils/haptics';
-import { AnimatedProgressRing } from '../../components/AnimatedProgressRing';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useShallow } from 'zustand/react/shallow';
+import { CalorieEyeRing } from '../../components/CalorieEyeRing';
 import { Tap } from '../../components/Tap';
+import { hapticFeedback } from '../../utils/haptics';
+import { waterStatus } from '../../utils/historyText';
+import { palette, radius, space, type } from '../../theme';
 
-
-interface QuickAmountOption {
-  amount: number;
-  label: string;
-  desc: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-}
-
-const QUICK_AMOUNTS: QuickAmountOption[] = [
-  { amount: 250, label: 'Kitten Bowl', desc: '+250 ml', icon: 'cat' },
-  { amount: 500, label: 'Cat Bottle', desc: '+500 ml', icon: 'water' },
-  { amount: 750, label: 'Hydra Flask', desc: '+750 ml', icon: 'flask' },
-  { amount: 1000, label: 'Pounce Pitcher', desc: '+1.0 L', icon: 'cup-water' },
-];
-
+const QUICK_AMOUNTS = [250, 500, 750, 1000];
 const GOAL_OPTIONS = [2000, 2500, 3000, 3500, 4000];
+const MAX_CUSTOM_ML = 3000;
 
-const getHydrationStatus = (pct: number, remaining: number) => {
-  if (remaining <= 0 || pct >= 100) {
-    return {
-      title: 'Goal Mastered',
-      badgeColor: '#10b981',
-      icon: 'paw' as const,
-    };
-  }
-  if (pct >= 75) {
-    return {
-      title: 'Almost Full',
-      badgeColor: '#38bdf8',
-      icon: 'water' as const,
-    };
-  }
-  if (pct >= 40) {
-    return {
-      title: 'Purr-fect Pace',
-      badgeColor: '#06b6d4',
-      icon: 'water-outline' as const,
-    };
-  }
-  return {
-    title: 'Bowl Needs Water',
-    badgeColor: '#a1a1aa',
-    icon: 'water-alert-outline' as const,
-  };
+const litres = (ml: number) => `${(ml / 1000).toFixed(1)} L`;
+const amountLabel = (ml: number) => (ml >= 1000 ? `+${ml / 1000} L` : `+${ml} ml`);
+const formatTime = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
 
-const getVesselIcon = (amount: number): keyof typeof MaterialCommunityIcons.glyphMap => {
-  if (amount <= 250) return 'cat';
-  if (amount <= 500) return 'water';
-  if (amount <= 750) return 'flask';
-  return 'cup-water';
-};
-
-const getVesselLabel = (amount: number): string => {
-  if (amount === 250) return 'Kitten Bowl';
-  if (amount === 500) return 'Cat Bottle';
-  if (amount === 750) return 'Hydra Flask';
-  if (amount === 1000) return 'Pounce Pitcher';
-  return 'Custom Sip';
-};
-
+/** Water: Sia's eye filling with blue, quick adds, and today's log. Sia (on the tab bar) cheers the goal. */
 export default function WaterScreen() {
-  const { profile } = useAuthStore(
-    useShallow((s) => ({ profile: s.profile }))
-  );
-  const {
-    todayMl,
-    dailyGoalMl,
-    logs,
-    loadTodayWater,
-    addWater,
-    deleteWaterLog,
-    setDailyGoal,
-  } = useWaterStore(
-    useShallow((s) => ({ todayMl: s.todayMl, dailyGoalMl: s.dailyGoalMl, logs: s.logs, loadTodayWater: s.loadTodayWater, addWater: s.addWater, deleteWaterLog: s.deleteWaterLog, setDailyGoal: s.setDailyGoal }))
+  const { profile, saveProfile } = useAuthStore(useShallow((s) => ({ profile: s.profile, saveProfile: s.saveProfile })));
+  const { todayMl, dailyGoalMl, logs, loadTodayWater, addWater, deleteWaterLog, setDailyGoal } = useWaterStore(
+    useShallow((s) => ({
+      todayMl: s.todayMl,
+      dailyGoalMl: s.dailyGoalMl,
+      logs: s.logs,
+      loadTodayWater: s.loadTodayWater,
+      addWater: s.addWater,
+      deleteWaterLog: s.deleteWaterLog,
+      setDailyGoal: s.setDailyGoal,
+    }))
   );
 
-  const [showGoalPicker, setShowGoalPicker] = useState(false);
-  const [showCustomModal, setShowCustomModal] = useState(false);
-  const [customMlText, setCustomMlText] = useState('350');
   const [toast, setToast] = useState<ToastConfig | null>(null);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const celebrationAnim = useRef(new Animated.Value(0)).current;
-  const celebrationTimerRef = useRef<any>(null);
-  const particleAnim = useRef(new Animated.Value(0)).current;
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
 
-  const effectiveGoal = profile?.target_water_ml || dailyGoalMl || 2500;
-  const percentage = effectiveGoal > 0 ? Math.min(100, Math.round((todayMl / effectiveGoal) * 100)) : 0;
-  const remainingMl = Math.max(0, effectiveGoal - todayMl);
-
-  // SVG Dial Dimensions
-  const size = 196;
-  const strokeWidth = 14;
-  const radius = (size - strokeWidth) / 2; // (196 - 14) / 2 = 91
+  const goal = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
+  const fraction = goal > 0 ? Math.min(1, todayMl / goal) : 0;
 
   useEffect(() => {
     loadTodayWater();
   }, []);
 
-  const dismissCelebration = () => {
-    if (celebrationTimerRef.current) {
-      clearTimeout(celebrationTimerRef.current);
-      celebrationTimerRef.current = null;
-    }
-    Animated.timing(celebrationAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => setShowCelebration(false));
-  };
-
-  const handleAddWater = async (amount: number, label = '') => {
+  const add = async (ml: number) => {
     hapticFeedback.medium();
-    const prevMl = todayMl;
-    const newMl = todayMl + amount;
-    await addWater(amount);
-
-    const prevPct = effectiveGoal > 0 ? (prevMl / effectiveGoal) * 100 : 0;
-    const newPct = effectiveGoal > 0 ? (newMl / effectiveGoal) * 100 : 0;
-    const newTotal = newMl / 1000;
-    const goalL = (effectiveGoal / 1000).toFixed(1);
-
-    // 1. Apex 100% Goal Reached
-    if (newMl >= effectiveGoal && prevMl < effectiveGoal) {
-      hapticFeedback.purr();
-      setShowCelebration(true);
-      celebrationAnim.setValue(0);
-      particleAnim.setValue(0);
-
-      Animated.parallel([
-        Animated.spring(celebrationAnim, {
-          toValue: 1,
-          friction: 6,
-          tension: 75,
-          useNativeDriver: true,
-        }),
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(particleAnim, {
-              toValue: 1,
-              duration: 1800,
-              useNativeDriver: true,
-            }),
-            Animated.timing(particleAnim, {
-              toValue: 0,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ])
-        ),
-      ]).start();
-
-      celebrationTimerRef.current = setTimeout(() => {
-        dismissCelebration();
-      }, 3500);
-    }
-    // 2. 75% Almost Full Milestone
-    else if (newPct >= 75 && prevPct < 75) {
-      hapticFeedback.medium();
-      setToast({
-        title: 'Almost Full Bowl',
-        message: `75% milestone reached! Only ${(Math.max(0, effectiveGoal - newMl) / 1000).toFixed(1)}L left to apex hydration.`,
-        type: 'water',
-      });
-    }
-    // 3. 50% Halfway Purr-fect Milestone
-    else if (newPct >= 50 && prevPct < 50) {
-      hapticFeedback.medium();
-      setToast({
-        title: 'Purr-fect Halfway',
-        message: `50% milestone crushed! Sia is feeling hydrated and full of energy.`,
-        type: 'water',
-      });
-    }
-    // 4. 25% Prowl Kickoff Milestone
-    else if (newPct >= 25 && prevPct < 25) {
-      hapticFeedback.light();
-      setToast({
-        title: 'Prowl Kickoff',
-        message: `25% milestone hit! Great fluid momentum for the day.`,
-        type: 'water',
-      });
-    }
-    // Standard Logged Toast
-    else {
-      setToast({
-        title: 'Hydration Logged',
-        message: `+${amount} ml added ${label ? `(${label})` : ''} • Today: ${newTotal.toFixed(1)}L / ${goalL}L`,
-        type: 'water',
-      });
-    }
+    const before = todayMl;
+    await addWater(ml);
+    if (before < goal && before + ml >= goal) hapticFeedback.success();
+    setToast({ title: `${amountLabel(ml)} water`, message: `${litres(before + ml)} of ${litres(goal)} today`, type: 'water' });
   };
 
-  const handleDeleteLog = async (id: string, amount: number) => {
+  const remove = async (id: string, ml: number) => {
     hapticFeedback.light();
     await deleteWaterLog(id);
-    setToast({
-      title: 'Hydration Removed',
-      message: `-${amount} ml subtracted from daily total`,
-      type: 'info',
-    });
+    setToast({ title: 'Removed', message: `${ml} ml taken off today.`, type: 'info' });
   };
 
-  const handleCustomAdd = async () => {
-    const amount = parseInt(customMlText, 10);
-    if (!amount || isNaN(amount) || amount <= 0) {
-      hapticFeedback.error();
+  const addCustom = async () => {
+    const ml = Number(customText.replace(/[^0-9]/g, ''));
+    if (!ml) {
+      setCustomError('Enter an amount in ml.');
       return;
     }
-    setShowCustomModal(false);
-    await handleAddWater(amount, 'Custom');
-  };
-
-  const formatTime = (isoString: string) => {
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return '';
+    if (ml > MAX_CUSTOM_ML) {
+      setCustomError(`That's more than ${MAX_CUSTOM_ML / 1000} L at once. Try a smaller amount.`);
+      return;
     }
+    setCustomOpen(false);
+    setCustomText('');
+    setCustomError(null);
+    await add(ml);
   };
-
-  const status = getHydrationStatus(percentage, remainingMl);
-
-  // Dial milestone notch markers at 25%, 50%, 75%
-  // Center is (98, 98), radius is 91
-  // Angle = -PI/2 + pct * 2 * PI
-  const milestoneNotches = [
-    { pct: 25, cx: 98 + 91 * Math.cos(0), cy: 98 + 91 * Math.sin(0) }, // 3 o'clock (189, 98)
-    { pct: 50, cx: 98 + 91 * Math.cos(Math.PI / 2), cy: 98 + 91 * Math.sin(Math.PI / 2) }, // 6 o'clock (98, 189)
-    { pct: 75, cx: 98 + 91 * Math.cos(Math.PI), cy: 98 + 91 * Math.sin(Math.PI) }, // 9 o'clock (7, 98)
-  ];
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-950">
-      <StatusBar barStyle="light-content" />
-
-      {/* Floating Dynamic Island Toast HUD */}
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
+      <StatusBar barStyle="dark-content" />
       <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
 
-      {/* Hydration Goal Celebration Overlay */}
-      {showCelebration && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 99,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.78)',
-            transform: [{ scale: celebrationAnim }],
-            opacity: celebrationAnim,
-          }}
-        >
-          {/* Backdrop tap to dismiss */}
-          <Tap
-            style={StyleSheet.absoluteFill}
-            onPress={dismissCelebration}
-          />
-
-          <View
-            style={{
-              backgroundColor: '#07181c',
-              borderWidth: 1.5,
-              borderColor: '#06b6d4',
-              borderRadius: 32,
-              paddingHorizontal: 36,
-              paddingVertical: 28,
-              alignItems: 'center',
-              shadowColor: '#06b6d4',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.6,
-              shadowRadius: 24,
-              elevation: 20,
-              maxWidth: 340,
-            }}
-          >
-            {/* Animated Floating Paws & Sparkles */}
-            {[
-              { icon: 'paw', x: -85, y: -30, size: 20, color: '#38bdf8' },
-              { icon: 'sparkles', x: 85, y: -35, size: 18, color: '#34d399' },
-              { icon: 'water', x: -80, y: 35, size: 17, color: '#06b6d4' },
-              { icon: 'paw', x: 80, y: 40, size: 18, color: '#a5f3fc' },
-              { icon: 'sparkles', x: -35, y: -65, size: 15, color: '#38bdf8' },
-              { icon: 'paw', x: 40, y: -65, size: 16, color: '#34d399' },
-            ].map((p, i) => (
-              <Animated.View
-                key={i}
-                pointerEvents="none"
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '50%',
-                  marginLeft: p.x,
-                  marginTop: p.y,
-                  opacity: particleAnim.interpolate({
-                    inputRange: [0, 0.25, 0.75, 1],
-                    outputRange: [0, 0.95, 0.95, 0],
-                  }),
-                  transform: [
-                    {
-                      translateY: particleAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [15, -45],
-                      }),
-                    },
-                    {
-                      scale: particleAnim.interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: [0.7, 1.15, 0.85],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={p.icon as any}
-                  size={p.size}
-                  color={p.color}
-                />
-              </Animated.View>
-            ))}
-
-            <View className="w-16 h-16 rounded-full bg-cyan-500/15 border border-cyan-400/40 items-center justify-center mb-3.5 shadow-lg shadow-cyan-500/20">
-              <MaterialCommunityIcons name="water-check" size={34} color="#38bdf8" />
-            </View>
-            <Text style={{ fontFamily: 'Outfit_900Black', color: '#38bdf8', fontSize: 22, letterSpacing: -0.5, textAlign: 'center' }}>
-              Hydration Goal Achieved
-            </Text>
-            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 4, textAlign: 'center', fontWeight: '600', lineHeight: 18 }}>
-              Optimal fluid intake registered for today.
-            </Text>
-
-            <View
-              style={{
-                marginTop: 12,
-                backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                borderColor: 'rgba(6, 182, 212, 0.3)',
-                borderWidth: 1,
-                paddingHorizontal: 14,
-                paddingVertical: 5,
-                borderRadius: 16,
-              }}
-            >
-              <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700' }}>
-                +10 Hydration Streak XP Active
-              </Text>
-            </View>
-
-            {/* Tap-to-dismiss interactive button */}
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                dismissCelebration();
-              }}
-              activeOpacity={0.8}
-              style={{
-                marginTop: 18,
-                backgroundColor: '#06b6d4',
-                paddingHorizontal: 26,
-                paddingVertical: 10,
-                borderRadius: 18,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                shadowColor: '#06b6d4',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4,
-                shadowRadius: 10,
-                elevation: 6,
-              }}
-            >
-              <MaterialCommunityIcons name="paw" size={15} color="#042f2e" />
-              <Text style={{ fontFamily: 'Outfit_800ExtraBold', color: '#042f2e', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Purr-fect!
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* Header Bar */}
-      <View className="px-5 pt-3 pb-3 border-b border-zinc-900 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2.5">
-          <View className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
-            <Ionicons name="water" size={17} color="#06b6d4" />
-          </View>
-          <View>
-            <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">
-              Hydration Command
-            </Text>
-            <Text
-              style={{ fontFamily: 'Outfit_700Bold' }}
-              className="text-white text-lg tracking-tight"
-            >
-              Water & Fluid Tracker
-            </Text>
-          </View>
-        </View>
-
-        {/* Goal Selector Pill */}
-        <TouchableOpacity
-          onPress={() => {
-            hapticFeedback.light();
-            setShowGoalPicker(!showGoalPicker);
-          }}
-          activeOpacity={0.8}
-          className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-2xl flex-row items-center gap-1.5"
-        >
-          <Text className="text-zinc-400 text-xs font-semibold">Goal:</Text>
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-            className="text-cyan-400 text-xs"
-          >
-            {(effectiveGoal / 1000).toFixed(1)}L
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={[styles.title, styles.flex]} accessibilityRole="header">
+            Water
           </Text>
-          <Ionicons name="chevron-down" size={13} color="#71717a" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        className="flex-1 px-5 pt-4"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
-      >
-        {/* Goal Selection Dropdown Sheet */}
-        {showGoalPicker && (
-          <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 mb-4">
-            <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-wider mb-3">
-              Set Daily Hydration Target Volume
-            </Text>
-            <View className="flex-row gap-2">
-              {GOAL_OPTIONS.map((goal) => (
-                <TouchableOpacity
-                  key={goal}
-                  onPress={() => {
-                    hapticFeedback.selection();
-                    setDailyGoal(goal);
-                    setShowGoalPicker(false);
-                    setToast({
-                      title: 'Target Updated',
-                      message: `Daily hydration goal set to ${(goal / 1000).toFixed(1)} Liters`,
-                      type: 'water',
-                    });
-                  }}
-                  className={`flex-1 py-3 rounded-2xl border items-center ${
-                    effectiveGoal === goal
-                      ? 'bg-cyan-500/20 border-cyan-500 shadow-md shadow-cyan-500/20'
-                      : 'bg-zinc-950 border-zinc-800'
-                  }`}
-                >
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold', fontVariant: ['tabular-nums'] }}
-                    className={`text-xs ${
-                      effectiveGoal === goal ? 'text-cyan-400' : 'text-zinc-400'
-                    }`}
-                  >
-                    {(goal / 1000).toFixed(1)}L
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* 1. Hero Animated Cyan Radial Gauge Card */}
-        <View className="bg-zinc-900/95 border border-zinc-800/90 rounded-3xl p-5 mb-4 shadow-xl shadow-black/50">
-          {/* Top Status Header */}
-          <View className="flex-row items-center justify-between mb-2">
-            <View className="flex-row items-center gap-2">
-              <View className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-              <Text className="text-zinc-400 text-[10px] font-extrabold uppercase tracking-widest">
-                Sia Fluid Matrix
-              </Text>
-            </View>
-
-            <View className="bg-zinc-950 px-2.5 py-1 rounded-xl border border-cyan-500/30 flex-row items-center gap-1.5 shadow-sm shadow-cyan-500/10">
-              <MaterialCommunityIcons
-                name={status.icon}
-                size={12}
-                color={status.badgeColor}
-              />
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold', color: status.badgeColor }}
-                className="text-[10px] uppercase tracking-wider"
-              >
-                {status.title}
-              </Text>
-            </View>
-          </View>
-
-          {/* Central Radial SVG Gauge with Dynamic Sia Mascot */}
-          <View className="items-center justify-center my-3">
-            <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-              <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-                <Defs>
-                  <LinearGradient id="cyanGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#38bdf8" />
-                    <Stop offset="100%" stopColor="#0284c7" />
-                  </LinearGradient>
-                </Defs>
-
-                {/* Track Ring */}
-                <Circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke="#18181b"
-                  strokeWidth={strokeWidth}
-                  fill="transparent"
-                />
-
-                {/* Milestone Notches */}
-                {milestoneNotches.map((m) => (
-                  <Circle
-                    key={m.pct}
-                    cx={m.cx}
-                    cy={m.cy}
-                    r={3.5}
-                    fill={percentage >= m.pct ? '#38bdf8' : '#27272a'}
-                    stroke="#09090b"
-                    strokeWidth={1.5}
-                  />
-                ))}
-
-                {/* Active Animated Ring */}
-                <AnimatedProgressRing
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke="url(#cyanGradient)"
-                  strokeWidth={strokeWidth}
-                  progress={percentage / 100}
-                  durationMs={850}
-                />
-              </Svg>
-
-              {/* Central Radial Telemetry & Typography */}
-              <View className="items-center justify-center">
-                <View className="w-11 h-11 rounded-full bg-cyan-500/10 border border-cyan-500/25 items-center justify-center mb-1">
-                  <MaterialCommunityIcons name="water" size={22} color="#06b6d4" />
-                </View>
-                <Text
-                  style={{ fontFamily: 'Outfit_900Black', fontVariant: ['tabular-nums'] }}
-                  className="text-3xl text-white tracking-tight leading-none mt-0.5"
-                >
-                  {(todayMl / 1000).toFixed(2)}
-                </Text>
-                <Text
-                  style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-cyan-400 text-[10px] uppercase tracking-wider mt-1"
-                >
-                  LITERS LOGGED
-                </Text>
-                <Text
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-zinc-500 text-[10px] font-semibold mt-0.5"
-                >
-                  {percentage}% of {(effectiveGoal / 1000).toFixed(1)}L
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Telemetry Stats — asymmetric 2-col layout */}
-          <View className="flex-row gap-2.5 pt-3 border-t border-zinc-800/50">
-
-            {/* LEFT: Hero Pour Target stat */}
-            <View
-              style={{
-                flex: 1.4,
-                backgroundColor: remainingMl <= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(6,182,212,0.07)',
-                borderWidth: 1,
-                borderColor: remainingMl <= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(6,182,212,0.18)',
-                borderRadius: 20,
-                padding: 14,
-              }}
-            >
-              <Text style={{ color: '#71717a', fontSize: 9, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-                Still to pour
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Outfit_900Black',
-                  fontVariant: ['tabular-nums'],
-                  fontSize: remainingMl <= 0 ? 28 : 30,
-                  color: remainingMl <= 0 ? '#10b981' : '#f4f4f5',
-                  lineHeight: 32,
-                }}
-              >
-                {remainingMl <= 0 ? '0' : remainingMl >= 1000
-                  ? `${(remainingMl / 1000).toFixed(1)}`
-                  : remainingMl.toString()}
-              </Text>
-              <Text style={{ color: remainingMl <= 0 ? '#10b981' : '#06b6d4', fontSize: 11, fontWeight: '700', marginTop: 1 }}>
-                {remainingMl >= 1000 ? 'liters left' : 'ml left'}
-              </Text>
-              {/* Mini fill bar */}
-              <View style={{ marginTop: 10, height: 4, backgroundColor: '#18181b', borderRadius: 4, overflow: 'hidden' }}>
-                <View
-                  style={{
-                    height: 4,
-                    width: `${Math.min(100, percentage)}%`,
-                    backgroundColor: remainingMl <= 0 ? '#10b981' : '#06b6d4',
-                    borderRadius: 4,
-                  }}
-                />
-              </View>
-              <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '600', marginTop: 4, fontVariant: ['tabular-nums'] }}>
-                {percentage}% of {(effectiveGoal / 1000).toFixed(1)}L goal
-              </Text>
-            </View>
-
-            {/* RIGHT: Two stacked secondary stats */}
-            <View style={{ flex: 1, gap: 8 }}>
-
-              {/* Sips Today */}
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: '#0d0d10',
-                  borderWidth: 1,
-                  borderColor: '#27272a',
-                  borderRadius: 18,
-                  padding: 12,
-                  justifyContent: 'space-between',
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <MaterialCommunityIcons name="cup-water" size={13} color="#52525b" />
-                  <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                    Sips Today
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
-                  <Text style={{ fontFamily: 'Outfit_900Black', fontSize: 26, color: '#f4f4f5', fontVariant: ['tabular-nums'], lineHeight: 28 }}>
-                    {logs.length}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: '#52525b', fontWeight: '600', marginBottom: 2 }}>drinks</Text>
-                </View>
-              </View>
-
-              {/* Hydration Pace */}
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: '#0d0d10',
-                  borderWidth: 1,
-                  borderColor: '#27272a',
-                  borderRadius: 18,
-                  padding: 12,
-                  justifyContent: 'space-between',
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <MaterialCommunityIcons name="paw" size={13} color="#06b6d4" />
-                  <Text style={{ color: '#52525b', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                    Pace
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    fontFamily: 'Outfit_800ExtraBold',
-                    fontSize: percentage >= 100 ? 14 : 15,
-                    color: percentage >= 100 ? '#10b981' : percentage >= 50 ? '#38bdf8' : '#a1a1aa',
-                    marginTop: 6,
-                  }}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {percentage >= 100 ? 'Done' : percentage >= 75 ? 'Almost' : percentage >= 50 ? 'On Track' : 'Building'}
-                </Text>
-              </View>
-
-            </View>
-          </View>
+          <Tap
+            onPress={() => setGoalOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: goalOpen }}
+            accessibilityLabel={`Daily goal ${litres(goal)}`}
+            style={({ pressed }) => [styles.goalPill, pressed && styles.pressed]}
+          >
+            <Text style={styles.goalText}>Goal {litres(goal)}</Text>
+            <Ionicons name={goalOpen ? 'chevron-up' : 'chevron-down'} size={14} color={palette.text} />
+          </Tap>
         </View>
 
-        {/* Hydration Status Banner */}
-        {percentage >= 100 ? (
-          <View className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3.5 mb-4 flex-row items-center gap-3 shadow-sm shadow-cyan-500/10">
-            <View className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 items-center justify-center">
-              <MaterialCommunityIcons name="trophy" size={20} color="#38bdf8" />
-            </View>
-            <View className="flex-1">
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-cyan-400 text-sm"
-              >
-                Daily Goal Complete
-              </Text>
-              <Text className="text-zinc-300 text-xs leading-4 mt-0.5">
-                Target of {(effectiveGoal / 1000).toFixed(1)}L reached. Fluid balance is fully restored.
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl px-4 py-3 mb-4 flex-row items-center gap-3">
-            <View className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 items-center justify-center">
-              <MaterialCommunityIcons name="water-outline" size={16} color="#06b6d4" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-zinc-300 text-xs font-semibold leading-4">
-                {percentage === 0
-                  ? '“A well-hydrated human is a high-energy hunter! Pour a fresh bowl.” — Sia'
-                  : percentage < 50
-                  ? `“Keep sipping! ${remainingMl.toLocaleString()} ml to go until my bowl is purr-fect.” — Sia`
-                  : `“You’re crushing it! Over halfway to your ${(effectiveGoal / 1000).toFixed(1)}L target.” — Sia`}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* 2. Quick Vessel Intake Grid with Spring Press Physics */}
-        <View className="mb-5">
-          <View className="flex-row items-center justify-between mb-3 px-1">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider">
-              Rapid Vessel Logging
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                setShowCustomModal(true);
-              }}
-              className="flex-row items-center gap-1"
-            >
-              <Ionicons name="add-circle-outline" size={14} color="#06b6d4" />
-              <Text className="text-cyan-400 text-xs font-bold">Custom Amount</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="flex-row gap-2">
-            {QUICK_AMOUNTS.map((item) => (
-              <Tap
-                key={item.amount}
-                onPress={() => handleAddWater(item.amount, item.label)}
-                style={({ pressed }) => [
-                  {
-                    transform: [{ scale: pressed ? 0.94 : 1 }],
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-                className="flex-1 bg-zinc-900/90 border border-zinc-800/90 p-3 rounded-2xl items-center justify-center shadow-sm shadow-black"
-              >
-                <View className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center mb-1.5">
-                  <MaterialCommunityIcons name={item.icon} size={18} color="#06b6d4" />
-                </View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs text-center"
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-                <Text
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-cyan-400 text-[10px] font-extrabold mt-0.5"
-                >
-                  {item.desc}
-                </Text>
-              </Tap>
-            ))}
-          </View>
-        </View>
-
-        {/* 3. Hydration Timeline */}
-        <View className="mb-8">
-          <View className="flex-row items-center justify-between mb-3 px-1">
-            <Text
-              style={{ fontFamily: 'Outfit_700Bold' }}
-              className="text-white text-base"
-            >
-              Today's Fluid Timeline
-            </Text>
-            <Text
-              style={{ fontVariant: ['tabular-nums'] }}
-              className="text-zinc-500 text-xs font-semibold"
-            >
-              {logs.length} logged entries
-            </Text>
-          </View>
-
-          {logs.length === 0 ? (
-            <View className="bg-zinc-900/40 border border-dashed border-zinc-800 rounded-2xl p-6 items-center my-2">
-              <View className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 items-center justify-center mb-2.5">
-                <MaterialCommunityIcons name="water-outline" size={24} color="#06b6d4" />
-              </View>
-              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-sm mb-1 text-center">
-                No Hydration Logged Today
-              </Text>
-              <Text className="text-zinc-400 text-xs text-center mb-4 leading-relaxed max-w-[260px]">
-                Tap any vessel pod above to record water intake and track your fluid balance.
-              </Text>
-              <TouchableOpacity
-                onPress={() => handleAddWater(250, 'Glass')}
-                activeOpacity={0.8}
-                className="bg-cyan-500/15 border border-cyan-500/35 px-4 py-2 rounded-xl flex-row items-center gap-1.5"
-              >
-                <Ionicons name="add" size={16} color="#38bdf8" />
-                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-cyan-400 text-xs">
-                  Quick Add +250ml
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            logs.map((log) => (
-              <View
-                key={log.id}
-                className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-3.5 mb-2.5 flex-row items-center justify-between shadow-sm"
-              >
-                <View className="flex-row items-center gap-3">
-                  <View className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
-                    <MaterialCommunityIcons
-                      name={getVesselIcon(log.amount_ml)}
-                      size={18}
-                      color="#06b6d4"
-                    />
-                  </View>
-                  <View>
-                    <View className="flex-row items-center gap-2">
-                      <Text
-                        style={{ fontFamily: 'Outfit_800ExtraBold', fontVariant: ['tabular-nums'] }}
-                        className="text-white text-base"
-                      >
-                        +{log.amount_ml} <Text className="text-xs text-cyan-400 font-bold">ml</Text>
-                      </Text>
-                      <Text className="text-zinc-400 text-[11px] font-medium">
-                        • {getVesselLabel(log.amount_ml)}
-                      </Text>
-                    </View>
-                    <Text className="text-zinc-500 text-xs font-semibold">{formatTime(log.logged_at)}</Text>
-                  </View>
-                </View>
-
+        {goalOpen && (
+          <View style={styles.goalRow} accessibilityRole="radiogroup">
+            {GOAL_OPTIONS.map((g) => {
+              const on = g === goal;
+              return (
                 <Tap
-                  onPress={() => handleDeleteLog(log.id, log.amount_ml)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  style={({ pressed }) => [
-                    {
-                      opacity: pressed ? 0.6 : 1,
-                      transform: [{ scale: pressed ? 0.88 : 1 }],
-                    },
-                  ]}
-                  className="w-8 h-8 rounded-full bg-zinc-800/70 border border-zinc-700/40 items-center justify-center"
+                  key={g}
+                  onPress={async () => {
+                    hapticFeedback.selection();
+                    // The profile's water target wins elsewhere (Today), so keep both in step.
+                    await Promise.all([setDailyGoal(g), saveProfile({ target_water_ml: g })]);
+                    setGoalOpen(false);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  style={({ pressed }) => [styles.goalChip, on && styles.goalChipOn, pressed && styles.pressed]}
                 >
-                  <Ionicons name="trash-outline" size={14} color="#a1a1aa" />
+                  <Text style={[styles.goalChipText, on && styles.goalChipTextOn]}>{litres(g)}</Text>
+                </Tap>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.hero} accessible accessibilityLabel={`${litres(todayMl)} of ${litres(goal)} today. ${waterStatus(todayMl, goal)}`}>
+          <CalorieEyeRing
+            size={176}
+            eaten={todayMl}
+            target={goal}
+            fraction={fraction}
+            over={false}
+            color={palette.water}
+            centerLabel={litres(todayMl)}
+            centerCaption={`of ${litres(goal)}`}
+          />
+          <Text style={styles.status}>{waterStatus(todayMl, goal)}</Text>
+        </View>
+
+        <View style={styles.quick}>
+          {QUICK_AMOUNTS.map((ml) => (
+            <Tap
+              key={ml}
+              onPress={() => add(ml)}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${ml} millilitres`}
+              style={({ pressed }) => [styles.quickButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="water" size={18} color={palette.water} />
+              <Text style={styles.quickText}>{amountLabel(ml)}</Text>
+            </Tap>
+          ))}
+        </View>
+        <Tap
+          onPress={() => setCustomOpen(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.other, pressed && styles.pressed]}
+        >
+          <Text style={styles.otherText}>Other amount</Text>
+        </Tap>
+
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          Today
+        </Text>
+        {logs.length === 0 ? (
+          <Text style={styles.empty}>No water yet today.</Text>
+        ) : (
+          [...logs]
+            .sort((a, b) => b.logged_at.localeCompare(a.logged_at))
+            .map((log) => (
+              <View key={log.id} style={styles.logRow}>
+                <Ionicons name="water-outline" size={18} color={palette.water} />
+                <Text style={styles.logAmount}>{log.amount_ml} ml</Text>
+                <Text style={styles.logTime}>{formatTime(log.logged_at)}</Text>
+                <Tap
+                  onPress={() => remove(log.id, log.amount_ml)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${log.amount_ml} millilitres from ${formatTime(log.logged_at)}`}
+                  style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
+                >
+                  <Ionicons name="close" size={18} color={palette.textMuted} />
                 </Tap>
               </View>
             ))
-          )}
-        </View>
+        )}
       </ScrollView>
 
-      {/* Custom Volume Modal */}
-      {showCustomModal && (
-        <Modal
-          visible={showCustomModal}
-          animationType="fade"
-          transparent
-          onRequestClose={() => setShowCustomModal(false)}
-        >
-          <View className="flex-1 bg-black/80 items-center justify-center px-6">
-            <View className="w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl">
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 items-center justify-center">
-                    <Ionicons name="water" size={16} color="#06b6d4" />
-                  </View>
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className="text-white text-lg"
-                  >
-                    Custom Fluid Volume
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setShowCustomModal(false)}
-                  className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
-                >
-                  <Ionicons name="close" size={16} color="#a1a1aa" />
-                </TouchableOpacity>
-              </View>
-
-              <Text className="text-zinc-400 text-xs mb-4 leading-4">
-                Enter any volume in milliliters (ml) to add to your daily hydration total.
-              </Text>
-
-              {/* Number Input */}
-              <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 mb-5">
-                <TextInput
-                  value={customMlText}
-                  onChangeText={setCustomMlText}
-                  keyboardType="numeric"
-                  placeholder="350"
-                  placeholderTextColor="#52525b"
-                  className="flex-1 text-white text-2xl font-bold"
-                  autoFocus
-                />
-                <Text className="text-cyan-400 text-base font-extrabold ml-2">ML</Text>
-              </View>
-
-              {/* Quick Preset Chips */}
-              <View className="flex-row gap-2 mb-5">
-                {[150, 330, 450, 600].map((val) => (
-                  <Tap
-                    key={val}
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setCustomMlText(val.toString());
-                    }}
-                    style={({ pressed }) => [
-                      {
-                        transform: [{ scale: pressed ? 0.94 : 1 }],
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}
-                    className="flex-1 bg-zinc-950 border border-zinc-800 py-2.5 rounded-xl items-center"
-                  >
-                    <Text
-                      style={{ fontVariant: ['tabular-nums'] }}
-                      className="text-zinc-300 text-xs font-bold"
-                    >
-                      +{val}
-                    </Text>
-                  </Tap>
-                ))}
-              </View>
-
-              {/* Submit Button */}
-              <Tap
-                onPress={handleCustomAdd}
-                style={({ pressed }) => [
-                  {
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                    opacity: pressed ? 0.9 : 1,
-                  },
-                ]}
-                className="w-full bg-cyan-500 rounded-2xl py-4 items-center justify-center shadow-lg shadow-cyan-500/25"
-              >
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white font-bold text-base"
-                >
-                  Log Fluid Intake
-                </Text>
-              </Tap>
+      <Modal visible={customOpen} transparent animationType="slide" onRequestClose={() => setCustomOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrap}>
+          <Tap style={styles.backdrop} onPress={() => setCustomOpen(false)} accessibilityLabel="Close" />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>How much did you drink?</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                value={customText}
+                onChangeText={(t) => {
+                  setCustomText(t);
+                  setCustomError(null);
+                }}
+                placeholder="350"
+                placeholderTextColor={palette.textMuted}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                onSubmitEditing={addCustom}
+                accessibilityLabel="Amount in millilitres"
+                style={styles.input}
+                autoFocus
+              />
+              <Text style={styles.unit}>ml</Text>
             </View>
+            {customError && <Text style={styles.error}>{customError}</Text>}
+            <Tap onPress={addCustom} accessibilityRole="button" style={({ pressed }) => [styles.sheetButton, pressed && styles.pressed]}>
+              <Text style={styles.sheetButtonText}>Add water</Text>
+            </Tap>
           </View>
-        </Modal>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.bg },
+  flex: { flex: 1 },
+  content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: space[4], paddingTop: space[2], paddingBottom: 120 },
+  pressed: { opacity: 0.7 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: space[3] },
+  title: { fontFamily: type.display, fontSize: type.size.title + 4, color: palette.text },
+  goalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    minHeight: 44,
+    paddingHorizontal: space[4],
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  goalText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  goalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
+  goalChip: {
+    minHeight: 44,
+    paddingHorizontal: space[4],
+    justifyContent: 'center',
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  goalChipOn: { backgroundColor: palette.point, borderColor: palette.point },
+  goalChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  goalChipTextOn: { color: palette.pointText },
+  hero: { alignItems: 'center', paddingVertical: space[6], borderRadius: radius.hero, backgroundColor: palette.point, marginBottom: space[4] },
+  status: { fontFamily: type.displayBold, fontSize: type.size.section, color: palette.pointText, marginTop: space[3] },
+  quick: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  quickButton: {
+    width: '48%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    minHeight: 56,
+    borderRadius: radius.card,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  quickText: { fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text, fontVariant: ['tabular-nums'] },
+  other: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: space[2] },
+  otherText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text, textDecorationLine: 'underline' },
+  sectionTitle: { fontFamily: type.displayBold, fontSize: type.size.section + 3, color: palette.text, marginTop: space[6], marginBottom: space[2] },
+  empty: { fontFamily: type.body, fontSize: type.size.body, color: palette.textMuted },
+  logRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    minHeight: 52,
+    paddingLeft: space[4],
+    marginBottom: space[2],
+    borderRadius: radius.card,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  logAmount: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text, fontVariant: ['tabular-nums'] },
+  logTime: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted },
+  removeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  sheetWrap: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: palette.pointDeep, opacity: 0.6 },
+  sheet: { padding: space[6], borderTopLeftRadius: radius.hero, borderTopRightRadius: radius.hero, backgroundColor: palette.bg },
+  sheetTitle: { fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 52,
+    marginTop: space[4],
+    paddingHorizontal: space[4],
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+  },
+  input: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.section, color: palette.text },
+  unit: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.textMuted },
+  error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[2] },
+  sheetButton: { minHeight: 52, marginTop: space[3], borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
+  sheetButtonText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+});

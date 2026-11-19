@@ -107,6 +107,29 @@ try {
   check('streak: anonymous callers are rejected', String(err.message).includes('Not authenticated'), err.message);
 }
 
+// ── profile goal weight, foods avoided, meal times ──────────────────────────
+async function saveProfile(fields) {
+  const keys = Object.keys(fields);
+  const sql = `INSERT INTO public.profiles (id, ${keys.join(', ')}) VALUES ($1, ${keys.map((_, i) => `$${i + 2}`).join(', ')})
+    ON CONFLICT (id) DO UPDATE SET ${keys.map((k) => `${k} = EXCLUDED.${k}`).join(', ')}`;
+  return db.query(sql, [USER_A, ...Object.values(fields)]);
+}
+async function rejects(name, fields) {
+  try {
+    await saveProfile(fields);
+    check(name, false, 'accepted');
+  } catch (err) {
+    check(name, /check constraint/i.test(String(err.message)), err.message);
+  }
+}
+await saveProfile({ target_water_ml: 2600, target_weight_kg: 70.5, foods_avoided: ['no pork', 'no dairy'], meal_times: ['08:00', '12:30', '19:00'] });
+const saved = (await db.query('SELECT target_water_ml, target_weight_kg, foods_avoided, meal_times FROM public.profiles WHERE id = $1', [USER_A])).rows[0];
+check('profile: new fields are stored', saved.target_water_ml === 2600 && Number(saved.target_weight_kg) === 70.5 && saved.foods_avoided.length === 2 && saved.meal_times[1] === '12:30', saved);
+await rejects('profile: goal weight outside 30-300 kg is rejected', { target_weight_kg: 12 });
+await rejects('profile: more than 6 meal times are rejected', { meal_times: ['06:00', '08:00', '10:00', '12:00', '15:00', '18:00', '21:00'] });
+await rejects('profile: badly formatted meal times are rejected', { meal_times: ['8am'] });
+await rejects('profile: more than 20 foods avoided are rejected', { foods_avoided: Array.from({ length: 21 }, (_, i) => `food ${i}`) });
+
 await db.close();
 if (failures > 0) {
   console.error(`${failures} SQL test(s) failed`);

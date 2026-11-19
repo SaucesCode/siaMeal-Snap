@@ -33,6 +33,7 @@ import { itemsMeal, mealFit, scaleMacros, siaTake, type Macros } from '../utils/
 import { hapticFeedback } from '../utils/haptics';
 import { palette, radius, space, type } from '../theme';
 import { Tap } from '../components/Tap';
+import { goBackOr } from '../utils/navigation';
 
 const PORTIONS: Array<{ value: number; label: string }> = [
   { value: 0.5, label: '½' },
@@ -210,7 +211,7 @@ export default function ReviewScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <Tap
-            onPress={() => router.back()}
+            onPress={() => goBackOr(router, '/(tabs)/camera')}
             accessibilityRole="button"
             accessibilityLabel="Retake"
             style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}

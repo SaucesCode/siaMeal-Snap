@@ -32,6 +32,7 @@ import { NotFoodSheet } from '../../features/camera/NotFoodSheet';
 import type { ViewfinderMode } from '../../features/camera/viewfinderGeometry';
 import { palette, radius, space, type } from '../../theme';
 import { Tap } from '../../components/Tap';
+import { goBackOr } from '../../utils/navigation';
 
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'] as const;
 const LOOKING = { title: 'Looking at your plate…', subtitle: 'Usually takes a few seconds.' };
@@ -251,7 +252,7 @@ export default function CameraScreen() {
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View pointerEvents="box-none">
         <View style={styles.top}>
-          <RoundButton icon="close" label="Close camera" onPress={() => router.back()} />
+          <RoundButton icon="close" label="Close camera" onPress={() => goBackOr(router, '/(tabs)')} />
           <View style={styles.modes} accessibilityRole="tablist">
             {(['photo', 'barcode'] as const).map((m) => (
               <Tap

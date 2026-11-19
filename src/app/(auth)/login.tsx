@@ -1,284 +1,143 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import { useRouter, Link } from 'expo-router';
-import { supabase } from '../../lib/supabase';
-import { performGoogleOAuth } from '../../utils/oauth';
-import { BrandLogo } from '../../components/BrandLogo';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../stores/authStore';
+import { performGoogleOAuth } from '../../utils/oauth';
 import { hapticFeedback } from '../../utils/haptics';
-import { Sia } from '../../components/sia';
-import { CatEarCard, WhiskerDivider } from '../../components/feline';
+import { routeAfterAuth } from '../../features/auth/afterAuth';
+import { SiaPeek } from '../../features/sia/SiaPeek';
+import type { SiaReaction } from '../../features/sia/siaReactions';
+import { Tap } from '../../components/Tap';
+import { palette, radius, space, type } from '../../theme';
 
-export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+const BENEFITS = [
+  'Snap your plate, Sia counts the calories',
+  "See what's left for the day at a glance",
+  'Ask Sia what to eat next',
+];
+
+/** Welcome: what the app does, then Google or email. New and returning people start here. */
+export default function WelcomeScreen() {
   const router = useRouter();
-  const fetchProfile = useAuthStore((state) => state.fetchProfile);
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const hello = useMemo<SiaReaction>(() => ({ expression: 'happy', line: null, spot: 'center' }), []);
 
-  const isFormFilled = email.trim().length > 0 && password.length > 0;
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      hapticFeedback.error();
-      Alert.alert('Missing Fields', 'Please enter your email and password.');
-      return;
-    }
-
+  const continueWithGoogle = async () => {
     try {
       hapticFeedback.medium();
-      setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (error) {
-        hapticFeedback.error();
-        Alert.alert('Sign In Failed', error.message);
-        return;
-      }
-
-      if (data.user) {
-        hapticFeedback.success();
-        const profile = await fetchProfile();
-        if (!profile || !profile.target_calories) {
-          router.replace('/(auth)/onboarding' as any);
-        } else {
-          router.replace('/(tabs)' as any);
-        }
-      }
-    } catch (err: any) {
-      hapticFeedback.error();
-      Alert.alert('Error', err.message || 'An unexpected error occurred.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      hapticFeedback.medium();
-      setGoogleLoading(true);
-      const res: any = await performGoogleOAuth();
+      setGoogleBusy(true);
+      const res = await performGoogleOAuth();
       if (res) {
         hapticFeedback.success();
-        const profile = await fetchProfile();
-        if (!profile || !profile.target_calories) {
-          router.replace('/(auth)/onboarding' as any);
-        } else {
-          router.replace('/(tabs)' as any);
-        }
+        await routeAfterAuth(router, fetchProfile);
       }
     } catch (err: any) {
       hapticFeedback.error();
-      console.error('Google Sign In error:', err);
-      Alert.alert('Google Sign-In', err.message || 'Could not authenticate with Google.');
+      Alert.alert("Couldn't sign in with Google", err?.message || 'Please try again, or use your email.');
     } finally {
-      setGoogleLoading(false);
+      setGoogleBusy(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-zinc-950"
-    >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        className="px-5 py-8"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Brand Header */}
-        <View className="mb-5 items-center">
-          <BrandLogo size="lg" />
-        </View>
-
-        {/* Borderless Free-Standing Sia Greeting + Comic Speech Bubble */}
-        <View className="flex-row items-center gap-3 mb-5 px-1">
-          <Sia expression={isFormFilled ? 'happy' : showPassword ? 'thinking' : 'resting'} size={74} />
-          <View className="flex-1 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl p-3.5 relative shadow-md shadow-black">
-            <View
-              style={{
-                position: 'absolute',
-                left: -6,
-                top: '45%',
-                width: 12,
-                height: 12,
-                backgroundColor: '#18181b',
-                borderLeftWidth: 1,
-                borderBottomWidth: 1,
-                borderColor: 'rgba(16, 185, 129, 0.35)',
-                transform: [{ rotate: '45deg' }],
-              }}
-            />
-            <View className="flex-row items-center gap-1.5 mb-0.5">
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-white text-xs"
-              >
-                Welcome back to the Pride!
-              </Text>
-              <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-md border border-emerald-500/40">
-                <Text className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                  Sia Ready
-                </Text>
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView edges={['top']} style={styles.top}>
+        <ScrollView contentContainerStyle={styles.topContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.wordmark} accessibilityRole="header">
+            SiaMeal <Text style={styles.wordmarkAccent}>Snap</Text>
+          </Text>
+          <Text style={styles.tagline}>Your cat-shaped calorie buddy.</Text>
+          <View style={styles.benefits}>
+            {BENEFITS.map((b) => (
+              <View key={b} style={styles.benefit}>
+                <View style={styles.check}>
+                  <Ionicons name="checkmark" size={14} color={palette.leaf} />
+                </View>
+                <Text style={styles.benefitText}>{b}</Text>
               </View>
-            </View>
-            <Text className="text-zinc-300 text-[11px] font-medium leading-4">
-              Sign in to sync your meal logs, macro rings, and hydration progress.
-            </Text>
+            ))}
           </View>
-        </View>
+        </ScrollView>
+      </SafeAreaView>
 
-        {/* Form Container Wrapped in CatEarCard */}
-        <CatEarCard
-          title="Athlete Sign In"
-          badge="SECURE"
-          borderColor="#27272a"
-          className="mb-5"
+      <SafeAreaView edges={['bottom']} style={styles.panel}>
+        <SiaPeek reaction={hello} startHidden onPress={() => hapticFeedback.purr()} />
+        <Tap
+          onPress={continueWithGoogle}
+          disabled={googleBusy}
+          accessibilityRole="button"
+          accessibilityState={{ busy: googleBusy }}
+          style={({ pressed }) => [styles.button, styles.google, pressed && styles.pressed]}
         >
-          {/* Google OAuth Button */}
-          <TouchableOpacity
-            onPress={handleGoogleSignIn}
-            disabled={googleLoading || loading}
-            activeOpacity={0.8}
-            className="bg-zinc-950 border border-zinc-800 active:bg-zinc-800/80 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-3 mb-4"
-          >
-            {googleLoading ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={18} color="#ffffff" />
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-sm"
-                >
-                  Continue with Google
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Feline Whisker Divider */}
-          <WhiskerDivider label="OR SIGN IN WITH EMAIL" color="#71717a" />
-
-          {/* Email Field */}
-          <View className="mb-4 mt-2">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Email Address
-            </Text>
-            <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-1">
-              <Ionicons
-                name="mail-outline"
-                size={18}
-                color="#71717a"
-                style={{ marginRight: 10 }}
-              />
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="athlete@domain.com"
-                placeholderTextColor="#52525b"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                className="text-white text-base font-semibold flex-1 py-2.5"
-              />
-            </View>
-          </View>
-
-          {/* Password Field */}
-          <View className="mb-5">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Password
-            </Text>
-            <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-1">
-              <Ionicons
-                name="lock-closed-outline"
-                size={18}
-                color="#71717a"
-                style={{ marginRight: 10 }}
-              />
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#52525b"
-                secureTextEntry={!showPassword}
-                className="text-white text-base font-semibold flex-1 py-2.5"
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  hapticFeedback.light();
-                  setShowPassword(!showPassword);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                className="p-1"
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color="#71717a"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Sign In CTA Button */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            disabled={loading || googleLoading}
-            activeOpacity={0.85}
-            className="bg-emerald-500 active:bg-emerald-600 rounded-2xl py-4 items-center justify-center flex-row gap-2 shadow-lg shadow-emerald-500/25"
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="paw" size={16} color="#ffffff" />
-                <Text
-                  style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                  className="text-white text-base"
-                >
-                  Pounce In
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </CatEarCard>
-
-        {/* Footer Link */}
-        <View className="flex-row justify-center items-center">
-          <Text className="text-zinc-400 text-sm">New to the Pride? </Text>
-          <Link href="/(auth)/register" asChild>
-            <TouchableOpacity
-              onPress={() => hapticFeedback.light()}
-              className="py-1"
-            >
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-emerald-400 text-sm ml-0.5"
-              >
-                Join SiaMeal
-              </Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {googleBusy ? (
+            <ActivityIndicator color={palette.text} />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color={palette.text} />
+              <Text style={styles.googleText}>Continue with Google</Text>
+            </>
+          )}
+        </Tap>
+        <Tap
+          onPress={() => router.push({ pathname: '/(auth)/email', params: { mode: 'create' } } as any)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.button, styles.email, pressed && styles.pressed]}
+        >
+          <Ionicons name="mail-outline" size={18} color={palette.pointText} />
+          <Text style={styles.emailText}>Continue with email</Text>
+        </Tap>
+        <Tap
+          onPress={() => router.push({ pathname: '/(auth)/email', params: { mode: 'signin' } } as any)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.signIn, pressed && styles.pressed]}
+        >
+          <Text style={styles.signInText}>
+            Already have an account? <Text style={styles.signInStrong}>Sign in</Text>
+          </Text>
+        </Tap>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.point },
+  pressed: { opacity: 0.7 },
+  top: { flex: 1 },
+  topContent: { paddingHorizontal: space[6], paddingTop: space[8], paddingBottom: 110 },
+  wordmark: { fontFamily: type.display, fontSize: 34, color: palette.pointText },
+  wordmarkAccent: { color: palette.leaf },
+  tagline: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.pointMuted, marginTop: space[1] },
+  benefits: { marginTop: space[6], gap: space[3] },
+  benefit: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  check: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.pointTrack },
+  benefitText: { flex: 1, fontFamily: type.bodySemibold, fontSize: type.size.body, lineHeight: 21, color: palette.pointText },
+  panel: {
+    paddingHorizontal: space[6],
+    paddingTop: space[6],
+    paddingBottom: space[4],
+    borderTopLeftRadius: radius.hero + 6,
+    borderTopRightRadius: radius.hero + 6,
+    backgroundColor: palette.bg,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    minHeight: 54,
+    borderRadius: radius.full,
+    marginBottom: space[3],
+  },
+  google: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  googleText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  email: { backgroundColor: palette.point },
+  emailText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+  signIn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  signInText: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted },
+  signInStrong: { fontFamily: type.bodyBold, color: palette.text },
+});

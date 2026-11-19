@@ -1,4 +1,5 @@
 import { Meal, MealType } from '../types';
+import { avoidsFood } from '../features/onboarding/foodRules';
 
 export interface MealForecastCandidate {
   id: string;
@@ -19,6 +20,8 @@ export interface MealForecastResult {
   statusIcon: string;
   statusColor: string;
   isGoalMet: boolean;
+  /** True when nothing fits what the person eats; show no idea at all. */
+  empty?: boolean;
   goalMetMessage?: string;
   catch: MealForecastCandidate;
   alternatives: MealForecastCandidate[];
@@ -311,6 +314,8 @@ interface ForecastOptions {
   targets: MacroSnapshot;
   consumed: MacroSnapshot;
   loggedMeals: Meal[];
+  /** Choices like "No pork"; ideas containing them are never suggested. */
+  foodsAvoided?: readonly string[];
   cycleIndex?: number;
 }
 
@@ -319,6 +324,7 @@ export function getSiaForecastRecommendation({
   consumed,
   loggedMeals,
   cycleIndex = 0,
+  foodsAvoided = [],
 }: ForecastOptions): MealForecastResult {
   const now = new Date();
   const currentHour = now.getHours() + now.getMinutes() / 60;
@@ -399,12 +405,18 @@ export function getSiaForecastRecommendation({
   }
 
   // Filter candidates matching current slot or late recovery if midnight
-  const candidatePool = FORECAST_DATABASE.filter((c) => {
+  const allowed = FORECAST_DATABASE.filter((c) => !avoidsFood(`${c.name} ${c.ingredients.join(' ')}`, foodsAvoided));
+  const candidatePool = allowed.filter((c) => {
     if (currentHour >= 21.5 || currentHour < 5) {
       return c.id.startsWith('rec-') || c.mealType === 'snack';
     }
     return c.mealType === targetSlot;
   });
+
+  if (candidatePool.length === 0) {
+    // Nothing in this slot fits what they eat: say nothing rather than suggest something they avoid.
+    return { slotLabel, statusBadge, statusIcon, statusColor, isGoalMet: false, empty: true, catch: FORECAST_DATABASE[0], alternatives: [] };
+  }
 
   // Exclude meals already logged today by approximate name match
   const loggedNames = loggedMeals.map((m) => (m.name || '').toLowerCase().trim());
@@ -450,7 +462,7 @@ export function getSiaForecastRecommendation({
       ? Math.abs(cycleIndex) % availableCandidates.length
       : 0;
 
-  const chosenCatch = availableCandidates[normalizedIndex] || FORECAST_DATABASE[0];
+  const chosenCatch = availableCandidates[normalizedIndex] || candidatePool[0];
   const alternatives = availableCandidates.filter((c) => c.id !== chosenCatch.id);
 
   // Generate dynamic contextual Sia coach tip

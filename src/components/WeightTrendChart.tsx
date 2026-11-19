@@ -1,151 +1,102 @@
-import React from 'react';
-import { View, Text, Dimensions, TouchableOpacity } from 'react-native';
-import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { WeightEntry } from '../stores/weightStore';
+import { palette, space, type } from '../theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 72; // Padding accounting
-const CHART_HEIGHT = 130;
+const HEIGHT = 130;
+const KG_TO_LB = 2.20462;
 
 interface WeightTrendChartProps {
   entries: WeightEntry[];
   unit: 'kg' | 'lbs';
-  targetWeight?: number;
 }
 
-export function WeightTrendChart({ entries, unit, targetWeight }: WeightTrendChartProps) {
-  if (!entries || entries.length === 0) {
+/** The last 14 weigh-ins as a smooth line, with today's weight and the change over that span. */
+export function WeightTrendChart({ entries, unit }: WeightTrendChartProps) {
+  const [width, setWidth] = useState(0);
+
+  if (!entries.length) {
     return (
-      <View className="h-32 bg-zinc-950/60 rounded-2xl items-center justify-center border border-zinc-800/60">
-        <Text className="text-zinc-500 text-xs font-semibold">
-          No weight entries recorded yet
-        </Text>
-        <Text className="text-zinc-600 text-[10px] mt-1">
-          Log your morning weigh-in to render your trend line
-        </Text>
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>No weigh-ins yet</Text>
+        <Text style={styles.emptyBody}>Log your weight to see your trend here.</Text>
       </View>
     );
   }
 
-  // Convert values if lbs
-  const displayFactor = unit === 'lbs' ? 2.20462 : 1;
-  const recentEntries = entries.slice(-14); // Last 14 entries max for crisp rendering
+  const factor = unit === 'lbs' ? KG_TO_LB : 1;
+  const recent = entries.slice(-14);
+  const weights = recent.map((e) => e.weight_kg * factor);
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  const pad = Math.max(1, (max - min) * 0.2);
+  const lo = Math.max(0, min - pad);
+  const span = max + pad - lo || 1;
 
-  const weights = recentEntries.map((e) => e.weight_kg * displayFactor);
-  const minWeight = Math.min(...weights);
-  const maxWeight = Math.max(...weights);
-  const paddingY = Math.max(1, (maxWeight - minWeight) * 0.2);
-  const chartMin = Math.max(0, minWeight - paddingY);
-  const chartMax = maxWeight + paddingY;
-  const range = chartMax - chartMin || 1;
-
-  const points = weights.map((w, index) => {
-    const x = recentEntries.length === 1
-      ? CHART_WIDTH / 2
-      : (index / (recentEntries.length - 1)) * (CHART_WIDTH - 30) + 15;
-    const y = CHART_HEIGHT - ((w - chartMin) / range) * (CHART_HEIGHT - 30) - 15;
-    return { x, y, weight: w };
-  });
-
-  // Build SVG Path
-  let pathD = '';
-  let fillD = '';
-  if (points.length === 1) {
-    pathD = `M ${points[0].x - 10} ${points[0].y} L ${points[0].x + 10} ${points[0].y}`;
-  } else {
-    pathD = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpX1 = prev.x + (curr.x - prev.x) / 2;
-      const cpY1 = prev.y;
-      const cpX2 = prev.x + (curr.x - prev.x) / 2;
-      const cpY2 = curr.y;
-      pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${curr.x} ${curr.y}`;
-    }
-    // Gradient fill area
-    fillD = `${pathD} L ${points[points.length - 1].x} ${CHART_HEIGHT} L ${points[0].x} ${CHART_HEIGHT} Z`;
+  const points = weights.map((w, i) => ({
+    x: recent.length === 1 ? width / 2 : (i / (recent.length - 1)) * (width - 30) + 15,
+    y: HEIGHT - ((w - lo) / span) * (HEIGHT - 30) - 15,
+  }));
+  let line = points.length === 1 ? `M ${points[0].x - 10} ${points[0].y} L ${points[0].x + 10} ${points[0].y}` : `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1], points[i]];
+    const mid = a.x + (b.x - a.x) / 2;
+    line += ` C ${mid} ${a.y}, ${mid} ${b.y}, ${b.x} ${b.y}`;
   }
+  const area = points.length > 1 ? `${line} L ${points[points.length - 1].x} ${HEIGHT} L ${points[0].x} ${HEIGHT} Z` : '';
 
-  const latestWeight = weights[weights.length - 1];
-  const firstWeight = weights[0];
-  const delta = Math.round((latestWeight - firstWeight) * 10) / 10;
+  const latest = weights[weights.length - 1];
+  const change = Math.round((latest - weights[0]) * 10) / 10;
 
   return (
     <View>
-      {/* Chart Header Vitals */}
-      <View className="flex-row items-baseline justify-between mb-2 px-1">
-        <View className="flex-row items-baseline gap-1.5">
-          <Text
-            style={{ fontFamily: 'Outfit_900Black' }}
-            className="text-white text-2xl tracking-tight"
-          >
-            {latestWeight.toFixed(1)}
-          </Text>
-          <Text className="text-zinc-500 text-xs font-bold uppercase">{unit}</Text>
-        </View>
-
-        <View className="flex-row items-center gap-1.5">
-          <Text className="text-zinc-500 text-[10px] font-bold uppercase">Change:</Text>
-          <Text
-            style={{ fontFamily: 'Outfit_800ExtraBold' }}
-            className={`text-xs ${
-              delta < 0 ? 'text-emerald-400' : delta > 0 ? 'text-amber-400' : 'text-zinc-400'
-            }`}
-          >
-            {delta > 0 ? `+${delta.toFixed(1)}` : `${delta.toFixed(1)}`} {unit}
-          </Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.latest}>
+          {latest.toFixed(1)}
+          <Text style={styles.unit}> {unit}</Text>
+        </Text>
+        <Text style={styles.change}>
+          {change === 0 ? 'No change' : `${change > 0 ? '+' : ''}${change.toFixed(1)} ${unit}`} over {recent.length} weigh-ins
+        </Text>
       </View>
-
-      {/* SVG Canvas */}
-      <View style={{ width: CHART_WIDTH, height: CHART_HEIGHT }} className="self-center my-1">
-        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-          <Defs>
-            <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-              <Stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-            </LinearGradient>
-          </Defs>
-
-          {/* Background Grid Lines */}
-          <Line
-            x1="10"
-            y1={CHART_HEIGHT / 2}
-            x2={CHART_WIDTH - 10}
-            y2={CHART_HEIGHT / 2}
-            stroke="#27272a"
-            strokeDasharray="4 4"
-            strokeWidth="1"
-          />
-
-          {/* Gradient Fill Under Curve */}
-          {fillD ? <Path d={fillD} fill="url(#chartGradient)" /> : null}
-
-          {/* Smooth Trend Curve */}
-          <Path
-            d={pathD}
-            fill="none"
-            stroke="#10b981"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Points */}
-          {points.map((p, idx) => (
-            <Circle
-              key={idx}
-              cx={p.x}
-              cy={p.y}
-              r={idx === points.length - 1 ? 5 : 3.5}
-              fill={idx === points.length - 1 ? '#34d399' : '#10b981'}
-              stroke="#09090b"
-              strokeWidth="2"
-            />
-          ))}
-        </Svg>
+      <View style={styles.canvas} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && (
+          <Svg width={width} height={HEIGHT}>
+            <Defs>
+              <LinearGradient id="weightFill" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor={palette.leafOnLight} stopOpacity="0.25" />
+                <Stop offset="100%" stopColor={palette.leafOnLight} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Line x1="10" y1={HEIGHT / 2} x2={width - 10} y2={HEIGHT / 2} stroke={palette.line} strokeDasharray="4 4" strokeWidth="1" />
+            {area ? <Path d={area} fill="url(#weightFill)" /> : null}
+            <Path d={line} fill="none" stroke={palette.leafOnLight} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {points.map((p, i) => (
+              <Circle
+                key={i}
+                cx={p.x}
+                cy={p.y}
+                r={i === points.length - 1 ? 5 : 3.5}
+                fill={palette.leafOnLight}
+                stroke={palette.surface}
+                strokeWidth="2"
+              />
+            ))}
+          </Svg>
+        )}
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  empty: { height: 120, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  emptyBody: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted, marginTop: space[1] },
+  header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: space[2] },
+  latest: { fontFamily: type.display, fontSize: type.size.title, color: palette.text, fontVariant: ['tabular-nums'] },
+  unit: { fontFamily: type.bodySemibold, fontSize: type.size.secondary, color: palette.textMuted },
+  change: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, fontVariant: ['tabular-nums'] },
+  canvas: { height: HEIGHT, width: '100%' },
+});
