@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -32,6 +32,7 @@ import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import { calorieSummary, greetingName } from '../../utils/todaySummary';
 import { palette, radius, space, type } from '../../theme';
+import { Tap } from '../../components/Tap';
 
 type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -301,7 +302,7 @@ export default function TodayScreen() {
               </Text>
             </View>
             {[250, 500].map((ml) => (
-              <Pressable
+              <Tap
                 key={ml}
                 onPress={() => handleQuickAddWater(ml)}
                 accessibilityRole="button"
@@ -309,7 +310,7 @@ export default function TodayScreen() {
                 style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
               >
                 <Text style={styles.chipText}>+{ml} ml</Text>
-              </Pressable>
+              </Tap>
             ))}
           </View>
           <View style={styles.waterBar}>
@@ -318,7 +319,7 @@ export default function TodayScreen() {
         </View>
 
         <View style={styles.quickActions}>
-          <Pressable
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               setTextModalVisible(true);
@@ -328,8 +329,8 @@ export default function TodayScreen() {
           >
             <Ionicons name="create-outline" size={18} color={palette.text} />
             <Text style={styles.quickActionText}>Type a meal</Text>
-          </Pressable>
-          <Pressable
+          </Tap>
+          <Tap
             onPress={() => {
               hapticFeedback.light();
               handlePickGallery('snack');
@@ -339,7 +340,7 @@ export default function TodayScreen() {
           >
             <Ionicons name="images-outline" size={18} color={palette.text} />
             <Text style={styles.quickActionText}>Pick a photo</Text>
-          </Pressable>
+          </Tap>
         </View>
 
         <NextMealIdea targets={targets} consumed={consumedTotals} loggedMeals={meals} />
@@ -357,7 +358,7 @@ export default function TodayScreen() {
                 <Sia expression="sleepy" size={96} animated={false} />
                 <Text style={styles.emptyTitle}>Nothing logged yet.</Text>
                 <Text style={styles.emptyBody}>Snap your plate and Sia will count it for you.</Text>
-                <Pressable
+                <Tap
                   onPress={() => {
                     hapticFeedback.medium();
                     router.push('/(tabs)/camera' as any);
@@ -367,7 +368,7 @@ export default function TodayScreen() {
                 >
                   <Ionicons name="camera" size={18} color={palette.shutterGlyph} />
                   <Text style={styles.snapButtonText}>Snap a meal</Text>
-                </Pressable>
+                </Tap>
               </View>
             )}
 
@@ -379,7 +380,7 @@ export default function TodayScreen() {
                     <Ionicons name={section.icon} size={18} color={palette.textMuted} />
                     <Text style={styles.sectionLabel}>{section.label}</Text>
                     {section.kcal > 0 && <Text style={styles.sectionKcal}>{section.kcal} kcal</Text>}
-                    <Pressable
+                    <Tap
                       onPress={() => {
                         hapticFeedback.light();
                         setActionSheetCategory(sheetCategory(section.type));
@@ -389,7 +390,7 @@ export default function TodayScreen() {
                       style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
                     >
                       <Ionicons name="add" size={22} color={palette.text} />
-                    </Pressable>
+                    </Tap>
                   </View>
 
                   {section.meals.map((meal) => (
@@ -397,7 +398,7 @@ export default function TodayScreen() {
                   ))}
 
                   {section.meals.length === 0 && yesterday && (
-                    <Pressable
+                    <Tap
                       onPress={() => handleLogAgain(yesterday, section.type)}
                       accessibilityRole="button"
                       accessibilityLabel={`Log again: ${yesterday.name}, ${Math.round(yesterday.calories)} calories`}
@@ -408,7 +409,7 @@ export default function TodayScreen() {
                         Log again: <Text style={styles.logAgainName}>{yesterday.name}</Text>
                       </Text>
                       <Text style={styles.logAgainKcal}>{Math.round(yesterday.calories)} kcal</Text>
-                    </Pressable>
+                    </Tap>
                   )}
                 </View>
               );

@@ -73,6 +73,7 @@ export function TextLogModal({
         carbs_g: result.carbs_g,
         fat_g: result.fat_g,
         food_items: result.ingredients,
+        items: result.items,
         image_url: null,
         confidence_score: result.confidence_score,
         portion_notes: result.portion_notes,

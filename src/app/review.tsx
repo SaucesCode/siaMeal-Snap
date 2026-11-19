@@ -1,751 +1,585 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useMealStore } from '../stores/mealStore';
-import { useMealImageSource } from '../lib/mealImages';
 import { Image } from 'expo-image';
-import { useAuthStore } from '../stores/authStore';
-import { MealType } from '../types';
-import { getDefaultMealType, evaluateMacroIntegrity, reconcileCaloriesWithMacros } from '../utils/nutrition';
-import { hapticFeedback } from '../utils/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 import { useShallow } from 'zustand/react/shallow';
+import { useMealStore, selectTodayMeals } from '../stores/mealStore';
+import { useAuthStore } from '../stores/authStore';
+import { useCoachStore } from '../stores/coachStore';
+import { useMealImageSource } from '../lib/mealImages';
+import { CalorieEyeRing } from '../components/CalorieEyeRing';
+import { MacroAfterBar } from '../components/MacroAfterBar';
+import { PhotoLabels } from '../features/review/PhotoLabels';
+import { PlateBreakdown } from '../features/review/PlateBreakdown';
+import { SiaPeek } from '../features/sia/SiaPeek';
+import { PEEK_SHOWN_Y, PEEK_SIZE } from '../features/sia/peekMotion';
+import type { SiaReaction } from '../features/sia/siaReactions';
+import { MEAL_TYPES, mealTypeLabel } from '../constants/mealTypes';
+import { MealType } from '../types';
+import { getDefaultMealType, reconcileCaloriesWithMacros } from '../utils/nutrition';
+import { itemsMeal, mealFit, scaleMacros, siaTake, type Macros } from '../utils/reviewMath';
+import { hapticFeedback } from '../utils/haptics';
+import { palette, radius, space, type } from '../theme';
+import { Tap } from '../components/Tap';
 
-interface MealTypeOption {
-  type: MealType;
-  label: string;
-  sublabel: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  color: string;
-}
-
-const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Breakfast', sublabel: 'Morning', icon: 'cat', color: '#f59e0b' },
-  { type: 'lunch', label: 'Lunch', sublabel: 'Midday', icon: 'fish', color: '#10b981' },
-  { type: 'dinner', label: 'Dinner', sublabel: 'Evening', icon: 'weather-night', color: '#818cf8' },
-  { type: 'snack', label: 'Snack', sublabel: 'Anytime', icon: 'paw', color: '#06b6d4' },
+const PORTIONS: Array<{ value: number; label: string }> = [
+  { value: 0.5, label: '½' },
+  { value: 1, label: '1×' },
+  { value: 1.5, label: '1½' },
+  { value: 2, label: '2×' },
 ];
+const MACRO_FIELDS: Array<{ key: keyof Macros; label: string; unit: string }> = [
+  { key: 'calories', label: 'Calories', unit: 'kcal' },
+  { key: 'protein_g', label: 'Protein', unit: 'g' },
+  { key: 'carbs_g', label: 'Carbs', unit: 'g' },
+  { key: 'fat_g', label: 'Fat', unit: 'g' },
+];
+const nf = new Intl.NumberFormat('en-US');
 
+const nextMealType = (t: MealType): MealType => {
+  const i = MEAL_TYPES.findIndex((m) => m.type === t);
+  return MEAL_TYPES[(i + 1) % MEAL_TYPES.length].type;
+};
+
+/** Check what the AI found and save it: the meal fills today's eye ring, one portion row, one Save. */
 export default function ReviewScreen() {
   const router = useRouter();
-  const { profile } = useAuthStore(
-    useShallow((s) => ({ profile: s.profile }))
+  const profile = useAuthStore((s) => s.profile);
+  const openCoach = useCoachStore((s) => s.openCoach);
+  const { draftMeal, logMeal, todayMeals } = useMealStore(
+    useShallow((s) => ({ draftMeal: s.draftMeal, logMeal: s.logMeal, todayMeals: selectTodayMeals(s) }))
   );
-  const { draftMeal, logMeal, meals } = useMealStore(
-    useShallow((s) => ({ draftMeal: s.draftMeal, logMeal: s.logMeal, meals: s.meals }))
-  );
-  const draftImageSource = useMealImageSource(draftMeal?.image_url);
+  const imageSource = useMealImageSource(draftMeal?.image_url);
 
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState(false);
   const [mealType, setMealType] = useState<MealType>(getDefaultMealType());
-  const [calories, setCalories] = useState('0');
-  const [protein, setProtein] = useState('0');
-  const [carbs, setCarbs] = useState('0');
-  const [fat, setFat] = useState('0');
+  const [portion, setPortion] = useState(1);
+  /** Exact numbers typed in "Edit details"; null means "the AI's numbers × portion". */
+  const [edited, setEdited] = useState<Macros | null>(null);
   const [foodItems, setFoodItems] = useState<string[]>([]);
-  const [newItemText, setNewItemText] = useState('');
+  const [newItem, setNewItem] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [portionScale, setPortionScale] = useState<number>(1.0);
-  const [coachModalVisible, setCoachModalVisible] = useState(false);
-  const [coachInitialQuery, setCoachInitialQuery] = useState('');
-
-  // Baseline macro snapshot from AI to support proportional scaling
-  const baseMacros = useRef<{
-    calories: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-  }>({
-    calories: 0,
-    protein_g: 0,
-    carbs_g: 0,
-    fat_g: 0,
-  });
+  /** How much of each food Sia found (0 = removed). */
+  const [itemMults, setItemMults] = useState<number[]>([]);
+  const [itemsError, setItemsError] = useState(false);
+  const base = useRef<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 
   useEffect(() => {
-    if (draftMeal) {
-      setName(draftMeal.name || '');
-      setMealType(draftMeal.meal_type || getDefaultMealType());
-      const cal = draftMeal.calories ?? 0;
-      const prot = draftMeal.protein_g ?? 0;
-      const crb = draftMeal.carbs_g ?? 0;
-      const ft = draftMeal.fat_g ?? 0;
-
-      baseMacros.current = {
-        calories: cal,
-        protein_g: prot,
-        carbs_g: crb,
-        fat_g: ft,
-      };
-
-      setCalories(String(cal));
-      setProtein(String(prot));
-      setCarbs(String(crb));
-      setFat(String(ft));
-      setFoodItems(draftMeal.food_items || []);
-      setPortionScale(1.0);
-    }
+    if (!draftMeal) return;
+    base.current = {
+      calories: draftMeal.calories ?? 0,
+      protein_g: draftMeal.protein_g ?? 0,
+      carbs_g: draftMeal.carbs_g ?? 0,
+      fat_g: draftMeal.fat_g ?? 0,
+    };
+    setName(draftMeal.name || '');
+    setMealType(draftMeal.meal_type || getDefaultMealType());
+    setFoodItems(draftMeal.food_items || []);
+    setPortion(1);
+    setEdited(null);
+    setItemMults((draftMeal.items ?? []).map(() => 1));
+    setItemsError(false);
   }, [draftMeal]);
 
-  // Consumed totals so far today
-  const consumedCalories = useMemo(() => {
-    return meals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0);
-  }, [meals]);
+  const items = draftMeal?.items ?? [];
+  // The per-food view needs foods with calories; otherwise (barcode, older server) the ring card shows.
+  const hasItems = items.length > 0 && items.some((i) => i.calories > 0);
+  const meal = edited ?? (hasItems ? itemsMeal(base.current, items, itemMults) : scaleMacros(base.current, portion));
+  const targetCalories = Number(profile?.target_calories) || 2000;
+  const targetProtein = Number(profile?.target_protein_g) || 150;
+  const today = useMemo(
+    () =>
+      todayMeals.reduce(
+        (acc, m) => ({
+          calories: acc.calories + (Number(m.calories) || 0),
+          protein: acc.protein + (Number(m.protein_g) || 0),
+          carbs: acc.carbs + (Number(m.carbs_g) || 0),
+          fat: acc.fat + (Number(m.fat_g) || 0),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      ),
+    [todayMeals]
+  );
+  const targetCarbs = Number(profile?.target_carbs_g) || 200;
+  const targetFat = Number(profile?.target_fat_g) || 65;
+  const fit = mealFit(today.calories, today.protein, meal, targetCalories, targetProtein);
 
-  const consumedProtein = useMemo(() => {
-    return meals.reduce((sum, m) => sum + (Number(m.protein_g) || 0), 0);
-  }, [meals]);
+  // Sia's face follows how this meal fits; a new face makes her duck and pop up again.
+  const siaReaction = useMemo<SiaReaction>(() => ({ expression: fit.expression, line: null, spot: 'right' }), [fit.expression]);
 
-  const targetCalories = profile?.target_calories || 2000;
-  const targetProtein = profile?.target_protein_g || 150;
+  if (!draftMeal) return null;
 
-  // Real-Time Sia Macro Fit Assessment
-  const macroFit = useMemo(() => {
-    const currentCal = Math.max(0, parseFloat(calories) || 0);
-    const currentProt = Math.max(0, parseFloat(protein) || 0);
-    const totalCalAfter = consumedCalories + currentCal;
-    const totalProtAfter = consumedProtein + currentProt;
-    const calorieOver = totalCalAfter - targetCalories;
-    const proteinMet = totalProtAfter >= targetProtein;
-
-    if (proteinMet && calorieOver <= 100) {
-      return {
-        mood: 'celebrating' as const,
-        badgeText: 'Protein Goal Smashed',
-        badgeColor: '#10b981',
-        badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
-        message: `Purr-fect! This catch pushes today's protein to ${Math.round(totalProtAfter)}g / ${targetProtein}g. Target conquered!`,
-      };
-    }
-
-    if (calorieOver > 150) {
-      return {
-        mood: 'thinking' as const,
-        badgeText: 'Over Daily Budget',
-        badgeColor: '#f59e0b',
-        badgeBg: 'bg-amber-500/15 border-amber-500/30',
-        message: `Pushes today's calories +${Math.round(calorieOver)} kcal above your target. Try a 0.75× portion or balance your next catch!`,
-      };
-    }
-
-    const remainingKcal = Math.max(0, targetCalories - totalCalAfter);
-    const remainingProt = Math.max(0, targetProtein - totalProtAfter);
-    return {
-      mood: 'scanner' as const,
-      badgeText: 'Fits Daily Budget',
-      badgeColor: '#10b981',
-      badgeBg: 'bg-emerald-500/15 border-emerald-500/30',
-      message: `Wholesome catch! Leaves ~${Math.round(remainingKcal)} kcal and ${Math.round(remainingProt)}g protein for the rest of today.`,
-    };
-  }, [calories, protein, consumedCalories, consumedProtein, targetCalories, targetProtein]);
-
-  const macroIntegrity = useMemo(() => {
-    const c = parseFloat(calories) || 0;
-    const p = parseFloat(protein) || 0;
-    const cb = parseFloat(carbs) || 0;
-    const f = parseFloat(fat) || 0;
-    return evaluateMacroIntegrity(c, p, cb, f);
-  }, [calories, protein, carbs, fat]);
-
-  const handleScalePortion = (multiplier: number) => {
+  const choosePortion = (value: number) => {
     hapticFeedback.selection();
-    setPortionScale(multiplier);
-    setCalories(String(Math.round(baseMacros.current.calories * multiplier)));
-    setProtein(String(Math.round(baseMacros.current.protein_g * multiplier)));
-    setCarbs(String(Math.round(baseMacros.current.carbs_g * multiplier)));
-    setFat(String(Math.round(baseMacros.current.fat_g * multiplier)));
+    setPortion(value);
+    setEdited(null);
   };
 
-  const handleAutoAlignCalories = () => {
+  const editNumber = (key: keyof Macros, text: string) => {
+    const n = Math.max(0, Number(text.replace(/[^0-9.]/g, '')) || 0);
+    setEdited({ ...meal, [key]: n });
+  };
+
+  const addItem = () => {
+    const item = newItem.trim();
+    if (!item) return;
     hapticFeedback.light();
-    setCalories(String(macroIntegrity.computedCalories));
-    setPortionScale(0);
+    setFoodItems((items) => [...items, item]);
+    setNewItem('');
   };
 
-  const handleAddItem = () => {
-    if (newItemText.trim()) {
-      hapticFeedback.light();
-      setFoodItems([...foodItems, newItemText.trim()]);
-      setNewItemText('');
-    }
-  };
-
-  const handleRemoveItem = (index: number) => {
+  const askSia = () => {
     hapticFeedback.light();
-    setFoodItems(foodItems.filter((_, i) => i !== index));
+    openCoach(
+      `I'm about to log "${name || 'this meal'}" (${meal.calories} kcal, ${meal.protein_g}g protein, ${meal.carbs_g}g carbs, ${meal.fat_g}g fat). How does it fit today?`
+    );
   };
 
-  const handleAskSiaAboutMeal = () => {
-    hapticFeedback.medium();
-    const query = `I am reviewing "${name || 'this catch'}" (~${Math.round(parseFloat(calories) || 0)} kcal, ${Math.round(parseFloat(protein) || 0)}g protein, ${Math.round(parseFloat(carbs) || 0)}g carbs). How does this fit into my daily goal, and what should I eat for my next meal?`;
-    setCoachInitialQuery(query);
-    setCoachModalVisible(true);
+  const changeItem = (index: number, multiplier: number) => {
+    setEdited(null);
+    setItemsError(false);
+    setItemMults((m) => m.map((v, i) => (i === index ? multiplier : v)));
   };
 
-  const handleSave = async () => {
+  const save = async () => {
     if (isSaving) return;
-
     if (!name.trim()) {
       hapticFeedback.error();
-      Alert.alert('Meal Name', 'Please give this meal a name.');
+      setNameError(true);
       return;
     }
-
+    if (hasItems && itemMults.every((m) => m === 0)) {
+      hapticFeedback.error();
+      setItemsError(true);
+      return;
+    }
     try {
       setIsSaving(true);
-      const rawProt = Math.max(0, parseFloat(protein) || 0);
-      const rawCarb = Math.max(0, parseFloat(carbs) || 0);
-      const rawFat = Math.max(0, parseFloat(fat) || 0);
-      const finalCal = reconcileCaloriesWithMacros(
-        Math.max(0, parseFloat(calories) || 0),
-        rawProt,
-        rawCarb,
-        rawFat
-      );
-
       await logMeal({
         name: name.trim(),
         meal_type: mealType,
-        calories: finalCal,
-        protein_g: rawProt,
-        carbs_g: rawCarb,
-        fat_g: rawFat,
-        food_items: foodItems,
-        image_url: draftMeal?.image_url || null,
+        calories: reconcileCaloriesWithMacros(meal.calories, meal.protein_g, meal.carbs_g, meal.fat_g),
+        protein_g: meal.protein_g,
+        carbs_g: meal.carbs_g,
+        fat_g: meal.fat_g,
+        food_items: hasItems
+          ? items.flatMap((item, i) => (itemMults[i] === 0 ? [] : [item.amount ? `${item.name} (${item.amount})` : item.name]))
+          : foodItems,
+        image_url: draftMeal.image_url || null,
         logged_at: new Date().toISOString(),
       });
-
       hapticFeedback.success();
       router.replace('/(tabs)' as any);
     } catch (err: any) {
       hapticFeedback.error();
-      console.error('Failed to log meal:', err);
-      Alert.alert('Save Error', err.message || 'Could not save the meal to your history.');
+      Alert.alert("Couldn't save this meal", err?.message || 'Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!draftMeal) {
-    return null;
-  }
-
-  const confidencePct =
-    draftMeal.confidence_score != null ? Math.round(draftMeal.confidence_score * 100) : null;
+  const notes = [draftMeal.portion_notes, draftMeal.feline_verdict].filter(Boolean) as string[];
+  // Extras the AI reported, scaled with the portion or the per-food changes.
+  const extrasScale = hasItems ? (base.current.calories > 0 ? meal.calories / base.current.calories : 1) : portion;
+  const extras = [
+    { label: 'Fiber', value: draftMeal.fiber_g, unit: 'g' },
+    { label: 'Sugar', value: draftMeal.sugar_g, unit: 'g' },
+    { label: 'Sodium', value: draftMeal.sodium_mg, unit: 'mg' },
+  ].flatMap(({ label, value, unit }) => {
+    const n = Math.round((Number(value) || 0) * extrasScale);
+    return n > 0 ? [`${label} ${nf.format(n)} ${unit}`] : [];
+  });
+  const status = fit.over > 0 ? `${nf.format(fit.over)} over after` : `${nf.format(fit.left)} left after`;
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-950">
-      {/* Top Header */}
-      <View className="flex-row items-center justify-between px-5 pt-3 pb-3 border-b border-zinc-900">
-        <TouchableOpacity
-          onPress={() => {
-            hapticFeedback.light();
-            router.back();
-          }}
-          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800"
-        >
-          <Ionicons name="arrow-back" size={18} color="#ffffff" />
-        </TouchableOpacity>
-        <Text
-          style={{ fontFamily: 'Outfit_700Bold' }}
-          className="text-white text-lg"
-        >
-          Review & Edit Catch
-        </Text>
-        <View className="w-10" />
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
-          {/* Macro Fit & Portion Assessment Card */}
-          <View className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-3.5 mb-3 shadow-sm shadow-black">
-            <View className="flex-row items-center gap-3.5">
-              <View className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 items-center justify-center">
-                <MaterialCommunityIcons name="scale-balance" size={24} color="#10b981" />
-              </View>
-              <View className="flex-1">
-                <View className="flex-row items-center justify-between mb-1">
-                  <View className="flex-row items-center gap-1.5 flex-wrap">
-                    <Text
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="text-white text-xs"
-                    >
-                      Sia Macro Fit
-                    </Text>
-                    <View className={`px-1.5 py-0.5 rounded-md border ${macroFit.badgeBg}`}>
-                      <Text
-                        style={{ color: macroFit.badgeColor }}
-                        className="text-[9px] font-extrabold uppercase tracking-wider"
-                      >
-                        {macroFit.badgeText}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <Text className="text-zinc-400 text-[11px] font-medium leading-4">
-                  {macroFit.message}
-                </Text>
-              </View>
-            </View>
-
-            {/* Quick Micro Telemetry Pill */}
-            <View className="mt-3 pt-2.5 border-t border-zinc-800/80 flex-row items-center justify-between">
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase">Budget Pace:</Text>
-                <Text
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-zinc-300 text-[11px] font-bold"
-                >
-                  {consumedCalories} + <Text className="text-emerald-400 font-extrabold">{Math.round(parseFloat(calories) || 0)}</Text> = {Math.round(consumedCalories + (parseFloat(calories) || 0))} / {targetCalories} kcal
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase">Protein:</Text>
-                <Text
-                  style={{ fontVariant: ['tabular-nums'] }}
-                  className="text-sky-400 text-[11px] font-extrabold"
-                >
-                  {Math.round(consumedProtein + (parseFloat(protein) || 0))}g / {targetProtein}g
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Explainable AI Vision Assessment Card */}
-          <View className="bg-zinc-900/90 border border-emerald-500/25 rounded-3xl p-3.5 mb-3 shadow-sm shadow-emerald-500/10">
-            {/* Header: AI Confidence Badge & Icon */}
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-row items-center gap-1.5">
-                <MaterialCommunityIcons name="shield-check" size={14} color="#10b981" />
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs"
-                >
-                  Explainable AI Nutrition
-                </Text>
-              </View>
-              {confidencePct != null && (
-                <View className="bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                  <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <Text className="text-emerald-400 text-[10px] font-extrabold">
-                    {confidencePct}% Certainty
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Portion Notes */}
-            <View className="flex-row items-start gap-2 bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 mb-2">
-              <MaterialCommunityIcons name="scale" size={13} color="#10b981" style={{ marginTop: 1 }} />
-              <Text className="text-zinc-300 text-xs flex-1 leading-relaxed">
-                {draftMeal.portion_notes || "Estimated serving based on visual cues & macronutrient density"}
-              </Text>
-            </View>
-
-            {/* Feline Coach Verdict */}
-            {draftMeal.feline_verdict && (
-              <Text className="text-zinc-400 text-[11px] italic mb-2 leading-4">
-                "{draftMeal.feline_verdict}"
-              </Text>
-            )}
-
-            {/* Dietary Tags */}
-            {draftMeal.dietary_tags && draftMeal.dietary_tags.length > 0 && (
-              <View className="flex-row flex-wrap gap-1.5">
-                {draftMeal.dietary_tags.map((tag, tIdx) => (
-                  <View
-                    key={tIdx}
-                    className="bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md"
-                  >
-                    <Text className="text-emerald-400 text-[10px] font-bold">
-                      {tag}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Text className="text-zinc-400 text-xs mt-2.5 leading-4">
-              AI estimates can be off. Check the portions and macros before you save.
-            </Text>
-          </View>
-
-          {/* Ask Sia Coach Continuity Button */}
-          <TouchableOpacity
-            onPress={handleAskSiaAboutMeal}
-            activeOpacity={0.8}
-            className="bg-zinc-900 border border-emerald-500/30 p-3.5 rounded-2xl flex-row items-center justify-between mb-4 shadow-sm shadow-emerald-500/10"
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.header}>
+          <Tap
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Retake"
+            style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
           >
-            <View className="flex-row items-center gap-2.5">
-              <View className="w-8 h-8 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
-                <Ionicons name="chatbubble-ellipses" size={15} color="#10b981" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-xs"
-                >
-                  Ask Sia About This Catch
-                </Text>
-                <Text className="text-zinc-400 text-[10px]">
-                  Get instant tactical advice for your remaining meals
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#10b981" />
-          </TouchableOpacity>
+            <Ionicons name="close" size={20} color={palette.text} />
+            <Text style={styles.headerText}>Retake</Text>
+          </Tap>
+          <Tap
+            onPress={() => {
+              hapticFeedback.selection();
+              setMealType(nextMealType(mealType));
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Meal: ${mealTypeLabel(mealType)}`}
+            accessibilityHint="Changes to the next meal"
+            style={({ pressed }) => [styles.mealChip, pressed && styles.pressed]}
+          >
+            <Text style={styles.mealChipText}>{mealTypeLabel(mealType)}</Text>
+            <Ionicons name="chevron-down" size={14} color={palette.text} />
+          </Tap>
+        </View>
 
-          {/* Photo Thumbnail if available */}
-          {draftImageSource && (
-            <View className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
-              <Image
-                source={draftImageSource}
-                style={{ width: '100%', height: 176 }}
-                contentFit="cover"
-                transition={150}
-                accessibilityLabel="Photo of the meal you're logging"
-              />
+        <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {imageSource && (
+            <View style={hasItems ? styles.photoTall : styles.photo}>
+              <Image source={imageSource} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityIgnoresInvertColors />
+              {hasItems && <PhotoLabels items={items} multipliers={itemMults} />}
             </View>
           )}
 
-          {/* Feline Meal Category Selector */}
-          <View className="mb-4">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Meal Category
-            </Text>
-            <View className="flex-row gap-2">
-              {MEAL_TYPES.map((item) => {
-                const isSelected = mealType === item.type;
-                return (
-                  <TouchableOpacity
-                    key={item.type}
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setMealType(item.type);
-                    }}
-                    className={`flex-1 py-2.5 px-1 rounded-2xl border items-center justify-center ${
-                      isSelected
-                        ? 'bg-emerald-500/15 border-emerald-500'
-                        : 'bg-zinc-900 border-zinc-800'
-                    }`}
-                  >
-                    <MaterialCommunityIcons
-                      name={item.icon}
-                      size={18}
-                      color={isSelected ? item.color : '#71717a'}
-                    />
-                    <Text
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      numberOfLines={1}
-                      className={`text-[10px] mt-1 text-center ${
-                        isSelected ? 'text-white' : 'text-zinc-400'
-                      }`}
-                    >
-                      {item.label}
-                    </Text>
-                    <Text
-                      className={`text-[8px] uppercase tracking-wider font-semibold ${
-                        isSelected ? 'text-emerald-400' : 'text-zinc-600'
-                      }`}
-                    >
-                      {item.sublabel}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Meal Name Input */}
-          <View className="mb-4">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Meal Name
-            </Text>
+          <View style={styles.nameRow}>
             <TextInput
               value={name}
-              onChangeText={setName}
-              placeholder="e.g. Grilled Salmon & Quinoa"
-              placeholderTextColor="#52525b"
-              className="bg-zinc-900 border border-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base font-semibold"
+              onChangeText={(t) => {
+                setName(t);
+                if (nameError && t.trim()) setNameError(false);
+              }}
+              accessibilityLabel="Meal name"
+              placeholder="What did you eat?"
+              placeholderTextColor={palette.textMuted}
+              style={styles.nameInput}
+              multiline
             />
+            <Ionicons name="pencil" size={16} color={palette.textMuted} />
           </View>
-
-          {/* Quick Portion Scaler Strip */}
-          <View className="mb-4 bg-zinc-900/80 border border-zinc-800/90 rounded-2xl p-3">
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-row items-center gap-1.5">
-                <MaterialCommunityIcons name="scale-bathroom" size={14} color="#10b981" />
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
-                  Quick Portion Scaler
-                </Text>
-              </View>
-              {portionScale !== 1.0 && (
-                <TouchableOpacity
-                  onPress={() => handleScalePortion(1.0)}
-                  className="px-2 py-0.5 bg-zinc-800 rounded-md border border-zinc-700/60"
-                >
-                  <Text className="text-emerald-400 text-[10px] font-bold">Reset 1.0×</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View className="flex-row gap-2">
-              {[0.5, 0.75, 1.0, 1.25, 1.5].map((scale) => {
-                const isSelected = portionScale === scale;
-                return (
-                  <TouchableOpacity
-                    key={scale}
-                    onPress={() => handleScalePortion(scale)}
-                    className={`flex-1 py-2 rounded-xl items-center justify-center border ${
-                      isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500'
-                        : 'bg-zinc-950 border-zinc-800'
-                    }`}
-                  >
-                    <Text
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className={`text-xs ${
-                        isSelected ? 'text-emerald-400 font-extrabold' : 'text-zinc-400'
-                      }`}
-                    >
-                      {scale === 1.0 ? '1.0×' : `${scale}×`}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Macronutrients Grid */}
-          <View className="mb-5">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Macronutrients Breakdown
+          {nameError && <Text style={styles.error}>Give it a name</Text>}
+          {hasItems && (
+            <Text style={styles.take}>
+              <Text style={styles.takeWho}>Sia: </Text>
+              {siaTake(fit, meal)}
             </Text>
+          )}
 
-            <View className="flex-row gap-2.5 mb-2.5">
-              {/* Calories */}
-              <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3.5">
-                <Text className="text-emerald-400 text-[10px] font-bold uppercase mb-1">Calories</Text>
-                <View className="flex-row items-baseline">
-                  <TextInput
-                    value={calories}
-                    onChangeText={(val) => {
-                      setCalories(val);
-                      setPortionScale(0);
-                    }}
-                    keyboardType="numeric"
-                    style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                    className="text-white text-2xl p-0 flex-1"
-                  />
-                  <Text className="text-zinc-500 text-xs font-bold ml-1">kcal</Text>
-                </View>
-              </View>
-
-              {/* Protein */}
-              <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3.5">
-                <Text className="text-blue-400 text-[10px] font-bold uppercase mb-1">Protein</Text>
-                <View className="flex-row items-baseline">
-                  <TextInput
-                    value={protein}
-                    onChangeText={(val) => {
-                      setProtein(val);
-                      setPortionScale(0);
-                    }}
-                    keyboardType="numeric"
-                    style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                    className="text-white text-2xl p-0 flex-1"
-                  />
-                  <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
-                </View>
-              </View>
-            </View>
-
-            <View className="flex-row gap-2.5">
-              {/* Carbs */}
-              <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3.5">
-                <Text className="text-amber-400 text-[10px] font-bold uppercase mb-1">Carbohydrates</Text>
-                <View className="flex-row items-baseline">
-                  <TextInput
-                    value={carbs}
-                    onChangeText={(val) => {
-                      setCarbs(val);
-                      setPortionScale(0);
-                    }}
-                    keyboardType="numeric"
-                    style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                    className="text-white text-2xl p-0 flex-1"
-                  />
-                  <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
-                </View>
-              </View>
-
-              {/* Fat */}
-              <View className="flex-1 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl p-3.5">
-                <Text className="text-rose-400 text-[10px] font-bold uppercase mb-1">Total Fat</Text>
-                <View className="flex-row items-baseline">
-                  <TextInput
-                    value={fat}
-                    onChangeText={(val) => {
-                      setFat(val);
-                      setPortionScale(0);
-                    }}
-                    keyboardType="numeric"
-                    style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                    className="text-white text-2xl p-0 flex-1"
-                  />
-                  <Text className="text-zinc-500 text-xs font-bold ml-1">g</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Macro Conservation Law Indicator (ISO/IEC 5055 Compliance) */}
-            <View className={`mt-2.5 p-3 rounded-2xl border flex-row items-center justify-between ${
-              macroIntegrity.isValid
-                ? 'bg-emerald-500/10 border-emerald-500/25'
-                : 'bg-amber-500/10 border-amber-500/35'
-            }`}>
-              <View className="flex-row items-center gap-2 flex-1 mr-2">
-                <MaterialCommunityIcons
-                  name={macroIntegrity.isValid ? 'scale-balance' : 'alert-circle-outline'}
-                  size={16}
-                  color={macroIntegrity.isValid ? '#10b981' : '#f59e0b'}
-                />
-                <Text className={`text-[11px] leading-relaxed flex-1 ${
-                  macroIntegrity.isValid ? 'text-emerald-300' : 'text-amber-300'
-                }`}>
-                  {macroIntegrity.isValid
-                    ? `Atwater Equilibrium: 4P + 4C + 9F = ${macroIntegrity.computedCalories} kcal (Calibrated)`
-                    : (macroIntegrity.warningMessage || 'Macronutrient sum diverges from reported calories.')}
-                </Text>
-              </View>
-
-              {!macroIntegrity.isValid && macroIntegrity.computedCalories > 0 && (
-                <TouchableOpacity
-                  onPress={handleAutoAlignCalories}
-                  className="px-2.5 py-1.5 bg-amber-500/20 border border-amber-500/40 rounded-xl"
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-amber-300 text-[10px] font-extrabold">
-                    Align {macroIntegrity.computedCalories} kcal
+          <View style={styles.cardZone}>
+            {hasItems ? (
+              <PlateBreakdown
+                items={items}
+                multipliers={itemMults}
+                onChange={changeItem}
+                meal={meal}
+                status={fit.over > 0 ? `${nf.format(fit.over)} over` : `${nf.format(fit.left)} left`}
+              />
+            ) : (
+            <View style={styles.card}>
+              <View style={styles.cardTop}>
+              <CalorieEyeRing
+                size={112}
+                eaten={meal.calories}
+                target={targetCalories}
+                fraction={fit.afterFraction}
+                baseFraction={fit.beforeFraction}
+                over={fit.over > 0}
+                centerLabel={`+${nf.format(meal.calories)}`}
+                centerCaption="kcal"
+              />
+              <View style={styles.adds}>
+                {[
+                  { v: meal.protein_g, l: 'protein' },
+                  { v: meal.carbs_g, l: 'carbs' },
+                  { v: meal.fat_g, l: 'fat' },
+                ].map(({ v, l }) => (
+                  <Text key={l} style={styles.add}>
+                    <Text style={styles.addValue}>{`+${nf.format(v)} g`}</Text>
+                    <Text style={styles.addLabel}> {l}</Text>
                   </Text>
-                </TouchableOpacity>
-              )}
+                ))}
+                <Text style={styles.after}>{status}</Text>
+              </View>
+              </View>
+              <View style={styles.divider} />
+              <Text style={styles.cardSection}>Today after this meal</Text>
+              <View style={styles.bars}>
+                <MacroAfterBar label="Protein" before={today.protein} add={meal.protein_g} target={targetProtein} color={palette.protein} />
+                <MacroAfterBar label="Carbs" before={today.carbs} add={meal.carbs_g} target={targetCarbs} color={palette.carbs} />
+                <MacroAfterBar label="Fat" before={today.fat} add={meal.fat_g} target={targetFat} color={palette.fat} />
+              </View>
             </View>
+            )}
+            <SiaPeek reaction={siaReaction} onPress={askSia} />
           </View>
 
-          {/* Detected Ingredients Tag List */}
-          <View className="mb-6">
-            <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-2">
-              Identified Ingredients & Items
-            </Text>
-
-            <View className="flex-row flex-wrap gap-2 mb-3">
-              {foodItems.map((item, idx) => (
-                <View
-                  key={idx}
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 flex-row items-center gap-1.5"
-                >
-                  <Text className="text-zinc-200 text-xs font-semibold">{item}</Text>
-                  <TouchableOpacity onPress={() => handleRemoveItem(idx)}>
-                    <Ionicons name="close-circle" size={15} color="#71717a" />
-                  </TouchableOpacity>
+          {extras.length > 0 && (
+            <View style={styles.extras}>
+              {extras.map((e) => (
+                <View key={e} style={styles.extra}>
+                  <Text style={styles.extraText}>{e}</Text>
                 </View>
               ))}
             </View>
+          )}
 
-            {/* Add ingredient input */}
-            <View className="flex-row gap-2">
-              <TextInput
-                value={newItemText}
-                onChangeText={setNewItemText}
-                placeholder="Add missing ingredient..."
-                placeholderTextColor="#52525b"
-                onSubmitEditing={handleAddItem}
-                className="flex-1 bg-zinc-900 border border-zinc-800 text-white rounded-xl px-3.5 py-2.5 text-xs font-medium"
-              />
-              <TouchableOpacity
-                onPress={handleAddItem}
-                className="bg-zinc-800 px-4 rounded-xl items-center justify-center"
-              >
-                <Ionicons name="add" size={18} color="#e4e4e7" />
-              </TouchableOpacity>
-            </View>
+          {!hasItems && (
+          <View style={styles.portions} accessibilityRole="radiogroup">
+            {PORTIONS.map((p) => {
+              const on = !edited && portion === p.value;
+              return (
+                <Tap
+                  key={p.value}
+                  onPress={() => choosePortion(p.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`Portion ${p.label}`}
+                  style={({ pressed }) => [styles.portion, on && styles.portionOn, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.portionText, on && styles.portionTextOn]}>{p.label}</Text>
+                </Tap>
+              );
+            })}
           </View>
+          )}
 
-          {/* Action Buttons */}
-          <View className="gap-3 mb-10">
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={isSaving}
-              activeOpacity={0.85}
-              className="bg-emerald-500 active:bg-emerald-600 rounded-2xl py-4 flex-row items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
-            >
-              {isSaving ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
+          <Tap
+            onPress={() => setDetailsOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: detailsOpen }}
+            style={({ pressed }) => [styles.detailsRow, pressed && styles.pressed]}
+          >
+            <Text style={styles.detailsText}>Edit details</Text>
+            <Ionicons name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={18} color={palette.text} />
+          </Tap>
+
+          {detailsOpen && (
+            <View style={styles.details}>
+              <View style={styles.fields}>
+                {MACRO_FIELDS.map((f) => (
+                  <View key={f.key} style={styles.field}>
+                    <Text style={styles.fieldLabel}>{f.label}</Text>
+                    <View style={styles.fieldBox}>
+                      <TextInput
+                        value={String(meal[f.key])}
+                        onChangeText={(t) => editNumber(f.key, t)}
+                        keyboardType="numeric"
+                        accessibilityLabel={`${f.label} in ${f.unit === 'g' ? 'grams' : 'calories'}`}
+                        style={styles.fieldInput}
+                        selectTextOnFocus
+                      />
+                      <Text style={styles.fieldUnit}>{f.unit}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {!hasItems && (
                 <>
-                  <Ionicons name="paw" size={18} color="#ffffff" />
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className="text-white font-bold text-base"
+              <Text style={styles.fieldLabel}>Ingredients</Text>
+              <View style={styles.chips}>
+                {foodItems.map((item, i) => (
+                  <Tap
+                    key={`${item}-${i}`}
+                    onPress={() => setFoodItems((items) => items.filter((_, j) => j !== i))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${item}`}
+                    style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
                   >
-                    Save Catch to Daily Log
-                  </Text>
+                    <Text style={styles.chipText}>{item}</Text>
+                    <Ionicons name="close" size={14} color={palette.textMuted} />
+                  </Tap>
+                ))}
+              </View>
+              <TextInput
+                value={newItem}
+                onChangeText={setNewItem}
+                onSubmitEditing={addItem}
+                placeholder="Add an ingredient"
+                placeholderTextColor={palette.textMuted}
+                returnKeyType="done"
+                accessibilityLabel="Add an ingredient"
+                style={styles.addInput}
+              />
                 </>
               )}
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                router.back();
-              }}
-              className="py-3 items-center"
-            >
-              <Text className="text-zinc-500 font-semibold text-sm">Discard & Retake</Text>
-            </TouchableOpacity>
-          </View>
+              {notes.map((n) => (
+                <Text key={n} style={styles.note}>
+                  {n}
+                </Text>
+              ))}
+
+              <Tap onPress={askSia} accessibilityRole="button" style={({ pressed }) => [styles.askSia, pressed && styles.pressed]}>
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={palette.text} />
+                <Text style={styles.detailsText}>Ask Sia about this meal</Text>
+              </Tap>
+            </View>
+          )}
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* Cross-Modal AI Nutrition Coach Assistant */}
-      <AiNutritionCoachModal
-        visible={coachModalVisible}
-        onClose={() => setCoachModalVisible(false)}
-        userContext={{
-          displayName: profile?.full_name || 'Athlete',
-          goal: profile?.goal_pace || 'Fat Loss / Maintenance',
-          dietType: profile?.diet_type || 'Balanced',
-          targetCalories,
-          targetProtein,
-          targetCarbs: profile?.target_carbs_g || 200,
-          targetFat: profile?.target_fat_g || 65,
-          consumedCalories,
-          consumedProtein,
-          consumedCarbs: 0,
-          consumedFat: 0,
-          remainingCalories: Math.max(0, targetCalories - (consumedCalories + (parseFloat(calories) || 0))),
-          remainingProtein: Math.max(0, targetProtein - (consumedProtein + (parseFloat(protein) || 0))),
-          todayMeals: meals.map((m) => `${m.name} (${m.calories} kcal)`),
-        }}
-        initialQuery={coachInitialQuery}
-      />
+        <View style={styles.footer}>
+          {itemsError && <Text style={[styles.error, styles.centered]}>Add at least one food</Text>}
+          <Text style={styles.caption}>{draftMeal.image_url ? 'Estimated from your photo.' : 'Estimated values.'}</Text>
+          <Tap
+            onPress={save}
+            disabled={isSaving}
+            accessibilityRole="button"
+            accessibilityState={{ busy: isSaving, disabled: isSaving }}
+            style={({ pressed }) => [styles.save, pressed && styles.pressed, isSaving && styles.saving]}
+          >
+            {isSaving ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.saveText}>Save</Text>}
+          </Tap>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.bg },
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+  },
+  headerButton: { flexDirection: 'row', alignItems: 'center', gap: space[1], minHeight: 44, paddingHorizontal: space[2] },
+  headerText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  mealChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    minHeight: 44,
+    paddingHorizontal: space[4],
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  mealChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: space[4], paddingBottom: space[6] },
+  photo: { width: '100%', height: 180, overflow: 'hidden', borderRadius: radius.card, marginTop: space[2], backgroundColor: palette.line },
+  photoTall: { width: '100%', height: 240, overflow: 'hidden', borderRadius: radius.card, marginTop: space[2], backgroundColor: palette.line },
+  take: { fontFamily: type.bodySemibold, fontSize: type.size.body, lineHeight: 21, color: palette.text, marginTop: space[1] },
+  takeWho: { color: palette.textMuted },
+  centered: { textAlign: 'center', marginBottom: space[1] },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: space[3] },
+  nameInput: { flex: 1, fontFamily: type.display, fontSize: type.size.title, color: palette.text, padding: 0 },
+  error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
+  cardZone: { marginTop: PEEK_SIZE - PEEK_SHOWN_Y + space[2] },
+  card: {
+    padding: space[4],
+    borderRadius: radius.hero,
+    backgroundColor: palette.point,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  divider: { height: 1, backgroundColor: palette.pointTrack, marginVertical: space[4] },
+  cardSection: { fontFamily: type.bodyBold, fontSize: type.size.caption, color: palette.pointMuted, marginBottom: space[2] },
+  bars: { gap: space[3] },
+  extras: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[3] },
+  extra: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: space[3],
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  extraText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text, fontVariant: ['tabular-nums'] },
+  adds: { flex: 1, gap: space[1] + 2 },
+  add: { fontVariant: ['tabular-nums'] },
+  addValue: { fontFamily: type.displayBold, fontSize: type.size.body, color: palette.pointText },
+  addLabel: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.pointMuted },
+  after: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointText, marginTop: space[1], fontVariant: ['tabular-nums'] },
+  portions: { flexDirection: 'row', gap: space[2], marginTop: space[4] },
+  portion: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  portionOn: { backgroundColor: palette.point, borderColor: palette.point },
+  portionText: { fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text },
+  portionTextOn: { color: palette.pointText },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    marginTop: space[4],
+    paddingHorizontal: space[4],
+    borderRadius: radius.card,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  detailsText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  details: { marginTop: space[3], gap: space[2] },
+  fields: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[2] },
+  field: { width: '48%', flexGrow: 1 },
+  fieldLabel: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginBottom: space[1] },
+  fieldBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+    paddingHorizontal: space[3],
+    borderRadius: radius.control,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  fieldInput: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text, fontVariant: ['tabular-nums'] },
+  fieldUnit: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    minHeight: 36,
+    paddingHorizontal: space[3],
+    borderRadius: radius.full,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  chipText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text },
+  addInput: {
+    minHeight: 48,
+    paddingHorizontal: space[3],
+    borderRadius: radius.control,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+    fontFamily: type.body,
+    fontSize: type.size.secondary,
+    color: palette.text,
+  },
+  note: { fontFamily: type.body, fontSize: type.size.secondary, lineHeight: 19, color: palette.textMuted },
+  askSia: { flexDirection: 'row', alignItems: 'center', gap: space[2], minHeight: 44 },
+  footer: {
+    paddingHorizontal: space[4],
+    paddingTop: space[2],
+    paddingBottom: space[3],
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
+    backgroundColor: palette.bg,
+  },
+  caption: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted, textAlign: 'center', marginBottom: space[2] },
+  save: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.full,
+    backgroundColor: palette.point,
+  },
+  saving: { opacity: 0.8 },
+  saveText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+});

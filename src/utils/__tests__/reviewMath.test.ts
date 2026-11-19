@@ -1,4 +1,5 @@
-import { mealFit, scaleMacros } from '../reviewMath';
+import { itemsMeal, mealFit, scaleMacros, siaTake } from '../reviewMath';
+import type { MealItem } from '../../types';
 
 const adobo = { calories: 680, protein_g: 42, carbs_g: 72, fat_g: 22 };
 
@@ -41,5 +42,52 @@ describe('mealFit', () => {
 
   it('no target set: empty ring, nothing left or over', () => {
     expect(mealFit(500, 20, adobo, 0, 0)).toMatchObject({ beforeFraction: 0, afterFraction: 0, left: 0, over: 0, expression: 'happy' });
+  });
+});
+
+const items: MealItem[] = [
+  { name: 'Chicken thigh', amount: '2 pcs', calories: 320, protein_g: 30, carbs_g: 0, fat_g: 21 },
+  { name: 'White rice', amount: '1 cup', calories: 260, protein_g: 5, carbs_g: 57, fat_g: 1 },
+  { name: 'Adobo sauce', amount: '3 tbsp', calories: 100, protein_g: 7, carbs_g: 15, fat_g: 0 },
+];
+
+describe('itemsMeal', () => {
+  it("every item at 1x is the AI's own total", () => {
+    expect(itemsMeal(adobo, items, [1, 1, 1])).toEqual(adobo);
+  });
+
+  it("half the rice shrinks the meal by the rice's share of the calories", () => {
+    // 680 - 130 = 550 kcal, so everything scales by 550 / 680
+    expect(itemsMeal(adobo, items, [1, 0.5, 1])).toEqual(scaleMacros(adobo, 550 / 680));
+  });
+
+  it('removing every item leaves nothing', () => {
+    expect(itemsMeal(adobo, items, [0, 0, 0])).toEqual({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+  });
+
+  it("items with no calories can't be proportioned, so the AI's total stands", () => {
+    expect(itemsMeal(adobo, items.map((i) => ({ ...i, calories: 0 })), [0.5, 1, 1])).toEqual(adobo);
+  });
+});
+
+describe('siaTake', () => {
+  const take = (todayKcal: number, todayProtein: number, meal = adobo) => siaTake(mealFit(todayKcal, todayProtein, meal, 2000, 150), meal);
+
+  it('high-protein meal under budget', () => {
+    expect(take(560, 33, { calories: 400, protein_g: 40, carbs_g: 20, fat_g: 15 })).toBe('Great protein pick! 1,040 left after this.');
+  });
+  it('reaching the protein goal', () => {
+    expect(take(900, 110)).toBe('Protein goal done with this one!');
+  });
+  it('going over, gently', () => {
+    expect(take(1800, 60)).toBe("This puts you 480 over. That's okay.");
+  });
+  it('an ordinary meal', () => {
+    expect(take(560, 33)).toBe('760 left after this.');
+  });
+  it('always fits on one line', () => {
+    for (const t of [take(560, 33), take(900, 110), take(1800, 60), take(0, 0, { calories: 300, protein_g: 40, carbs_g: 0, fat_g: 5 })]) {
+      expect(t.length).toBeLessThanOrEqual(60);
+    }
   });
 });

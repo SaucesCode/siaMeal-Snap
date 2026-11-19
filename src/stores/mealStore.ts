@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { uploadMealPhotoToSupabase } from '../lib/storage';
 import { enqueueMutation, getQueuedMutations } from '../lib/syncQueue';
 import { generateUUID } from '../utils/uuid';
-import { Meal, MealType } from '../types';
+import { Meal, MealItem, MealType } from '../types';
 
 const TODAY_MEALS_CACHE_KEY = '@calorie_tracker_cached_today_meals';
 const WEEKLY_SUMMARY_CACHE_KEY = '@calorie_tracker_cached_weekly_summary';
@@ -54,6 +54,8 @@ interface MealState {
     sodium_mg?: number;
     potassium_mg?: number;
     food_items: string[];
+    /** Each food the AI found, when it reported them. */
+    items?: MealItem[];
     image_url?: string | null;
     confidence_score?: number;
     portion_notes?: string;

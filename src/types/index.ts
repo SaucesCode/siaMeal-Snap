@@ -45,6 +45,20 @@ export interface Meal {
   created_at?: string;
 }
 
+/** One food the AI found on the plate (mirrors supabase/functions/analyze-meal/items.ts). */
+export interface MealItem {
+  name: string;
+  /** Plain portion, e.g. "1 cup". */
+  amount: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  /** Centre of the item in the photo, 0–1 from the left/top. */
+  x?: number;
+  y?: number;
+}
+
 export interface AnalyzeMealResponse {
   meal_name: string;
   calories: number;
@@ -56,6 +70,7 @@ export interface AnalyzeMealResponse {
   sodium_mg?: number;
   potassium_mg?: number;
   ingredients: string[];
+  items?: MealItem[];
   confidence_score?: number;
   portion_notes?: string;
   dietary_tags?: string[];

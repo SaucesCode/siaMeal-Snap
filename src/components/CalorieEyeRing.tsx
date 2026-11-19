@@ -29,10 +29,16 @@ interface CalorieEyeRingProps {
   fraction: number;
   over: boolean;
   size?: number;
+  /** Review: how full the ring was before this meal; drawn as a muted arc under the green one. */
+  baseFraction?: number;
+  /** Replaces the eaten number in the centre (e.g. "+680"). */
+  centerLabel?: string;
+  /** Replaces "of 2,000" under it (e.g. "kcal"). */
+  centerCaption?: string;
 }
 
 /** Calories eaten inside a ring drawn like Sia's green shutter eye; turns amber when over target. */
-export function CalorieEyeRing({ eaten, target, fraction, over, size = 120 }: CalorieEyeRingProps) {
+export function CalorieEyeRing({ eaten, target, fraction, over, size = 120, baseFraction, centerLabel, centerCaption }: CalorieEyeRingProps) {
   const reduceMotion = useReducedMotion();
   const fill = useSharedValue(fraction);
   const shown = useCountUp(eaten, RING_FILL_MS);
@@ -42,6 +48,7 @@ export function CalorieEyeRing({ eaten, target, fraction, over, size = 120 }: Ca
   }, [fraction, reduceMotion, fill]);
 
   const arcProps = useAnimatedProps(() => ({ strokeDashoffset: CIRCUMFERENCE * (1 - fill.get()) }));
+  const base = baseFraction == null ? null : Math.max(0, Math.min(1, baseFraction));
 
   return (
     <View style={{ width: size, height: size }}>
@@ -60,13 +67,32 @@ export function CalorieEyeRing({ eaten, target, fraction, over, size = 120 }: Ca
           transform="rotate(-90 60 60)"
           animatedProps={arcProps}
         />
+        {/* What was already eaten sits on top of the green arc's start, so green reads as "this meal". */}
+        {base != null && base > 0 &&
+          // An opaque track-coloured arc first hides the green beneath; the faded arc on top reads as "earlier".
+          [palette.pointTrack, palette.pointMuted].map((stroke, i) => (
+            <Circle
+              key={stroke}
+              testID={i === 1 ? 'calorie-eye-base' : undefined}
+              cx={60}
+              cy={60}
+              r={R}
+              fill="none"
+              stroke={stroke}
+              strokeOpacity={i === 1 ? 0.6 : 1}
+              strokeWidth={STROKE}
+              strokeLinecap="round"
+              strokeDasharray={`${CIRCUMFERENCE * base} ${CIRCUMFERENCE}`}
+              transform="rotate(-90 60 60)"
+            />
+          ))}
         {TICKS.map((t, i) => (
           <Line key={i} {...t} stroke={palette.point} strokeWidth={2.4} strokeOpacity={0.55} />
         ))}
       </Svg>
       <View style={styles.center} pointerEvents="none">
-        <Text style={styles.number}>{nf.format(shown)}</Text>
-        <Text style={styles.of}>of {nf.format(target)}</Text>
+        <Text style={styles.number}>{centerLabel ?? nf.format(shown)}</Text>
+        <Text style={styles.of}>{centerCaption ?? `of ${nf.format(target)}`}</Text>
       </View>
     </View>
   );

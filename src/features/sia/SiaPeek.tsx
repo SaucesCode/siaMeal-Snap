@@ -41,14 +41,27 @@ const PAW_DROP = 16;
  * Sia peeking over the top edge of Today's calories card. She stays put until a reaction
  * arrives, then ducks behind the card and rises at the reaction's spot (left over the ring,
  * right over the macros, centre to say hi). Under reduced motion she fades instead.
- * Render it after the card inside a wrapper whose top edge is the card's top edge.
+ * Render it after the card inside a wrapper whose top edge is the card's top edge. Screens
+ * other than Today can pass their own `reaction` (e.g. Review, Camera).
  */
-export function SiaPeek() {
-  const { current, hidden, pet } = useSiaStore(useShallow((s) => ({ current: s.current, hidden: s.hidden, pet: s.pet })));
+interface SiaPeekProps {
+  /** Drive her from one screen (e.g. Review) instead of the shared reaction store. */
+  reaction?: SiaReaction;
+  /** Replaces opening the coach when she is tapped. */
+  onPress?: () => void;
+  /** Start ducked behind the edge, so her first reaction rises into view (screens she appears on mid-flow). */
+  startHidden?: boolean;
+}
+
+export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps = {}) {
+  const { storeCurrent, hidden, pet } = useSiaStore(useShallow((s) => ({ storeCurrent: s.current, hidden: s.hidden, pet: s.pet })));
+  const current = reaction ?? storeCurrent;
   const openCoach = useCoachStore((s) => s.openCoach);
   const reduceMotion = useReducedMotion();
 
   const [width, setWidth] = useState(0);
+  /** Latest measured width, read when she actually moves (the card can resize mid-animation). */
+  const widthRef = useRef(0);
   const [expression, setExpression] = useState<SiaExpression>('resting');
   const spot = useRef<SiaSpot>('center');
   const busy = useRef(false);
@@ -56,11 +69,11 @@ export function SiaPeek() {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const x = useSharedValue(0);
-  const y = useSharedValue(PEEK_SHOWN_Y);
+  const y = useSharedValue(startHidden ? PEEK_HIDDEN_Y : PEEK_SHOWN_Y);
   const tilt = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const pawY = useSharedValue(0);
-  const pawOpacity = useSharedValue(1);
+  const pawY = useSharedValue(startHidden ? PAW_DROP : 0);
+  const pawOpacity = useSharedValue(startHidden ? 0 : 1);
   const breath = useSharedValue(1);
 
   const later = (fn: () => void, ms: number) => {
@@ -80,13 +93,13 @@ export function SiaPeek() {
       }
 
       busy.current = true;
-      const x1 = peekX(to, width);
       const finish = (afterMs: number) =>
         later(() => {
           busy.current = false;
           const next = pending.current;
           pending.current = null;
           if (next) play(next);
+          else x.set(peekX(spot.current, widthRef.current));
         }, afterMs);
 
       if (reduceMotion) {
@@ -95,7 +108,7 @@ export function SiaPeek() {
         later(() => {
           spot.current = to;
           setExpression(reaction.expression);
-          x.set(x1);
+          x.set(peekX(to, widthRef.current));
           opacity.set(withTiming(1, { duration: PEEK_MS.fade }));
           pawOpacity.set(withTiming(1, { duration: PEEK_MS.fade }));
         }, PEEK_MS.fade);
@@ -112,7 +125,7 @@ export function SiaPeek() {
       later(() => {
         spot.current = to;
         setExpression(reaction.expression);
-        x.set(x1);
+        x.set(peekX(to, widthRef.current));
       }, PEEK_MS.duck);
 
       // 3. Rise with a small settle, leaning toward the middle; paws grab the edge once her chin clears it.
@@ -158,13 +171,18 @@ export function SiaPeek() {
       return;
     }
     if (current.line && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(current.line);
-    if (busy.current) pending.current = current;
+    // Before the card is measured she can't know where "right" is; wait for the width.
+    if (busy.current || width === 0) pending.current = current;
     else play(current);
   }, [current]);
 
-  // Keep her on her spot when the card is first measured or resized.
+  // Keep her on her spot when the card is first measured or resized, and play anything that was waiting.
   useEffect(() => {
-    if (!busy.current) x.set(peekX(spot.current, width));
+    if (width === 0 || busy.current) return;
+    x.set(peekX(spot.current, width));
+    const waiting = pending.current;
+    pending.current = null;
+    if (waiting) play(waiting);
   }, [width]);
 
   // A barely-there breath while she rests.
@@ -193,17 +211,22 @@ export function SiaPeek() {
   if (hidden) return null;
 
   return (
-    <View style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+    <View testID="sia-peek-zone" style={styles.zone} pointerEvents="box-none" onLayout={(e: LayoutChangeEvent) => {
+        widthRef.current = e.nativeEvent.layout.width;
+        setWidth(e.nativeEvent.layout.width);
+      }}>
       <View style={styles.strip} pointerEvents="box-none">
-        <Animated.View style={[styles.sia, siaStyle]}>
+        <Animated.View testID="sia-peek" style={[styles.sia, siaStyle]}>
           <Pressable
             onPress={() => {
               hapticFeedback.light();
-              openCoach();
+              if (onPress) onPress();
+              else openCoach();
             }}
             onLongPress={() => {
               hapticFeedback.purr();
-              pet();
+              if (reaction) play({ expression: 'loves', line: null });
+              else pet();
             }}
             accessibilityRole="button"
             accessibilityLabel="Chat with Sia"

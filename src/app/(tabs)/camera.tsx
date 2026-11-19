@@ -1,287 +1,171 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Pressable,
   ActivityIndicator,
   Alert,
-  StyleSheet,
-  Animated,
-  Easing,
-  TextInput,
-  Modal,
   KeyboardAvoidingView,
+  Linking,
+  Modal,
   Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions, CameraType, BarcodeScanningResult } from 'expo-camera';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult, type CameraType } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { compressImage, analyzeMealPhoto, NotFoodError } from '../../services/aiService';
 import { lookupBarcode } from '../../services/barcodeService';
 import { useMealStore } from '../../stores/mealStore';
 import { hapticFeedback } from '../../utils/haptics';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { getDefaultMealType } from '../../utils/nutrition';
+import { MEAL_TYPES, mealTypeLabel } from '../../constants/mealTypes';
 import { MealType } from '../../types';
 import { Sia } from '../../components/sia';
+import { TextLogModal } from '../../components/TextLogModal';
+import { SiaPeek } from '../../features/sia/SiaPeek';
+import type { SiaReaction } from '../../features/sia/siaReactions';
+import { EyeViewfinder } from '../../features/camera/EyeViewfinder';
+import { NotFoodSheet } from '../../features/camera/NotFoodSheet';
+import type { ViewfinderMode } from '../../features/camera/viewfinderGeometry';
+import { palette, radius, space, type } from '../../theme';
+import { Tap } from '../../components/Tap';
 
-type ScanMode = 'photo' | 'barcode';
+const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'] as const;
+const LOOKING = { title: 'Looking at your plate…', subtitle: 'Usually takes a few seconds.' };
+const LOOKING_UP = { title: 'Looking up the barcode…', subtitle: 'Usually takes a few seconds.' };
+const SHUTTER = 72;
 
-const CATEGORY_NAMES: Record<
-  string,
-  { title: string; color: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
-> = {
-  breakfast: { title: 'Breakfast', color: '#f59e0b', icon: 'cat' },
-  lunch: { title: 'Lunch', color: '#10b981', icon: 'fish' },
-  dinner: { title: 'Dinner', color: '#818cf8', icon: 'weather-night' },
-  snack: { title: 'Snack', color: '#06b6d4', icon: 'paw' },
-};
+const isMealType = (v: unknown): v is MealType => MEAL_TYPES.some((m) => m.type === v);
+const nextMealType = (t: MealType): MealType => MEAL_TYPES[(MEAL_TYPES.findIndex((m) => m.type === t) + 1) % MEAL_TYPES.length].type;
 
+function RoundButton({ icon, label, onPress, disabled }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Tap
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      style={({ pressed }) => [styles.round, pressed && styles.pressed, disabled && styles.disabled]}
+    >
+      <Ionicons name={icon} size={22} color={palette.pointText} />
+    </Tap>
+  );
+}
+
+/** Snap a meal through Sia's eye (or scan a barcode); Sia looks at it, then Review. */
 export default function CameraScreen() {
   const params = useLocalSearchParams<{ mode?: string; meal_type?: string }>();
+  const router = useRouter();
+  const setDraftMeal = useMealStore((s) => s.setDraftMeal);
   const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView | null>(null);
+
+  const [mode, setMode] = useState<ViewfinderMode>(params.mode === 'barcode' ? 'barcode' : 'photo');
+  const [mealType, setMealType] = useState<MealType>(isMealType(params.meal_type) ? params.meal_type : getDefaultMealType());
   const [facing, setFacing] = useState<CameraType>('back');
   const [torch, setTorch] = useState(false);
-  const [scanMode, setScanMode] = useState<ScanMode>(
-    params.mode === 'barcode' ? 'barcode' : 'photo'
-  );
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('Sniffing out ingredients...');
-  const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
-  const [manualModalVisible, setManualModalVisible] = useState(false);
-  const [manualBarcodeText, setManualBarcodeText] = useState('');
-  const [nonFoodModalText, setNonFoodModalText] = useState<string | null>(null);
-
-  const cameraRef = useRef<CameraView | null>(null);
-  const router = useRouter();
-  const setDraftMeal = useMealStore((state) => state.setDraftMeal);
-
-  // Active HUD Animations
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
-  const reticlePulseAnim = useRef(new Animated.Value(1)).current;
-  const bracketGlowAnim = useRef(new Animated.Value(0.6)).current;
+  const [busy, setBusy] = useState<null | typeof LOOKING>(null);
+  const [frozenUri, setFrozenUri] = useState<string | null>(null);
+  const [notFood, setNotFood] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [barcodeEntry, setBarcodeEntry] = useState(false);
+  const [barcodeText, setBarcodeText] = useState('');
+  const lastBarcode = useRef<string | null>(null);
 
   useEffect(() => {
-    if (params.mode === 'barcode') {
-      setScanMode('barcode');
-    } else if (params.mode === 'photo') {
-      setScanMode('photo');
-    }
+    if (params.mode === 'barcode' || params.mode === 'photo') setMode(params.mode);
   }, [params.mode]);
-
-  // Live Continuous Viewfinder Animations
   useEffect(() => {
-    // 1. Continuous Laser Sweep Animation (active for both photo & barcode)
-    const scanLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanLineAnim, {
-          toValue: 1,
-          duration: scanMode === 'photo' ? 2400 : 1600,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanLineAnim, {
-          toValue: 0,
-          duration: scanMode === 'photo' ? 2400 : 1600,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    scanLoop.start();
+    if (isMealType(params.meal_type)) setMealType(params.meal_type);
+  }, [params.meal_type]);
 
-    // 2. Shutter Aperture Breathing Loop
-    const reticleLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(reticlePulseAnim, {
-          toValue: 1.15,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(reticlePulseAnim, {
-          toValue: 1.0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    reticleLoop.start();
+  const thinking = useMemo<SiaReaction>(() => ({ expression: 'thinking', line: null, spot: 'center' }), []);
 
-    // 3. Viewfinder Corner Brackets Glow Loop
-    const bracketLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bracketGlowAnim, {
-          toValue: 1.0,
-          duration: 1400,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(bracketGlowAnim, {
-          toValue: 0.45,
-          duration: 1400,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    bracketLoop.start();
+  const resetView = () => {
+    setNotFood(null);
+    setFrozenUri(null);
+  };
 
-    return () => {
-      scanLoop.stop();
-      reticleLoop.stop();
-      bracketLoop.stop();
-    };
-  }, [scanMode]);
-
-  if (!permission) {
-    return (
-      <View className="flex-1 bg-zinc-950 items-center justify-center">
-        <ActivityIndicator color="#10b981" />
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <SafeAreaView className="flex-1 bg-zinc-950 items-center justify-center px-6">
-        <View className="w-16 h-16 rounded-full bg-emerald-500/10 items-center justify-center mb-4 border border-emerald-500/30">
-          <Ionicons name="camera" size={32} color="#10b981" />
-        </View>
-        <Text
-          style={{ fontFamily: 'Outfit_800ExtraBold' }}
-          className="text-white text-xl mb-2 text-center"
-        >
-          Camera Access Required
-        </Text>
-        <Text className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
-          Sia requires camera access to photograph your catches and scan barcodes to estimate calories and macronutrients.
-        </Text>
-        <TouchableOpacity
-          onPress={requestPermission}
-          activeOpacity={0.8}
-          className="bg-emerald-500 active:bg-emerald-600 px-6 py-3.5 rounded-2xl flex-row items-center gap-2"
-        >
-          <Ionicons name="paw" size={18} color="#ffffff" />
-          <Text
-            style={{ fontFamily: 'Outfit_700Bold' }}
-            className="text-white font-bold text-base"
-          >
-            Grant Camera Permission
-          </Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const processImageUri = async (uri: string) => {
+  const analyzePhoto = async (uri: string) => {
+    setFrozenUri(uri);
+    setBusy(LOOKING);
     try {
-      setIsProcessing(true);
-      setProcessingStatus('Compressing photo...');
-
-      // 1. Strict compression to 512px, 0.5 quality, base64
       const compressed = await compressImage(uri);
-
-      // 2. Invoke Supabase Edge Function with dynamic telemetry updates
-      setProcessingStatus('Analyzing meal nutrients...');
       const result = await analyzeMealPhoto(compressed.base64);
-
-      // 3. Set draft meal in store and navigate to Review & Edit screen
       setDraftMeal({
         name: result.meal_name || 'Logged Meal',
-        meal_type: (params.meal_type as MealType) || 'snack',
+        meal_type: mealType,
         calories: result.calories,
         protein_g: result.protein_g,
         carbs_g: result.carbs_g,
         fat_g: result.fat_g,
+        fiber_g: result.fiber_g,
+        sugar_g: result.sugar_g,
+        sodium_mg: result.sodium_mg,
         food_items: result.ingredients,
+        items: result.items,
         image_url: compressed.uri,
         confidence_score: result.confidence_score,
         portion_notes: result.portion_notes,
         dietary_tags: result.dietary_tags,
         feline_verdict: result.feline_verdict,
       });
-
       hapticFeedback.success();
+      setFrozenUri(null);
       router.push('/review' as any);
     } catch (err: any) {
       if (err instanceof NotFoodError) {
         hapticFeedback.medium();
-        setNonFoodModalText(err.message);
+        setNotFood(err.message);
       } else {
         hapticFeedback.error();
+        setFrozenUri(null);
         Alert.alert("Couldn't read that photo", err?.message || 'Please try again.');
       }
     } finally {
-      setIsProcessing(false);
+      setBusy(null);
     }
   };
 
-  const handleCapture = async () => {
-    if (isProcessing) return;
-
+  const capture = async () => {
+    if (busy) return;
+    hapticFeedback.medium();
+    let uri: string | null = null;
     try {
-      hapticFeedback.medium();
-      setIsProcessing(true);
-      setProcessingStatus('Capturing meal...');
-
-      let photoUri: string | null = null;
-
-      if (cameraRef.current) {
-        try {
-          const photo = await cameraRef.current.takePictureAsync({
-            quality: 0.7,
-          });
-          if (photo?.uri) {
-            photoUri = photo.uri;
-          }
-        } catch (camErr) {
-          console.warn('CameraView capture failed, falling back to system camera:', camErr);
-        }
-      }
-
-      if (!photoUri) {
-        const result = await ImagePicker.launchCameraAsync({
-          quality: 0.7,
-          mediaTypes: ['images'],
-        });
-
-        if (!result.canceled && result.assets[0]?.uri) {
-          photoUri = result.assets[0].uri;
-        }
-      }
-
-      if (photoUri) {
-        await processImageUri(photoUri);
-      }
-    } catch (err: any) {
-      hapticFeedback.error();
-      console.error('Failed to take photo:', err);
-      Alert.alert('Camera Error', err.message || 'Could not capture photo. Try choosing from gallery.');
-    } finally {
-      setIsProcessing(false);
+      uri = (await cameraRef.current?.takePictureAsync({ quality: 0.7 }))?.uri ?? null;
+    } catch (camErr) {
+      console.warn('CameraView capture failed, falling back to the system camera:', camErr);
     }
+    if (!uri) {
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.7, mediaTypes: ['images'] });
+      uri = !result.canceled ? result.assets[0]?.uri ?? null : null;
+    }
+    if (uri) await analyzePhoto(uri);
   };
 
-  const processBarcode = async (barcode: string) => {
-    const rawData = barcode.trim();
-    if (!rawData) return;
-
-    setIsProcessing(true);
-    setProcessingStatus(`Inspecting barcode ${rawData}...`);
+  const pickFromGallery = async () => {
+    if (busy) return;
     hapticFeedback.light();
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets[0]?.uri) await analyzePhoto(result.assets[0].uri);
+  };
 
+  const lookUp = async (raw: string) => {
+    const code = raw.trim();
+    if (!code || busy) return;
+    setBusy(LOOKING_UP);
+    hapticFeedback.light();
     try {
-      const product = await lookupBarcode(rawData);
-
-      if (product && product.found) {
+      const product = await lookupBarcode(code);
+      if (product?.found) {
         hapticFeedback.success();
         setDraftMeal({
           name: product.productName,
-          meal_type: (params.meal_type as MealType) || 'snack',
+          meal_type: mealType,
           calories: product.calories,
           protein_g: product.protein_g,
           carbs_g: product.carbs_g,
@@ -289,77 +173,62 @@ export default function CameraScreen() {
           food_items: product.ingredients,
           image_url: product.imageUrl || null,
           confidence_score: 1.0,
-          portion_notes: product.portion_notes || `Official label specs (${product.servingSize || '1 serving'})`,
-          dietary_tags: product.dietary_tags || ['Verified Barcode'],
-          feline_verdict: product.feline_verdict || `Sia verified the official package specs for ${product.productName}!`,
+          portion_notes: product.portion_notes || `Per ${product.servingSize || '1 serving'}, from the package label.`,
+          dietary_tags: product.dietary_tags,
         });
-
-        if (manualModalVisible) {
-          setManualModalVisible(false);
-          setManualBarcodeText('');
-        }
+        setBarcodeEntry(false);
+        setBarcodeText('');
         router.push('/review' as any);
       } else {
         hapticFeedback.error();
-        Alert.alert(
-          'Product Not Found',
-          `Barcode ${rawData} wasn't found in Open Food Facts database. You can take a photo of the food or nutrition label instead.`,
-          [
-            {
-              text: 'Switch to Photo Mode',
-              onPress: () => {
-                if (manualModalVisible) setManualModalVisible(false);
-                setScanMode('photo');
-              },
-            },
-            { text: 'OK', style: 'cancel' },
-          ]
-        );
+        Alert.alert("We couldn't find that barcode", 'Try a photo of the food or its label instead.', [
+          { text: 'Use a photo', onPress: () => { setBarcodeEntry(false); setMode('photo'); } },
+          { text: 'OK', style: 'cancel' },
+        ]);
       }
-    } catch (err: any) {
+    } catch {
       hapticFeedback.error();
-      console.error('Barcode lookup error:', err);
-      Alert.alert('Scan Error', 'Could not retrieve product information.');
+      Alert.alert("Couldn't look that up", 'Check your connection and try again.');
     } finally {
-      setIsProcessing(false);
-      setTimeout(() => setLastScannedBarcode(null), 2000);
+      setBusy(null);
+      setTimeout(() => (lastBarcode.current = null), 2000);
     }
   };
 
-  const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
-    const rawData = result.data;
-    if (isProcessing || !rawData || rawData === lastScannedBarcode) return;
-
-    setLastScannedBarcode(rawData);
-    await processBarcode(rawData);
+  const onBarcodeScanned = ({ data }: BarcodeScanningResult) => {
+    if (busy || !data || data === lastBarcode.current) return;
+    lastBarcode.current = data;
+    lookUp(data);
   };
 
-  const handlePickFromGallery = async () => {
-    if (isProcessing) return;
+  if (!permission) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={palette.pointText} />
+      </View>
+    );
+  }
 
-    try {
-      hapticFeedback.light();
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 0.7,
-      });
-
-      if (!result.canceled && result.assets[0]?.uri) {
-        await processImageUri(result.assets[0].uri);
-      }
-    } catch (err: any) {
-      hapticFeedback.error();
-      console.error('Gallery pick error:', err);
-      Alert.alert('Gallery Error', 'Could not select photo.');
-    }
-  };
-
-  const targetCategory = params.meal_type ? CATEGORY_NAMES[params.meal_type] : null;
+  if (!permission.granted) {
+    const blocked = !permission.canAskAgain;
+    return (
+      <SafeAreaView style={[styles.centered, styles.cream]}>
+        <Sia expression="resting" size={96} animated={false} />
+        <Text style={styles.permTitle}>Snap your meals</Text>
+        <Text style={styles.permBody}>SiaMeal needs your camera to see what you're eating. Photos stay private to you.</Text>
+        <Tap
+          onPress={blocked ? () => Linking.openSettings() : requestPermission}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.permButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.permButtonText}>{blocked ? 'Open settings' : 'Allow camera'}</Text>
+        </Tap>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View className="flex-1 bg-black">
-      {/* Full-bleed Camera Viewfinder */}
+    <View style={styles.screen}>
       <CameraView
         ref={(ref) => {
           cameraRef.current = ref;
@@ -368,447 +237,242 @@ export default function CameraScreen() {
         facing={facing}
         enableTorch={torch}
         mode="picture"
-        barcodeScannerSettings={
-          scanMode === 'barcode'
-            ? {
-                barcodeTypes: [
-                  'ean13',
-                  'ean8',
-                  'upc_a',
-                  'upc_e',
-                  'code128',
-                  'code39',
-                  'qr',
-                ],
-              }
-            : undefined
-        }
-        onBarcodeScanned={scanMode === 'barcode' ? handleBarcodeScanned : undefined}
+        barcodeScannerSettings={mode === 'barcode' ? { barcodeTypes: [...BARCODE_TYPES] } : undefined}
+        onBarcodeScanned={mode === 'barcode' && !barcodeEntry ? onBarcodeScanned : undefined}
+      />
+      <EyeViewfinder
+        mode={mode}
+        focusing={busy === LOOKING}
+        frozenUri={frozenUri}
+        hint={notFood ? '' : mode === 'photo' ? 'Fit your plate in the circle' : 'Line up the barcode'}
+        status={busy}
       />
 
-      {/* Sibling Overlay UI Controls with high zIndex */}
-      <SafeAreaView
-        style={[StyleSheet.absoluteFill, { zIndex: 30, elevation: 30 }]}
-        className="justify-between"
-      >
-        {/* Top Controls & Mode Switcher */}
-        <View className="px-5 pt-3">
-          <View className="flex-row items-center justify-between mb-3">
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                router.back();
-              }}
-              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10 active:opacity-70"
-            >
-              <Ionicons name="arrow-back" size={20} color="#ffffff" />
-            </TouchableOpacity>
-
-            {/* Mode Switcher Pill */}
-            <View className="flex-row bg-black/70 p-1 rounded-full border border-white/15">
-              <TouchableOpacity
+      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+        <View pointerEvents="box-none">
+        <View style={styles.top}>
+          <RoundButton icon="close" label="Close camera" onPress={() => router.back()} />
+          <View style={styles.modes} accessibilityRole="tablist">
+            {(['photo', 'barcode'] as const).map((m) => (
+              <Tap
+                key={m}
                 onPress={() => {
                   hapticFeedback.selection();
-                  setScanMode('photo');
+                  setMode(m);
                 }}
-                className={`px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 ${
-                  scanMode === 'photo' ? 'bg-emerald-500' : 'bg-transparent'
-                }`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: mode === m }}
+                style={[styles.mode, mode === m && styles.modeOn]}
               >
-                <Ionicons
-                  name="camera"
-                  size={14}
-                  color={scanMode === 'photo' ? '#ffffff' : '#a1a1aa'}
-                />
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className={`text-xs ${
-                    scanMode === 'photo' ? 'text-white' : 'text-zinc-400'
-                  }`}
-                >
-                  Photo
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  hapticFeedback.selection();
-                  setScanMode('barcode');
-                }}
-                className={`px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 ${
-                  scanMode === 'barcode' ? 'bg-emerald-500' : 'bg-transparent'
-                }`}
-              >
-                <Ionicons
-                  name="barcode-outline"
-                  size={14}
-                  color={scanMode === 'barcode' ? '#ffffff' : '#a1a1aa'}
-                />
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className={`text-xs ${
-                    scanMode === 'barcode' ? 'text-white' : 'text-zinc-400'
-                  }`}
-                >
-                  Barcode
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                setTorch((prev) => !prev);
-              }}
-              className="w-10 h-10 rounded-full bg-black/60 items-center justify-center border border-white/10 active:opacity-70"
-            >
-              <Ionicons
-                name={torch ? 'flash' : 'flash-off'}
-                size={20}
-                color={torch ? '#facc15' : '#ffffff'}
-              />
-            </TouchableOpacity>
+                <Text style={[styles.modeText, mode === m && styles.modeTextOn]}>{m === 'photo' ? 'Photo' : 'Barcode'}</Text>
+              </Tap>
+            ))}
           </View>
+          <RoundButton icon={torch ? 'flash' : 'flash-off'} label={torch ? 'Turn flash off' : 'Turn flash on'} onPress={() => setTorch((t) => !t)} />
+        </View>
 
-          {/* Active Target Category Badge */}
-          {targetCategory && (
-            <View className="flex-row items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-white/15 self-center mb-1">
-              <MaterialCommunityIcons name={targetCategory.icon} size={13} color={targetCategory.color} />
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold', color: targetCategory.color }}
-                className="text-[11px]"
+        <Tap
+          onPress={() => {
+            hapticFeedback.selection();
+            setMealType(nextMealType(mealType));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Meal: ${mealTypeLabel(mealType)}`}
+          accessibilityHint="Changes to the next meal"
+          style={({ pressed }) => [styles.mealChip, pressed && styles.pressed]}
+        >
+          <Text style={styles.mealChipText}>{mealTypeLabel(mealType)}</Text>
+          <Ionicons name="chevron-down" size={14} color={palette.pointText} />
+        </Tap>
+        </View>
+
+        <View style={styles.bottom}>
+          {busy === LOOKING && <SiaPeek reaction={thinking} startHidden />}
+          {mode === 'photo' ? (
+            <View style={styles.controls}>
+              <RoundButton icon="images-outline" label="Choose from your photos" onPress={pickFromGallery} disabled={!!busy} />
+              <Tap
+                onPress={capture}
+                disabled={!!busy}
+                accessibilityRole="button"
+                accessibilityLabel="Take photo"
+                style={({ pressed }) => [styles.shutter, pressed && styles.shutterPressed, busy && styles.disabled]}
               >
-                Logging to {targetCategory.title}
-              </Text>
+                <View style={styles.shutterDot} />
+              </Tap>
+              <RoundButton
+                icon="camera-reverse-outline"
+                label="Flip camera"
+                onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+                disabled={!!busy}
+              />
+            </View>
+          ) : (
+            <View style={styles.controls}>
+              <Tap
+                onPress={() => setBarcodeEntry(true)}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.typeButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="keypad-outline" size={18} color={palette.text} />
+                <Text style={styles.typeButtonText}>Type the number</Text>
+              </Tap>
             </View>
           )}
         </View>
-
-        {/* Center Scanner Reticle (Photo vs Barcode modes) */}
-        {scanMode === 'photo' ? (
-          <View className="items-center justify-center px-8 pointer-events-none">
-            <View className="w-72 h-72 rounded-3xl border border-dashed border-emerald-500/40 items-center justify-center bg-black/10 relative overflow-hidden">
-              {/* Corner L-Brackets with Pulsing Glow */}
-              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg shadow-sm shadow-emerald-400" />
-              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg shadow-sm shadow-emerald-400" />
-              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg shadow-sm shadow-emerald-400" />
-              <Animated.View style={{ opacity: bracketGlowAnim }} className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg shadow-sm shadow-emerald-400" />
-
-              {/* Animated Laser Scanning Beam Across Food Frame */}
-              <Animated.View
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  left: 10,
-                  right: 10,
-                  height: 2.5,
-                  backgroundColor: '#10b981',
-                  shadowColor: '#10b981',
-                  shadowOpacity: 0.95,
-                  shadowRadius: 8,
-                  elevation: 6,
-                  transform: [
-                    {
-                      translateY: scanLineAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 240],
-                      }),
-                    },
-                  ],
-                }}
-              />
-
-              {/* Center Crosshair Aperture Ring with Shutter Breathing */}
-              <Animated.View
-                style={{
-                  transform: [{ scale: reticlePulseAnim }],
-                }}
-                className="w-14 h-14 rounded-full border border-emerald-400/50 items-center justify-center bg-emerald-500/10 shadow-sm shadow-emerald-400/40"
-              >
-                <View className="w-3 h-3 rounded-full bg-emerald-400 shadow-md shadow-emerald-400" />
-              </Animated.View>
-
-              {/* Sia Center Reticle Tag */}
-              <View className="absolute bottom-3 bg-black/85 px-3.5 py-1.5 rounded-full border border-emerald-500/40 flex-row items-center gap-1.5 shadow-sm shadow-emerald-500/20">
-                <MaterialCommunityIcons name="camera-iris" size={13} color="#10b981" />
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-emerald-400 text-[11px] tracking-wide"
-                >
-                  Sia Vision Active
-                </Text>
-              </View>
-            </View>
-
-            {/* Viewfinder Tip */}
-            <View className="mt-3 bg-black/60 px-3.5 py-1.5 rounded-full border border-white/10">
-              <Text className="text-zinc-300 text-[11px] font-medium text-center">
-                Center meal inside frame for precision macro scan
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View className="items-center justify-center px-8">
-            <View className="w-68 h-48 border-2 border-emerald-400/80 rounded-3xl items-center justify-center bg-black/30 relative overflow-hidden">
-              {/* Corner Brackets */}
-              <View className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-emerald-400" />
-              <View className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-emerald-400" />
-              <View className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-emerald-400" />
-              <View className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-emerald-400" />
-
-              {/* Animated Laser Scanning Beam */}
-              <Animated.View
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  left: 10,
-                  right: 10,
-                  height: 2,
-                  backgroundColor: '#10b981',
-                  shadowColor: '#10b981',
-                  shadowOpacity: 0.9,
-                  shadowRadius: 6,
-                  transform: [
-                    {
-                      translateY: scanLineAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 140],
-                      }),
-                    },
-                  ],
-                }}
-              />
-
-              <View className="absolute -bottom-8 bg-black/80 px-4 py-1.5 rounded-full border border-emerald-500/30">
-                <Text className="text-white text-xs font-semibold">
-                  Align barcode inside frame
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Bottom Shutter & Controls Bar (in Photo mode) */}
-        {scanMode === 'photo' ? (
-          <View className="pb-8 pt-6 px-8 bg-black/60 border-t border-white/10">
-            <View className="flex-row items-center justify-around">
-              {/* Gallery Picker */}
-              <TouchableOpacity
-                onPress={handlePickFromGallery}
-                disabled={isProcessing}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                className="w-12 h-12 rounded-full bg-white/15 border border-white/25 items-center justify-center active:opacity-60"
-              >
-                <Ionicons name="images-outline" size={22} color="#ffffff" />
-              </TouchableOpacity>
-
-              {/* Big Tactile Shutter Button */}
-              <Pressable
-                onPress={handleCapture}
-                disabled={isProcessing}
-                hitSlop={15}
-                style={({ pressed }) => [
-                  {
-                    transform: [{ scale: pressed ? 0.90 : 1 }],
-                    opacity: isProcessing ? 0.5 : 1,
-                  },
-                ]}
-                className="w-20 h-20 rounded-full border-4 border-white/90 items-center justify-center p-1.5 bg-white/20 shadow-lg shadow-black"
-              >
-                <View className="w-full h-full rounded-full bg-emerald-500 items-center justify-center shadow-md shadow-emerald-500/50">
-                  <MaterialCommunityIcons name="camera-iris" size={26} color="#ffffff" />
-                </View>
-              </Pressable>
-
-              {/* Flip Camera */}
-              <TouchableOpacity
-                onPress={() => {
-                  hapticFeedback.light();
-                  setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
-                }}
-                disabled={isProcessing}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                className="w-12 h-12 rounded-full bg-white/15 border border-white/25 items-center justify-center active:opacity-60"
-              >
-                <Ionicons name="camera-reverse-outline" size={22} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View className="pb-8 pt-4 items-center px-6">
-            <Text className="text-zinc-400 text-xs font-medium mb-3">
-              Scanning barcodes automatically...
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                setManualModalVisible(true);
-              }}
-              activeOpacity={0.8}
-              className="bg-zinc-900 border border-emerald-500/40 px-5 py-2.5 rounded-full flex-row items-center gap-2 shadow-sm shadow-emerald-500/10"
-            >
-              <MaterialCommunityIcons name="keyboard-outline" size={16} color="#10b981" />
-              <Text className="text-white text-xs font-bold">Type Barcode Manually</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </SafeAreaView>
 
-      {/* Manual Barcode Entry Modal */}
-      <Modal
-        visible={manualModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setManualModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1 justify-end bg-black/75"
-        >
-          <Pressable
-            className="flex-1"
-            onPress={() => setManualModalVisible(false)}
-          />
-          <View className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 shadow-2xl">
-            {/* Header */}
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-2.5">
-                <View className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 items-center justify-center">
-                  <MaterialCommunityIcons name="barcode-scan" size={16} color="#10b981" />
-                </View>
-                <View>
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className="text-white text-base"
-                  >
-                    Enter Barcode Digits
-                  </Text>
-                  <Text className="text-zinc-400 text-[11px]">
-                    Found on packaging (EAN-13, UPC-A, 8–13 digits)
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={() => setManualModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-zinc-900 items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#a1a1aa" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Input field */}
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-4 flex-row items-center">
-              <TextInput
-                value={manualBarcodeText}
-                onChangeText={setManualBarcodeText}
-                placeholder="e.g. 737628064502"
-                placeholderTextColor="#52525b"
-                keyboardType="numeric"
-                returnKeyType="search"
-                onSubmitEditing={() => {
-                  if (manualBarcodeText.trim()) {
-                    processBarcode(manualBarcodeText);
-                  }
-                }}
-                className="flex-1 text-white text-lg font-mono font-bold"
-                autoFocus
-              />
-              {manualBarcodeText.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => setManualBarcodeText('')}
-                  className="p-1"
-                >
-                  <Ionicons name="close-circle" size={18} color="#71717a" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Submit button */}
-            <TouchableOpacity
-              onPress={() => {
-                if (manualBarcodeText.trim()) {
-                  processBarcode(manualBarcodeText);
-                }
-              }}
-              disabled={!manualBarcodeText.trim() || isProcessing}
-              activeOpacity={0.8}
-              className={`py-3.5 rounded-2xl items-center justify-center flex-row gap-2 ${
-                manualBarcodeText.trim() && !isProcessing
-                  ? 'bg-emerald-500 shadow-md shadow-emerald-500/30'
-                  : 'bg-zinc-800 opacity-50'
-              }`}
-            >
-              <MaterialCommunityIcons name="magnify" size={18} color="#ffffff" />
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-white text-sm"
-              >
-                Lookup Product Nutrition
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Loading Overlay with Animated Sia Walking Mascot & Paw Trail */}
-      {isProcessing && (
-        <View
-          style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}
-          className="bg-black/92 items-center justify-center px-6"
-        >
-          <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/30">
-            <Sia expression="thinking" size={112} />
-            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base text-center mt-3">
-              {processingStatus || 'Looking at your plate…'}
-            </Text>
-            <Text className="text-zinc-400 text-xs text-center mt-1">Usually takes a few seconds.</Text>
-          </View>
-        </View>
+      {notFood && (
+        <NotFoodSheet
+          reason={notFood}
+          onTryAgain={resetView}
+          onTypeInstead={() => {
+            resetView();
+            setTyping(true);
+          }}
+        />
       )}
 
-      {/* Playful Non-Food Feline Rejection Modal */}
-      <Modal
-        visible={!!nonFoodModalText}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setNonFoodModalText(null)}
-      >
-        <View className="flex-1 bg-black/85 items-center justify-center px-6">
-          <View className="bg-zinc-900 border border-rose-500/40 p-6 rounded-3xl items-center w-full max-w-sm shadow-2xl shadow-rose-500/25">
-            <View className="mb-2">
-              <Sia expression="puzzled" size={88} />
-            </View>
+      {typing && (
+        <TextLogModal
+          visible
+          onClose={() => setTyping(false)}
+          onSuccess={() => {
+            setTyping(false);
+            router.push('/review' as any);
+          }}
+          initialMealType={mealType}
+        />
+      )}
 
-            <Text
-              style={{ fontFamily: 'Outfit_800ExtraBold' }}
-              className="text-white text-lg text-center mt-2"
+      <Modal visible={barcodeEntry} transparent animationType="slide" onRequestClose={() => setBarcodeEntry(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetBackdrop}>
+          <Tap style={styles.backdrop} onPress={() => setBarcodeEntry(false)} accessibilityLabel="Close" />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Type the barcode number</Text>
+            <Text style={styles.sheetBody}>The digits under the stripes, usually 8 to 13.</Text>
+            <TextInput
+              value={barcodeText}
+              onChangeText={setBarcodeText}
+              placeholder="e.g. 4800016644290"
+              placeholderTextColor={palette.textMuted}
+              keyboardType="number-pad"
+              returnKeyType="search"
+              onSubmitEditing={() => lookUp(barcodeText)}
+              accessibilityLabel="Barcode number"
+              style={styles.sheetInput}
+              autoFocus
+            />
+            <Tap
+              onPress={() => lookUp(barcodeText)}
+              disabled={!barcodeText.trim() || !!busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !barcodeText.trim() || !!busy, busy: !!busy }}
+              style={({ pressed }) => [styles.sheetButton, pressed && styles.pressed, (!barcodeText.trim() || busy) && styles.disabled]}
             >
-              Sia Can't Eat That!
-            </Text>
-
-            <Text className="text-zinc-300 text-xs text-center leading-relaxed mt-2 px-2">
-              {nonFoodModalText}
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                setNonFoodModalText(null);
-              }}
-              activeOpacity={0.8}
-              className="mt-5 w-full bg-emerald-500 active:bg-emerald-600 py-3.5 rounded-2xl items-center justify-center flex-row gap-2 shadow-md shadow-emerald-500/30"
-            >
-              <Ionicons name="camera" size={16} color="#ffffff" />
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-white text-sm font-bold uppercase tracking-wider"
-              >
-                Scan Actual Food
-              </Text>
-            </TouchableOpacity>
+              {busy ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.sheetButtonText}>Look it up</Text>}
+            </Tap>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.pointDeep },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[6], backgroundColor: palette.pointDeep },
+  cream: { backgroundColor: palette.bg },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.4 },
+  overlay: { ...StyleSheet.absoluteFill, justifyContent: 'space-between' },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[3], paddingTop: space[2] },
+  round: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.point,
+  },
+  modes: { flexDirection: 'row', padding: 3, borderRadius: radius.full, backgroundColor: palette.point },
+  mode: { minHeight: 42, paddingHorizontal: space[4], borderRadius: radius.full, justifyContent: 'center' },
+  modeOn: { backgroundColor: palette.pointText },
+  modeText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointMuted },
+  modeTextOn: { color: palette.text },
+  mealChip: {
+    marginTop: space[2],
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    minHeight: 40,
+    paddingHorizontal: space[4],
+    borderRadius: radius.full,
+    backgroundColor: palette.point,
+  },
+  mealChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointText },
+  bottom: { paddingBottom: space[4] },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: space[4], minHeight: SHUTTER + 12 },
+  shutter: {
+    width: SHUTTER,
+    height: SHUTTER,
+    borderRadius: SHUTTER / 2,
+    borderWidth: 5,
+    borderColor: palette.bg,
+    backgroundColor: palette.shutter,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterPressed: { transform: [{ scale: 0.94 }] },
+  shutterDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 3, borderColor: palette.shutterGlyph },
+  typeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    minHeight: 48,
+    paddingHorizontal: space[6],
+    borderRadius: radius.full,
+    backgroundColor: palette.pointText,
+  },
+  typeButtonText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  permTitle: { fontFamily: type.display, fontSize: type.size.title, color: palette.text, marginTop: space[4] },
+  permBody: { fontFamily: type.body, fontSize: type.size.body, lineHeight: 21, color: palette.textMuted, textAlign: 'center', marginTop: space[2], maxWidth: 320 },
+  permButton: {
+    minHeight: 52,
+    marginTop: space[6],
+    paddingHorizontal: space[8],
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.shutter,
+  },
+  permButtonText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.shutterGlyph },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: palette.pointDeep, opacity: 0.6 },
+  sheet: { padding: space[6], borderTopLeftRadius: radius.hero, borderTopRightRadius: radius.hero, backgroundColor: palette.bg },
+  sheetTitle: { fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  sheetBody: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted, marginTop: space[1] },
+  sheetInput: {
+    minHeight: 52,
+    marginTop: space[4],
+    paddingHorizontal: space[4],
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    fontFamily: type.displayBold,
+    fontSize: type.size.section,
+    color: palette.text,
+    letterSpacing: 1,
+  },
+  sheetButton: {
+    minHeight: 52,
+    marginTop: space[3],
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.point,
+  },
+  sheetButtonText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+});

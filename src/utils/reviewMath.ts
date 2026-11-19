@@ -1,3 +1,4 @@
+import type { MealItem } from '../types';
 import { calorieSummary } from './todaySummary';
 
 export interface Macros {
@@ -44,4 +45,27 @@ export function mealFit(
     reachesProteinGoal,
     expression: after.over > 0 ? 'concerned' : reachesProteinGoal ? 'celebrating' : 'happy',
   };
+}
+
+/**
+ * The meal after per-item fixes ("half the rice"). The AI's totals stay authoritative; the items only
+ * say how much of them is left: total × (Σ item kcal × multiplier) / (Σ item kcal).
+ */
+export function itemsMeal(base: Macros, items: MealItem[], multipliers: number[]): Macros {
+  const full = items.reduce((sum, item) => sum + item.calories, 0);
+  if (full <= 0) return base;
+  const kept = items.reduce((sum, item, i) => sum + item.calories * (multipliers[i] ?? 1), 0);
+  return scaleMacros(base, kept / full);
+}
+
+const nf = new Intl.NumberFormat('en-US');
+/** Protein supplying at least this share of a meal's calories makes it a "protein pick". */
+const HIGH_PROTEIN_SHARE = 0.3;
+
+/** Sia's one-line take on the review screen. */
+export function siaTake(fit: MealFit, meal: Macros): string {
+  if (fit.over > 0) return `This puts you ${nf.format(fit.over)} over. That's okay.`;
+  if (fit.reachesProteinGoal) return 'Protein goal done with this one!';
+  const left = `${nf.format(fit.left)} left after this.`;
+  return meal.calories > 0 && (meal.protein_g * 4) / meal.calories >= HIGH_PROTEIN_SHARE ? `Great protein pick! ${left}` : left;
 }
