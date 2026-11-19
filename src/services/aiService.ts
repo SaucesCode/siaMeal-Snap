@@ -80,36 +80,30 @@ export async function compressImage(
   }
 }
 
+/** The photo or description isn't food. An expected outcome, shown to the user as Sia being puzzled. */
+export class NotFoodError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'NotFoodError';
+  }
+}
+
+const NOT_FOOD_DEFAULT = "Sia inspected your scan, but that doesn't look like edible food. Try snapping your meal or drink.";
+
 /**
- * Extracts a human-readable error message from various Supabase / Edge Function error formats.
+ * Turns a supabase-js Edge Function error into the error the UI should show: NotFoodError for a
+ * non-food result (HTTP 422 / is_food: false), otherwise an Error with the server's message.
  */
-async function extractErrorMessage(error: any): Promise<string> {
-  if (!error) return 'An unexpected error occurred';
-
-  // 1. Check if error.context is a Response object (common in FunctionsHttpError)
-  if (error.context && typeof error.context.json === 'function') {
-    try {
-      const body = await error.context.json();
-      if (body.non_food_reason) return body.non_food_reason;
-      if (body.error) return body.error;
-      if (body.message) return body.message;
-    } catch {
-      // Body might be text instead of json
-      try {
-        const text = await error.context.text();
-        if (text) return text;
-      } catch {
-        // ignore
-      }
-    }
+async function toAnalysisError(error: any): Promise<Error> {
+  let body: any = null;
+  const response = error?.context;
+  if (response && typeof response.json === 'function') {
+    body = await response.json().catch(() => null);
   }
-
-  // 2. Standard error message
-  if (error.message) {
-    return error.message;
+  if (response?.status === 422 || body?.is_food === false) {
+    return new NotFoodError(body?.non_food_reason || body?.error || NOT_FOOD_DEFAULT);
   }
-
-  return String(error);
+  return new Error(body?.error || body?.message || error?.message || 'Could not analyze that meal. Please try again.');
 }
 
 import { aiCircuitBreaker } from '../lib/circuitBreaker';
@@ -124,18 +118,8 @@ export async function analyzeMealPhoto(imageBase64: string): Promise<AnalyzeMeal
     body: { imageBase64 },
   });
 
-  if (error) {
-    const detailedMessage = await extractErrorMessage(error);
-    console.error('Edge Function detailed error:', detailedMessage);
-    throw new Error(detailedMessage);
-  }
-
-  if (data && data.is_food === false) {
-    throw new Error(
-      data.non_food_reason ||
-        "Sia inspected your scan, but that doesn't look like edible food! Please snap an edible meal or drink."
-    );
-  }
+  if (error) throw await toAnalysisError(error);
+  if (data && data.is_food === false) throw new NotFoodError(data.non_food_reason || NOT_FOOD_DEFAULT);
 
   return {
     ...data,
@@ -157,11 +141,8 @@ export async function analyzeMealText(textDescription: string): Promise<AnalyzeM
       body: { textDescription },
     });
 
-    if (error) {
-      const detailedMessage = await extractErrorMessage(error);
-      console.error('Edge Function detailed error:', detailedMessage);
-      throw new Error(detailedMessage);
-    }
+    if (error) throw await toAnalysisError(error);
+    if (data && data.is_food === false) throw new NotFoodError(data.non_food_reason || NOT_FOOD_DEFAULT);
 
     return {
       ...data,

@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, CameraType, BarcodeScanningResult } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { compressImage, analyzeMealPhoto } from '../../services/aiService';
+import { compressImage, analyzeMealPhoto, NotFoodError } from '../../services/aiService';
 import { lookupBarcode } from '../../services/barcodeService';
 import { useMealStore } from '../../stores/mealStore';
 import { hapticFeedback } from '../../utils/haptics';
@@ -208,13 +208,12 @@ export default function CameraScreen() {
       hapticFeedback.success();
       router.push('/review' as any);
     } catch (err: any) {
-      hapticFeedback.error();
-      console.error('Error analyzing image:', err);
-      const errMsg = err?.message || 'Could not analyze the photo. Please try again.';
-      if (/not edible|not on the menu|not food|laptop|computer|phone|gadget|non-food/i.test(errMsg)) {
-        setNonFoodModalText(errMsg);
+      if (err instanceof NotFoodError) {
+        hapticFeedback.medium();
+        setNonFoodModalText(err.message);
       } else {
-        Alert.alert('Analysis Error', errMsg);
+        hapticFeedback.error();
+        Alert.alert("Couldn't read that photo", err?.message || 'Please try again.');
       }
     } finally {
       setIsProcessing(false);

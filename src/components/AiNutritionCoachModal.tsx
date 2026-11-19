@@ -779,7 +779,7 @@ export function AiNutritionCoachModal({
         {/* Header */}
         <View className="flex-row items-center justify-between pb-3 border-b border-zinc-800/80">
           <View className="flex-row items-center gap-2.5">
-            <Sia expression={isTyping && streamingReply === '' ? 'thinking' : 'resting'} size={48} />
+            <Sia expression="resting" size={48} />
             <View>
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
@@ -1077,10 +1077,10 @@ export function AiNutritionCoachModal({
           {/* Thinking state until the first words arrive */}
           {isTyping && streamingReply === '' && (
             <View className="mb-3 flex-row justify-start items-start">
-              <View className="mr-2 mt-0.5 self-start">
-                <Sia expression="happy" size={28} />
+              <View className="mr-2 self-start">
+                <Sia expression="thinking" size={48} />
               </View>
-              <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-row items-center gap-2">
+              <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-row items-center gap-2 mt-2">
                 <Text className="text-zinc-400 text-xs font-semibold">Sia is thinking</Text>
                 <ChatTypingDots />
               </View>

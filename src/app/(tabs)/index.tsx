@@ -23,7 +23,7 @@ import { QuickLogActionSheet } from '../../components/QuickLogActionSheet';
 import { RePounceSheet } from '../../components/RePounceSheet';
 import { useCoachStore } from '../../stores/coachStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
-import { compressImage, analyzeMealPhoto } from '../../services/aiService';
+import { compressImage, analyzeMealPhoto, NotFoodError } from '../../services/aiService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../../types';
@@ -325,8 +325,12 @@ export default function DashboardScreen() {
         router.push('/review' as any);
       }
     } catch (err: any) {
-      console.error('Gallery pick error:', err);
-      Alert.alert('Analysis Failed', err.message || 'Could not analyze selected photo.');
+      setToast(null);
+      if (err instanceof NotFoodError) {
+        Alert.alert("That doesn't look like food", err.message);
+      } else {
+        Alert.alert("Couldn't read that photo", err?.message || 'Please try again.');
+      }
     }
   };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, View, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '../../stores/authStore';
@@ -12,6 +13,8 @@ import { palette, type } from '../../theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
+/** Room for the 6 px top padding, a 24 px icon and a label line, even with larger Android font sizes. */
+const BAR_CONTENT_HEIGHT = 64;
 const SNAP_SIZE = 56;
 const SNAP_RING = 4;
 
@@ -37,6 +40,8 @@ export default function TabLayout() {
     useShallow((s) => ({ session: s.session, profile: s.profile, isInitialized: s.isInitialized }))
   );
 
+  const insets = useSafeAreaInsets();
+
   // Sia reacts to app events only on signed-in screens.
   useSiaEvents();
 
@@ -58,7 +63,7 @@ export default function TabLayout() {
       tabBar={(props) => <SiaTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.bar,
+        tabBarStyle: [styles.bar, { height: BAR_CONTENT_HEIGHT + insets.bottom }],
         tabBarActiveTintColor: palette.pointText,
         tabBarInactiveTintColor: palette.pointMuted,
         tabBarLabelStyle: styles.label,
@@ -116,6 +121,7 @@ const styles = StyleSheet.create({
     fontFamily: type.bodySemibold,
     fontSize: type.size.caption,
     marginTop: 2,
+    marginBottom: 4,
   },
   snap: {
     width: SNAP_SIZE,

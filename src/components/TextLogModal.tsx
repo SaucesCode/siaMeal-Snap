@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { analyzeMealText } from '../services/aiService';
+import { analyzeMealText, NotFoodError } from '../services/aiService';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import { MealType } from '../types';
@@ -85,8 +85,10 @@ export function TextLogModal({
       onSuccess();
     } catch (error: any) {
       hapticFeedback.error();
-      console.error('Analysis error:', error);
-      Alert.alert('Analysis Failed', error.message || 'Unable to estimate nutrients. Please try again or log manually.');
+      Alert.alert(
+        error instanceof NotFoodError ? "That doesn't sound like food" : "Couldn't read that meal",
+        error?.message || 'Please try again, or log it manually.'
+      );
     } finally {
       setIsAnalyzing(false);
     }
