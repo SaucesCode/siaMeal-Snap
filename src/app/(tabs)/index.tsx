@@ -22,11 +22,15 @@ import { NextMealIdea } from '../../components/NextMealIdea';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
 import { ProgressBar } from '../../components/ProgressBar';
 import { Sia } from '../../components/sia';
+import { SiaPeek } from '../../features/sia/SiaPeek';
+import { SiaSays } from '../../features/sia/SiaSays';
+import { useSiaStore } from '../../features/sia/siaStore';
+import { PEEK_SHOWN_Y, PEEK_SIZE } from '../../features/sia/peekMotion';
 import { compressImage, analyzeMealPhoto, NotFoodError } from '../../services/aiService';
 import { MEAL_TYPES } from '../../constants/mealTypes';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
-import { greetingName } from '../../utils/todaySummary';
+import { calorieSummary, greetingName } from '../../utils/todaySummary';
 import { palette, radius, space, type } from '../../theme';
 
 type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -91,6 +95,7 @@ export default function TodayScreen() {
   );
   const streak = useStreakStore((s) => s.streak);
   const openCoach = useCoachStore((s) => s.openCoach);
+  const siaHidden = useSiaStore((s) => s.hidden);
 
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
@@ -159,6 +164,8 @@ export default function TodayScreen() {
       }),
     [meals]
   );
+
+  const summary = calorieSummary(consumedTotals.calories, targetCalories);
 
   const safeTodayMl = Number(todayMl) || 0;
   const targetWaterMl = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
@@ -260,6 +267,7 @@ export default function TodayScreen() {
             <Text style={styles.greeting} accessibilityRole="header" numberOfLines={1}>
               Hi {greetingName(profile?.full_name, user?.email)}
             </Text>
+            <SiaSays summary={summary} />
           </View>
           {streak != null && streak > 0 && (
             <View style={styles.streak} accessible accessibilityLabel={`${streak}-day logging streak`}>
@@ -271,13 +279,17 @@ export default function TodayScreen() {
 
         <NotificationPermissionBanner />
 
-        <DailyMacroSummary
-          targetCalories={targetCalories}
-          consumedCalories={consumedTotals.calories}
-          protein={{ consumed: consumedTotals.protein_g, target: targetProtein }}
-          carbs={{ consumed: consumedTotals.carbs_g, target: targetCarbs }}
-          fat={{ consumed: consumedTotals.fat_g, target: targetFat }}
-        />
+        {/* Sia peeks over the top edge of the calories card, so the card leaves room above it for her. */}
+        <View style={siaHidden ? undefined : styles.heroWithSia}>
+          <DailyMacroSummary
+            targetCalories={targetCalories}
+            consumedCalories={consumedTotals.calories}
+            protein={{ consumed: consumedTotals.protein_g, target: targetProtein }}
+            carbs={{ consumed: consumedTotals.carbs_g, target: targetCarbs }}
+            fat={{ consumed: consumedTotals.fat_g, target: targetFat }}
+          />
+          <SiaPeek />
+        </View>
 
         <View style={styles.card}>
           <View style={styles.waterRow}>
@@ -472,7 +484,8 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: space[4], paddingTop: space[2], paddingBottom: 120 },
   pressed: { opacity: 0.7 },
 
-  header: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[4] },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3], marginBottom: space[2] },
+  heroWithSia: { marginTop: PEEK_SIZE - PEEK_SHOWN_Y + space[1] },
   headerText: { flex: 1 },
   date: { fontFamily: type.bodySemibold, fontSize: type.size.secondary, color: palette.textMuted },
   greeting: { fontFamily: type.display, fontSize: type.size.title + 4, color: palette.text, marginTop: 2 },
@@ -481,6 +494,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space[1],
     minHeight: 32,
+    marginTop: space[2],
     paddingHorizontal: space[3],
     borderRadius: radius.full,
     backgroundColor: palette.surface,
