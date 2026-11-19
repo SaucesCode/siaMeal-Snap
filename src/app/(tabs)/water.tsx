@@ -25,7 +25,7 @@ const formatTime = (iso: string) => {
 
 /** Water: Sia's eye filling with blue, quick adds, and today's log. Sia (on the tab bar) cheers the goal. */
 export default function WaterScreen() {
-  const profile = useAuthStore((s) => s.profile);
+  const { profile, saveProfile } = useAuthStore(useShallow((s) => ({ profile: s.profile, saveProfile: s.saveProfile })));
   const { todayMl, dailyGoalMl, logs, loadTodayWater, addWater, deleteWaterLog, setDailyGoal } = useWaterStore(
     useShallow((s) => ({
       todayMl: s.todayMl,
@@ -112,7 +112,8 @@ export default function WaterScreen() {
                   key={g}
                   onPress={async () => {
                     hapticFeedback.selection();
-                    await setDailyGoal(g);
+                    // The profile's water target wins elsewhere (Today), so keep both in step.
+                    await Promise.all([setDailyGoal(g), saveProfile({ target_water_ml: g })]);
                     setGoalOpen(false);
                   }}
                   accessibilityRole="radio"
