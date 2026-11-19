@@ -22,6 +22,12 @@ export interface Profile {
   target_carbs_g: number;
   target_fat_g: number;
   target_water_ml?: number;
+  /** Goal weight in kg (losing or gaining). */
+  target_weight_kg?: number | null;
+  /** Foods the coach and meal ideas should avoid, e.g. "no pork". */
+  foods_avoided?: string[];
+  /** Usual meal times as HH:MM, used for reminders. */
+  meal_times?: string[];
   created_at?: string;
   updated_at?: string;
 }
