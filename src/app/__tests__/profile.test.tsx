@@ -20,6 +20,7 @@ describe('<ProfileScreen />', () => {
         full_name: 'James Patrick De Mesa', gender: 'male', age: 26, height_cm: 175, weight_kg: 75,
         activity_level: 'moderate', goal_pace: 'standard', diet_type: 'balanced',
         target_calories: 2100, target_protein_g: 150, target_carbs_g: 220, target_fat_g: 65, target_water_ml: 2600,
+        target_weight_kg: 70, foods_avoided: ['No pork'], meal_times: ['08:00', '19:00'],
       } as any,
     });
     useSiaStore.setState({ hidden: false });
@@ -39,5 +40,12 @@ describe('<ProfileScreen />', () => {
     await render(<ProfileScreen />);
     await fireEvent(screen.getByLabelText('Show Sia'), 'valueChange', false);
     expect(setHidden).toHaveBeenCalledWith(true);
+  });
+
+  it('shows goal weight, foods you avoid and meal times from onboarding', async () => {
+    await render(<ProfileScreen />);
+    expect(screen.getByLabelText('Goal weight: 70 kg')).toBeTruthy();
+    expect(screen.getByLabelText('Foods you avoid: No pork')).toBeTruthy();
+    expect(screen.getByLabelText('Meal times: 8:00 AM, 7:00 PM')).toBeTruthy();
   });
 });

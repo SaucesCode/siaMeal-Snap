@@ -9,23 +9,14 @@ import { useWaterStore } from '../../stores/waterStore';
 import { ActivityLevel, DietType, Gender, GoalPace } from '../../types';
 import { ACTIVITY_LEVELS, DIET_STYLES, GOAL_OPTIONS, calculateNutritionTargets } from '../../utils/nutrition';
 import { validateBody, type BodyErrors } from '../../utils/bodyValidation';
-import {
-  FOODS_TO_AVOID,
-  MEAL_SLOTS,
-  displayTime,
-  mealReminderTimes,
-  onboardingSteps,
-  shiftTime,
-  validateGoalWeight,
-  weeksToGoal,
-  type StepId,
-} from '../../features/onboarding/flow';
+import { mealReminderTimes, onboardingSteps, validateGoalWeight, weeksToGoal, type StepId } from '../../features/onboarding/flow';
 import { requestNotificationPermission } from '../../services/notificationService';
 import { hapticFeedback } from '../../utils/haptics';
 import { Sia, type SiaExpression } from '../../components/sia';
 import { CalorieEyeRing } from '../../components/CalorieEyeRing';
 import { Tap } from '../../components/Tap';
 import { Option } from '../../features/me/Sheet';
+import { FoodChips, MealTimes, slotsFromTimes, type MealSlot } from '../../features/onboarding/Pickers';
 import { palette, radius, space, type } from '../../theme';
 
 const STEP_FACE: Record<StepId, SiaExpression> = {
@@ -62,9 +53,7 @@ export default function OnboardingScreen() {
   const [goalWeightStr, setGoalWeightStr] = useState('');
   const [diet, setDiet] = useState<DietType>('balanced');
   const [foods, setFoods] = useState<string[]>([]);
-  const [meals, setMeals] = useState<Array<{ label: string; time: string; on: boolean }>>(() =>
-    MEAL_SLOTS.map((m) => ({ label: m.label, time: m.time, on: true }))
-  );
+  const [meals, setMeals] = useState<MealSlot[]>(() => slotsFromTimes([]));
   const [remind, setRemind] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -156,11 +145,6 @@ export default function OnboardingScreen() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const toggleFood = (f: string) => {
-    hapticFeedback.selection();
-    setFoods((list) => (list.includes(f) ? list.filter((x) => x !== f) : [...list, f]));
   };
 
   const firstName = name.trim().split(/\s+/)[0];
@@ -323,58 +307,14 @@ export default function OnboardingScreen() {
           )}
 
           {step === 'foods' && (
-            <View style={styles.chips}>
-              {FOODS_TO_AVOID.map((f) => {
-                const on = foods.includes(f);
-                return (
-                  <Tap
-                    key={f}
-                    onPress={() => toggleFood(f)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: on }}
-                    style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && styles.pressed]}
-                  >
-                    {on && <Ionicons name="checkmark" size={16} color={palette.pointText} />}
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{f}</Text>
-                  </Tap>
-                );
-              })}
+            <View style={styles.gap}>
+              <FoodChips value={foods} onChange={setFoods} />
             </View>
           )}
 
           {step === 'meals' && (
             <View style={styles.gap}>
-              {meals.map((m, i) => (
-                <View key={m.label} style={[styles.mealRow, !m.on && styles.mealOff]}>
-                  <Switch
-                    value={m.on}
-                    onValueChange={(v) => setMeals((list) => list.map((x, j) => (j === i ? { ...x, on: v } : x)))}
-                    accessibilityLabel={`${m.label} reminder`}
-                    trackColor={{ false: palette.line, true: palette.leafOnLight }}
-                    thumbColor={palette.surface}
-                  />
-                  <Text style={styles.mealLabel}>{m.label}</Text>
-                  <Tap
-                    onPress={() => setMeals((list) => list.map((x, j) => (j === i ? { ...x, time: shiftTime(x.time, -30) } : x)))}
-                    disabled={!m.on}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${m.label} 30 minutes earlier`}
-                    style={styles.stepper}
-                  >
-                    <Ionicons name="remove" size={20} color={palette.text} />
-                  </Tap>
-                  <Text style={styles.time}>{displayTime(m.time)}</Text>
-                  <Tap
-                    onPress={() => setMeals((list) => list.map((x, j) => (j === i ? { ...x, time: shiftTime(x.time, 30) } : x)))}
-                    disabled={!m.on}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${m.label} 30 minutes later`}
-                    style={styles.stepper}
-                  >
-                    <Ionicons name="add" size={20} color={palette.text} />
-                  </Tap>
-                </View>
-              ))}
+              <MealTimes value={meals} onChange={setMeals} />
               <View style={styles.remindRow}>
                 <Text style={styles.remindText}>Remind me at these times</Text>
                 <Switch
@@ -507,36 +447,6 @@ const styles = StyleSheet.create({
   fieldInput: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.section, color: palette.text },
   unit: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted },
   error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[2] },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-    minHeight: 44,
-    paddingHorizontal: space[4],
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surface,
-  },
-  chipOn: { backgroundColor: palette.point, borderColor: palette.point },
-  chipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
-  chipTextOn: { color: palette.pointText },
-  mealRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    minHeight: 60,
-    paddingHorizontal: space[3],
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surface,
-  },
-  mealOff: { opacity: 0.55 },
-  mealLabel: { flex: 1, fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
-  stepper: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: palette.bg },
-  time: { minWidth: 72, textAlign: 'center', fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text, fontVariant: ['tabular-nums'] },
   remindRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52, marginTop: space[2] },
   remindText: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.text },
   planZone: { marginTop: 76 },

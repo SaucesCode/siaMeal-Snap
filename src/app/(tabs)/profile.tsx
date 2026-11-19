@@ -14,12 +14,14 @@ import { validateBody, initialsFor, type BodyErrors } from '../../utils/bodyVali
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { Tap } from '../../components/Tap';
 import { Sheet, Option } from '../../features/me/Sheet';
+import { FoodChips, MealTimes, slotsFromTimes, type MealSlot } from '../../features/onboarding/Pickers';
+import { displayTime, mealReminderTimes, validateGoalWeight, weeksToGoal } from '../../features/onboarding/flow';
 import { hapticFeedback } from '../../utils/haptics';
 import { openPrivacyPolicy } from '../../lib/legal';
-import { getNotificationStatus, setNotificationsEnabled } from '../../services/notificationService';
+import { getNotificationStatus, scheduleMealReminders, setNotificationsEnabled } from '../../services/notificationService';
 import { palette, radius, space, type } from '../../theme';
 
-type SheetName = 'name' | 'goal' | 'activity' | 'diet' | 'body' | null;
+type SheetName = 'name' | 'goal' | 'activity' | 'diet' | 'body' | 'goalWeight' | 'foods' | 'meals' | null;
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const nf = new Intl.NumberFormat('en-US');
@@ -95,6 +97,10 @@ export default function ProfileScreen() {
   const [heightStr, setHeightStr] = useState(String(profile?.height_cm || ''));
   const [weightStr, setWeightStr] = useState(String(profile?.weight_kg || ''));
   const [bodyErrors, setBodyErrors] = useState<BodyErrors>({});
+  const [goalWeightStr, setGoalWeightStr] = useState(profile?.target_weight_kg ? String(profile.target_weight_kg) : '');
+  const [goalWeightError, setGoalWeightError] = useState<string | null>(null);
+  const [foods, setFoods] = useState<string[]>(profile?.foods_avoided ?? []);
+  const [mealSlots, setMealSlots] = useState<MealSlot[]>(() => slotsFromTimes(profile?.meal_times, false));
 
   const [sheet, setSheet] = useState<SheetName>(null);
   const [weightOpen, setWeightOpen] = useState(false);
@@ -118,6 +124,9 @@ export default function ProfileScreen() {
     setAgeStr(String(profile.age || ''));
     setHeightStr(String(profile.height_cm || ''));
     setWeightStr(String(profile.weight_kg || ''));
+    setGoalWeightStr(profile.target_weight_kg ? String(profile.target_weight_kg) : '');
+    setFoods(profile.foods_avoided ?? []);
+    setMealSlots(slotsFromTimes(profile.meal_times, false));
   }, [profile]);
 
   const age = parseInt(ageStr, 10) || 0;
@@ -177,6 +186,33 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /** Saves one or more profile fields that don't change the targets. */
+  const saveFields = async (fields: Record<string, unknown>) => {
+    try {
+      setIsSaving(true);
+      await saveProfile(fields as any);
+      hapticFeedback.success();
+      setSheet(null);
+    } catch (err: any) {
+      hapticFeedback.error();
+      Alert.alert("Couldn't save your changes", err?.message || 'Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveGoalWeight = () => {
+    const msg = validateGoalWeight(weight, goalWeightStr, goalObj.goal);
+    setGoalWeightError(msg);
+    if (!msg) saveFields({ target_weight_kg: parseFloat(goalWeightStr.replace(',', '.')) });
+  };
+
+  const saveMealTimes = async () => {
+    const times = mealReminderTimes(mealSlots.filter((m) => m.on).map((m) => m.time));
+    await saveFields({ meal_times: times });
+    if (reminders && times.length > 0) await scheduleMealReminders(times);
   };
 
   const saveBody = () => {
@@ -294,6 +330,26 @@ export default function ProfileScreen() {
           <Row icon="nutrition-outline" label="Eating style" value={dietObj.title.split(' / ')[0]} onPress={() => setSheet('diet')} />
           <Row icon="body-outline" label="Body" value={age && height ? `${age} · ${height} cm` : 'Add'} onPress={() => setSheet('body')} />
           <Row icon="scale-outline" label="Weight" value={latestWeight ? `${latestWeight} kg` : 'Add'} onPress={() => setWeightOpen(true)} />
+          {goalObj.goal !== 'maintenance' && (
+            <Row
+              icon="trophy-outline"
+              label="Goal weight"
+              value={profile?.target_weight_kg ? `${profile.target_weight_kg} kg` : 'Add'}
+              onPress={() => setSheet('goalWeight')}
+            />
+          )}
+          <Row
+            icon="ban-outline"
+            label="Foods you avoid"
+            value={profile?.foods_avoided?.length ? profile.foods_avoided.join(', ') : 'None'}
+            onPress={() => setSheet('foods')}
+          />
+          <Row
+            icon="time-outline"
+            label="Meal times"
+            value={profile?.meal_times?.length ? profile.meal_times.map(displayTime).join(', ') : 'Not set'}
+            onPress={() => setSheet('meals')}
+          />
         </View>
 
         <Text style={styles.section} accessibilityRole="header">
@@ -385,6 +441,42 @@ export default function ProfileScreen() {
             {bodyErrors[f.key] ? <Text style={styles.error}>{bodyErrors[f.key]}</Text> : null}
           </View>
         ))}
+      </Sheet>
+
+      <Sheet visible={sheet === 'goalWeight'} title="Goal weight" onClose={() => setSheet(null)} actionLabel="Save" onAction={saveGoalWeight} busy={isSaving}>
+        <View style={[styles.field, goalWeightError ? styles.fieldError : null]}>
+          <TextInput
+            value={goalWeightStr}
+            onChangeText={(t) => {
+              setGoalWeightStr(t);
+              setGoalWeightError(null);
+            }}
+            keyboardType="decimal-pad"
+            accessibilityLabel="Goal weight in kg"
+            style={styles.fieldInput}
+          />
+          <Text style={styles.fieldUnit}>kg</Text>
+        </View>
+        {goalWeightError ? (
+          <Text style={styles.error}>{goalWeightError}</Text>
+        ) : (
+          <Text style={styles.hint}>
+            {(() => {
+              const weeks = weeksToGoal(weight, parseFloat(goalWeightStr.replace(',', '.')) || 0, goalObj.adjustment);
+              return weeks ? `About ${weeks} weeks from ${weight} kg at your pace.` : `You weigh ${weight} kg today.`;
+            })()}
+          </Text>
+        )}
+      </Sheet>
+
+      <Sheet visible={sheet === 'foods'} title="Foods you avoid" onClose={() => setSheet(null)} actionLabel="Save" onAction={() => saveFields({ foods_avoided: foods })} busy={isSaving}>
+        <Text style={styles.hint}>Sia’s meal ideas and the coach will leave these out.</Text>
+        <FoodChips value={foods} onChange={setFoods} />
+      </Sheet>
+
+      <Sheet visible={sheet === 'meals'} title="Meal times" onClose={() => setSheet(null)} actionLabel="Save" onAction={saveMealTimes} busy={isSaving}>
+        <Text style={styles.hint}>{reminders ? 'Sia reminds you to snap your meals at these times.' : 'Turn on Reminders to get a nudge at these times.'}</Text>
+        <MealTimes value={mealSlots} onChange={setMealSlots} />
       </Sheet>
 
       <WeightTrackerSheet
@@ -482,4 +574,5 @@ const styles = StyleSheet.create({
   fieldInput: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text },
   fieldUnit: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted },
   error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
+  hint: { fontFamily: type.body, fontSize: type.size.secondary, lineHeight: 19, color: palette.textMuted },
 });
