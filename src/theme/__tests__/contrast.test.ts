@@ -11,6 +11,11 @@ const PAIRS: Array<[PaletteKey, PaletteKey, number]> = [
   ['over', 'bg', 4.5],
   ['shutterGlyph', 'shutter', 4.5],
   ['leaf', 'pointTrack', 3],
+  ['protein', 'pointTrack', 3],
+  ['carbs', 'pointTrack', 3],
+  ['fat', 'pointTrack', 3],
+  ['water', 'line', 3],
+  ['water', 'surface', 4.5],
 ];
 
 describe('Colorpoint palette contrast', () => {

@@ -28,5 +28,7 @@ module.exports = {
   carbsOnLight: '#E0A23B',
   fatOnLight: '#D9738A',
 
+  water: '#2B78B8',
+
   over: '#B42318',
 };
