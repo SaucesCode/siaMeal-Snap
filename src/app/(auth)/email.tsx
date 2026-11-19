@@ -13,6 +13,7 @@ import { Sia } from '../../components/sia';
 import { Field } from '../../features/auth/Field';
 import { Tap } from '../../components/Tap';
 import { palette, radius, space, type } from '../../theme';
+import { goBackOr } from '../../utils/navigation';
 
 /** Sign in or create an account with email; inline messages, typed input is never lost. */
 export default function EmailScreen() {
@@ -104,7 +105,7 @@ export default function EmailScreen() {
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Tap onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+          <Tap onPress={() => goBackOr(router, '/(auth)/login')} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
             <Ionicons name="chevron-back" size={24} color={palette.text} />
           </Tap>
           <Sia expression={creating ? 'happy' : forgot ? 'puzzled' : 'resting'} size={72} />
