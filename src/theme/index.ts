@@ -6,7 +6,7 @@ export type PaletteKey =
   | 'leaf' | 'leafOnLight' | 'leafText'
   | 'shutter' | 'shutterGlyph'
   | 'protein' | 'carbs' | 'fat' | 'proteinOnLight' | 'carbsOnLight' | 'fatOnLight'
-  | 'water' | 'over';
+  | 'water' | 'eye' | 'over';
 
 export const palette = paletteValues as Readonly<Record<PaletteKey, string>>;
 

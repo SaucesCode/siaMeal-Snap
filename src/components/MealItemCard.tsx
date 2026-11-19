@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Meal } from '../types';
 import { hapticFeedback } from '../utils/haptics';
 import { useMealImageSource } from '../lib/mealImages';
-import { MEAL_TYPES } from '../constants/mealTypes';
+import { Sia } from './sia';
 import { palette, radius, space, type } from '../theme';
 
 interface MealItemCardProps {
@@ -25,7 +24,6 @@ function formatTime(iso: string): string {
 export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
   const [imageError, setImageError] = useState(false);
   const imageSource = useMealImageSource(meal.image_url);
-  const icon = MEAL_TYPES.find((m) => m.type === meal.meal_type)?.icon ?? 'nutrition-outline';
   const kcal = Math.round(Number(meal.calories) || 0);
   const macros = `P ${Math.round(meal.protein_g)} · C ${Math.round(meal.carbs_g)} · F ${Math.round(meal.fat_g)}`;
   const time = formatTime(meal.logged_at);
@@ -64,7 +62,7 @@ export function MealItemCard({ meal, onDelete, onPress }: MealItemCardProps) {
         />
       ) : (
         <View style={[styles.thumb, styles.iconThumb]}>
-          <Ionicons name={icon} size={20} color={palette.textMuted} />
+          <Sia expression="resting" size={36} />
         </View>
       )}
 

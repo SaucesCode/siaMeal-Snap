@@ -26,7 +26,7 @@ const at = (hhmm: string) => new Date(`${TODAY}T${hhmm}:00`);
 describe('reactionsFor: meal logged', () => {
   it('under target: a happy line with the protein still to go', () => {
     expect(reactionsFor(meal('Adobo'), NONE, TODAY)).toEqual([
-      { expression: 'happy', line: 'Adobo logged. 62 g protein to go.' },
+      { expression: 'happy', line: 'Adobo logged. 62 g protein to go.', spot: 'left' },
     ]);
   });
 
@@ -36,7 +36,7 @@ describe('reactionsFor: meal logged', () => {
       new Set([`proteinGoal:${TODAY}`]),
       TODAY
     );
-    expect(reaction).toEqual({ expression: 'happy', line: 'Tuna logged. 760 kcal left today.' });
+    expect(reaction).toEqual({ expression: 'happy', line: 'Tuna logged. 760 kcal left today.', spot: 'left' });
   });
 
   it('crossing the protein target the first time today: celebrates, then the meal line', () => {
@@ -45,6 +45,7 @@ describe('reactionsFor: meal logged', () => {
       expression: 'celebrating',
       line: '150 g protein! Purr-fect day.',
       onceKey: `proteinGoal:${TODAY}`,
+      spot: 'right',
     });
     expect(reactions[1].expression).toBe('happy');
   });
@@ -68,6 +69,7 @@ describe('reactionsFor: meal logged', () => {
       expression: 'concerned',
       line: "A bit over today. Tomorrow's a fresh start.",
       onceKey: `overBudget:${TODAY}`,
+      spot: 'left',
     });
   });
 
@@ -101,7 +103,7 @@ describe('reactionsFor: meal logged', () => {
 describe('reactionsFor: other events', () => {
   it('streak milestone: celebrates once per milestone', () => {
     expect(reactionsFor({ type: 'streakChanged', prev: 6, next: 7 }, NONE, TODAY)).toEqual([
-      { expression: 'celebrating', line: '7 days in a row!', onceKey: 'streak:7' },
+      { expression: 'celebrating', line: '7 days in a row!', onceKey: 'streak:7', spot: 'center' },
     ]);
     expect(reactionsFor({ type: 'streakChanged', prev: 6, next: 7 }, new Set(['streak:7']), TODAY)).toEqual([]);
     expect(reactionsFor({ type: 'streakChanged', prev: 7, next: 8 }, NONE, TODAY)).toEqual([]);
@@ -110,14 +112,14 @@ describe('reactionsFor: other events', () => {
   it('morning with nothing logged: sleepy nudge once per day', () => {
     const opened: SiaEvent = { type: 'appOpened', now: at('08:30'), hasMealsToday: false };
     expect(reactionsFor(opened, NONE, TODAY)).toEqual([
-      { expression: 'sleepy', line: 'Morning! Breakfast first?', onceKey: `morning:${TODAY}` },
+      { expression: 'sleepy', line: 'Morning! Breakfast first?', onceKey: `morning:${TODAY}`, spot: 'center' },
     ]);
     expect(reactionsFor(opened, new Set([`morning:${TODAY}`]), TODAY)).toEqual([]);
   });
 
   it('late at night: sleepy without a line', () => {
     expect(reactionsFor({ type: 'appOpened', now: at('23:15'), hasMealsToday: true }, NONE, TODAY)).toEqual([
-      { expression: 'sleepy', line: null },
+      { expression: 'sleepy', line: null, spot: 'center' },
     ]);
     expect(reactionsFor({ type: 'appOpened', now: at('04:30'), hasMealsToday: false }, NONE, TODAY)[0].line).toBeNull();
   });
@@ -128,7 +130,7 @@ describe('reactionsFor: other events', () => {
 
   it('water goal reached: happy, once per day', () => {
     expect(reactionsFor({ type: 'waterGoalReached' }, NONE, TODAY)).toEqual([
-      { expression: 'happy', line: 'Water goal done.', onceKey: `water:${TODAY}` },
+      { expression: 'happy', line: 'Water goal done.', onceKey: `water:${TODAY}`, spot: 'center' },
     ]);
     expect(reactionsFor({ type: 'waterGoalReached' }, new Set([`water:${TODAY}`]), TODAY)).toEqual([]);
   });

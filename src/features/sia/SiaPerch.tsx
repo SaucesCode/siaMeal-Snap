@@ -10,6 +10,7 @@ import { useCoachStore } from '../../stores/coachStore';
 import { hapticFeedback } from '../../utils/haptics';
 import { useSiaStore } from './siaStore';
 import { useTabBarHeight } from './SiaTabBar';
+import { isTodayRoute } from './siaRoutes';
 
 /** Sia's size on the perch. */
 export const PERCH_SIA_SIZE = 78;
@@ -39,8 +40,8 @@ function useKeyboardVisible() {
 
 /**
  * Sia floating on the tab bar's top edge, with nothing behind her. Her head is clipped exactly
- * at the bar's edge (so she peeks over it) and her paws rest on the edge. Not shown on the
- * camera, while typing, or when "Show Sia" is off.
+ * at the bar's edge (so she peeks over it) and her paws rest on the edge. Not shown on Today
+ * (she peeks over the calories card there), the camera, while typing, or when "Show Sia" is off.
  */
 export function SiaPerchOverlay() {
   const { current, hidden, pet } = useSiaStore(
@@ -56,8 +57,9 @@ export function SiaPerchOverlay() {
     if (line && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(line);
   }, [line]);
 
-  const onCamera = segments.includes('camera');
-  if (hidden || barHeight === 0 || onCamera || keyboardVisible) return null;
+  // On Today she peeks over the calories card instead (SiaPeek); never two of her at once.
+  const elsewhere = segments.includes('camera') || isTodayRoute(segments);
+  if (hidden || barHeight === 0 || elsewhere || keyboardVisible) return null;
 
   const openChat = () => {
     hapticFeedback.light();

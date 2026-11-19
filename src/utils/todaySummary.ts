@@ -42,3 +42,17 @@ export function greetingName(fullName: string | null | undefined, email: string 
   const local = email?.split('@')[0]?.trim();
   return local || 'there';
 }
+
+const nf = new Intl.NumberFormat('en-US');
+/** Below this share of the target left, "almost there" instead of "plenty of room". */
+const NEARLY_DONE = 0.25;
+
+/** What Sia says under the greeting when she has no reaction to share. */
+export function siaStatusLine(s: CalorieSummary): string {
+  if (s.target <= 0) return '';
+  if (s.over > 0) return `${nf.format(s.over)} over today. That's okay.`;
+  if (s.eaten === 0) return `${nf.format(s.target)} to go — let's start.`;
+  return s.left / s.target < NEARLY_DONE
+    ? `${nf.format(s.left)} left — almost there.`
+    : `${nf.format(s.left)} left — plenty of room.`;
+}

@@ -192,7 +192,7 @@ export function TextLogModal({
                 activeOpacity={0.8}
                 className={`w-full rounded-2xl py-4 flex-row items-center justify-center gap-2 ${
                   text.trim()
-                    ? 'bg-emerald-500 active:bg-emerald-600 shadow-lg shadow-emerald-500/25'
+                    ? 'bg-emerald-500 shadow-lg shadow-emerald-500/25'
                     : 'bg-zinc-800 border border-zinc-700 opacity-60'
                 }`}
               >

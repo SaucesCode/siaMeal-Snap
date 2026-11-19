@@ -16,6 +16,7 @@ const PAIRS: Array<[PaletteKey, PaletteKey, number]> = [
   ['fat', 'pointTrack', 3],
   ['water', 'line', 3],
   ['water', 'surface', 4.5],
+  ['eye', 'pointTrack', 3],
 ];
 
 describe('Colorpoint palette contrast', () => {
