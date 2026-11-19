@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { sanitizeItems } from "./items.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -884,11 +885,13 @@ Strictly inspect whether the image or text describes REAL, EDIBLE FOOD, MEALS, G
     "sodium_mg": number (milligrams of sodium, e.g. 450),
     "potassium_mg": number (milligrams of potassium, e.g. 380),
     "ingredients": ["ingredient 1 with estimated portion", "ingredient 2 with estimated portion"],
+    "items": [{ "name": "Chicken thigh", "amount": "2 pcs", "calories": 320, "protein_g": 30, "carbs_g": 0, "fat_g": 21, "x": 0.45, "y": 0.4 }],
     "confidence_score": number (0.0 to 1.0 estimate of food recognition certainty),
     "portion_notes": "A concise 1-sentence note explaining portion estimation basis, e.g. ~180g grilled chicken breast with 1 cup brown rice",
     "dietary_tags": ["e.g. High Protein", "Lean", "Complex Carbs"],
     "feline_verdict": "A brief 1-sentence encouraging nutritional comment from Sia the Siamese cat coach"
   }
+"items" lists each distinct food on the plate (at most 8), in plain words, with its portion in "amount" and its own calories and macros; the items' calories must add up to "calories". For a photo, "x" and "y" are the centre of that food in the image as fractions from the left and top (0 to 1); omit them for a text description.
 Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code blocks.`;
 
     // Resolve dynamic image MIME type and clean Base64 payload
@@ -999,6 +1002,7 @@ Be realistic, accurate, and concise. Return ONLY raw JSON without markdown code 
       ingredients: Array.isArray(parsedData?.ingredients)
         ? parsedData.ingredients.map(String)
         : [],
+      items: sanitizeItems(parsedData?.items),
       // When the model omits a confidence score, report a neutral 0.5 rather than inventing high certainty.
       confidence_score: typeof parsedData?.confidence_score === "number"
         ? Math.min(1, Math.max(0.1, Number(parsedData.confidence_score)))
