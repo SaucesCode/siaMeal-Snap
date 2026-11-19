@@ -192,7 +192,7 @@ export default function ProfileScreen() {
       Alert.alert('Not available in Expo Go', 'Reminders work in the installed app. They can’t be tested in Expo Go.');
       return;
     }
-    if (await setNotificationsEnabled(next)) setReminders(next);
+    if (await setNotificationsEnabled(next, profile?.meal_times ?? [])) setReminders(next);
     else if (next) Alert.alert('Allow notifications', 'Turn on notifications for SiaMeal Snap in your phone’s Settings to get reminders.');
   };
 

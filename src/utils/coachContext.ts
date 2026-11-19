@@ -35,6 +35,7 @@ export function buildCoachContext(
     displayName: profile?.full_name?.trim() || email?.split('@')[0] || undefined,
     goal: profile?.fitness_goal ? humanize(profile.fitness_goal) : 'fat loss',
     dietType: profile?.diet_type ? humanize(profile.diet_type) : 'balanced',
+    foodsAvoided: profile?.foods_avoided ?? [],
     targetCalories: target.calories,
     targetProtein: target.protein,
     targetCarbs: target.carbs,

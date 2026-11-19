@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Meal } from '../types';
 import { useMealStore } from '../stores/mealStore';
+import { useAuthStore } from '../stores/authStore';
 import { hapticFeedback } from '../utils/haptics';
 import { getSiaForecastRecommendation } from '../utils/mealForecastEngine';
 import { mealTypeLabel } from '../constants/mealTypes';
@@ -27,13 +28,14 @@ export function NextMealIdea({ targets, consumed, loggedMeals }: NextMealIdeaPro
   const router = useRouter();
   const setDraftMeal = useMealStore((s) => s.setDraftMeal);
   const [cycleIndex, setCycleIndex] = useState(0);
+  const foodsAvoided = useAuthStore((s) => s.profile?.foods_avoided);
 
   const forecast = useMemo(
-    () => getSiaForecastRecommendation({ targets, consumed, loggedMeals, cycleIndex }),
-    [targets, consumed, loggedMeals, cycleIndex]
+    () => getSiaForecastRecommendation({ targets, consumed, loggedMeals, cycleIndex, foodsAvoided: foodsAvoided ?? [] }),
+    [targets, consumed, loggedMeals, cycleIndex, foodsAvoided]
   );
 
-  if (forecast.isGoalMet) return null;
+  if (forecast.isGoalMet || forecast.empty) return null;
   const idea = forecast.catch;
 
   const logIt = () => {
