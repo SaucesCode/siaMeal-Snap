@@ -49,9 +49,11 @@ interface SiaPeekProps {
   reaction?: SiaReaction;
   /** Replaces opening the coach when she is tapped. */
   onPress?: () => void;
+  /** Start ducked behind the edge, so her first reaction rises into view (screens she appears on mid-flow). */
+  startHidden?: boolean;
 }
 
-export function SiaPeek({ reaction, onPress }: SiaPeekProps = {}) {
+export function SiaPeek({ reaction, onPress, startHidden = false }: SiaPeekProps = {}) {
   const { storeCurrent, hidden, pet } = useSiaStore(useShallow((s) => ({ storeCurrent: s.current, hidden: s.hidden, pet: s.pet })));
   const current = reaction ?? storeCurrent;
   const openCoach = useCoachStore((s) => s.openCoach);
@@ -65,11 +67,11 @@ export function SiaPeek({ reaction, onPress }: SiaPeekProps = {}) {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const x = useSharedValue(0);
-  const y = useSharedValue(PEEK_SHOWN_Y);
+  const y = useSharedValue(startHidden ? PEEK_HIDDEN_Y : PEEK_SHOWN_Y);
   const tilt = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const pawY = useSharedValue(0);
-  const pawOpacity = useSharedValue(1);
+  const pawY = useSharedValue(startHidden ? PAW_DROP : 0);
+  const pawOpacity = useSharedValue(startHidden ? 0 : 1);
   const breath = useSharedValue(1);
 
   const later = (fn: () => void, ms: number) => {

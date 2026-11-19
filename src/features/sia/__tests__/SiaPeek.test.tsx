@@ -68,3 +68,13 @@ describe('<SiaPeek /> before the card is measured', () => {
     expect(style.transform).toEqual(expect.arrayContaining([{ translateX: 228 }]));
   });
 });
+
+describe('<SiaPeek startHidden />', () => {
+  beforeEach(() => useSiaStore.setState({ hidden: false, current: null, queue: [] }));
+
+  it('starts ducked behind the edge so her first reaction is a rise into view', async () => {
+    await render(<SiaPeek startHidden />);
+    const style = StyleSheet.flatten(screen.getByTestId('sia-peek').props.style);
+    expect(style.transform).toEqual(expect.arrayContaining([{ translateY: 96 }]));
+  });
+});
