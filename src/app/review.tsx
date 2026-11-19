@@ -21,13 +21,15 @@ import { useCoachStore } from '../stores/coachStore';
 import { useMealImageSource } from '../lib/mealImages';
 import { CalorieEyeRing } from '../components/CalorieEyeRing';
 import { MacroAfterBar } from '../components/MacroAfterBar';
+import { PhotoLabels } from '../features/review/PhotoLabels';
+import { PlateBreakdown } from '../features/review/PlateBreakdown';
 import { SiaPeek } from '../features/sia/SiaPeek';
 import { PEEK_SHOWN_Y, PEEK_SIZE } from '../features/sia/peekMotion';
 import type { SiaReaction } from '../features/sia/siaReactions';
 import { MEAL_TYPES, mealTypeLabel } from '../constants/mealTypes';
 import { MealType } from '../types';
 import { getDefaultMealType, reconcileCaloriesWithMacros } from '../utils/nutrition';
-import { mealFit, scaleMacros, type Macros } from '../utils/reviewMath';
+import { itemsMeal, mealFit, scaleMacros, siaTake, type Macros } from '../utils/reviewMath';
 import { hapticFeedback } from '../utils/haptics';
 import { palette, radius, space, type } from '../theme';
 import { Tap } from '../components/Tap';
@@ -71,6 +73,9 @@ export default function ReviewScreen() {
   const [newItem, setNewItem] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  /** How much of each food Sia found (0 = removed). */
+  const [itemMults, setItemMults] = useState<number[]>([]);
+  const [itemsError, setItemsError] = useState(false);
   const base = useRef<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 
   useEffect(() => {
@@ -86,9 +91,14 @@ export default function ReviewScreen() {
     setFoodItems(draftMeal.food_items || []);
     setPortion(1);
     setEdited(null);
+    setItemMults((draftMeal.items ?? []).map(() => 1));
+    setItemsError(false);
   }, [draftMeal]);
 
-  const meal = edited ?? scaleMacros(base.current, portion);
+  const items = draftMeal?.items ?? [];
+  // The per-food view needs foods with calories; otherwise (barcode, older server) the ring card shows.
+  const hasItems = items.length > 0 && items.some((i) => i.calories > 0);
+  const meal = edited ?? (hasItems ? itemsMeal(base.current, items, itemMults) : scaleMacros(base.current, portion));
   const targetCalories = Number(profile?.target_calories) || 2000;
   const targetProtein = Number(profile?.target_protein_g) || 150;
   const today = useMemo(
@@ -139,11 +149,22 @@ export default function ReviewScreen() {
     );
   };
 
+  const changeItem = (index: number, multiplier: number) => {
+    setEdited(null);
+    setItemsError(false);
+    setItemMults((m) => m.map((v, i) => (i === index ? multiplier : v)));
+  };
+
   const save = async () => {
     if (isSaving) return;
     if (!name.trim()) {
       hapticFeedback.error();
       setNameError(true);
+      return;
+    }
+    if (hasItems && itemMults.every((m) => m === 0)) {
+      hapticFeedback.error();
+      setItemsError(true);
       return;
     }
     try {
@@ -155,7 +176,9 @@ export default function ReviewScreen() {
         protein_g: meal.protein_g,
         carbs_g: meal.carbs_g,
         fat_g: meal.fat_g,
-        food_items: foodItems,
+        food_items: hasItems
+          ? items.flatMap((item, i) => (itemMults[i] === 0 ? [] : [item.amount ? `${item.name} (${item.amount})` : item.name]))
+          : foodItems,
         image_url: draftMeal.image_url || null,
         logged_at: new Date().toISOString(),
       });
@@ -170,13 +193,14 @@ export default function ReviewScreen() {
   };
 
   const notes = [draftMeal.portion_notes, draftMeal.feline_verdict].filter(Boolean) as string[];
-  // Extras the AI reported, scaled with the portion (edits to the main numbers don't change them).
+  // Extras the AI reported, scaled with the portion or the per-food changes.
+  const extrasScale = hasItems ? (base.current.calories > 0 ? meal.calories / base.current.calories : 1) : portion;
   const extras = [
     { label: 'Fiber', value: draftMeal.fiber_g, unit: 'g' },
     { label: 'Sugar', value: draftMeal.sugar_g, unit: 'g' },
     { label: 'Sodium', value: draftMeal.sodium_mg, unit: 'mg' },
   ].flatMap(({ label, value, unit }) => {
-    const n = Math.round((Number(value) || 0) * portion);
+    const n = Math.round((Number(value) || 0) * extrasScale);
     return n > 0 ? [`${label} ${nf.format(n)} ${unit}`] : [];
   });
   const status = fit.over > 0 ? `${nf.format(fit.over)} over after` : `${nf.format(fit.left)} left after`;
@@ -211,7 +235,10 @@ export default function ReviewScreen() {
 
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {imageSource && (
-            <Image source={imageSource} style={styles.photo} contentFit="cover" accessibilityIgnoresInvertColors />
+            <View style={hasItems ? styles.photoTall : styles.photo}>
+              <Image source={imageSource} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityIgnoresInvertColors />
+              {hasItems && <PhotoLabels items={items} multipliers={itemMults} />}
+            </View>
           )}
 
           <View style={styles.nameRow}>
@@ -230,8 +257,23 @@ export default function ReviewScreen() {
             <Ionicons name="pencil" size={16} color={palette.textMuted} />
           </View>
           {nameError && <Text style={styles.error}>Give it a name</Text>}
+          {hasItems && (
+            <Text style={styles.take}>
+              <Text style={styles.takeWho}>Sia: </Text>
+              {siaTake(fit, meal)}
+            </Text>
+          )}
 
           <View style={styles.cardZone}>
+            {hasItems ? (
+              <PlateBreakdown
+                items={items}
+                multipliers={itemMults}
+                onChange={changeItem}
+                meal={meal}
+                status={fit.over > 0 ? `${nf.format(fit.over)} over` : `${nf.format(fit.left)} left`}
+              />
+            ) : (
             <View style={styles.card}>
               <View style={styles.cardTop}>
               <CalorieEyeRing
@@ -266,6 +308,7 @@ export default function ReviewScreen() {
                 <MacroAfterBar label="Fat" before={today.fat} add={meal.fat_g} target={targetFat} color={palette.fat} />
               </View>
             </View>
+            )}
             <SiaPeek reaction={siaReaction} onPress={askSia} />
           </View>
 
@@ -279,6 +322,7 @@ export default function ReviewScreen() {
             </View>
           )}
 
+          {!hasItems && (
           <View style={styles.portions} accessibilityRole="radiogroup">
             {PORTIONS.map((p) => {
               const on = !edited && portion === p.value;
@@ -296,6 +340,7 @@ export default function ReviewScreen() {
               );
             })}
           </View>
+          )}
 
           <Tap
             onPress={() => setDetailsOpen((o) => !o)}
@@ -328,6 +373,8 @@ export default function ReviewScreen() {
                 ))}
               </View>
 
+              {!hasItems && (
+                <>
               <Text style={styles.fieldLabel}>Ingredients</Text>
               <View style={styles.chips}>
                 {foodItems.map((item, i) => (
@@ -353,6 +400,8 @@ export default function ReviewScreen() {
                 accessibilityLabel="Add an ingredient"
                 style={styles.addInput}
               />
+                </>
+              )}
 
               {notes.map((n) => (
                 <Text key={n} style={styles.note}>
@@ -369,6 +418,7 @@ export default function ReviewScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
+          {itemsError && <Text style={[styles.error, styles.centered]}>Add at least one food</Text>}
           <Text style={styles.caption}>{draftMeal.image_url ? 'Estimated from your photo.' : 'Estimated values.'}</Text>
           <Tap
             onPress={save}
@@ -411,7 +461,11 @@ const styles = StyleSheet.create({
   },
   mealChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
   content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: space[4], paddingBottom: space[6] },
-  photo: { width: '100%', height: 180, borderRadius: radius.card, marginTop: space[2], backgroundColor: palette.line },
+  photo: { width: '100%', height: 180, overflow: 'hidden', borderRadius: radius.card, marginTop: space[2], backgroundColor: palette.line },
+  photoTall: { width: '100%', height: 240, overflow: 'hidden', borderRadius: radius.card, marginTop: space[2], backgroundColor: palette.line },
+  take: { fontFamily: type.bodySemibold, fontSize: type.size.body, lineHeight: 21, color: palette.text, marginTop: space[1] },
+  takeWho: { color: palette.textMuted },
+  centered: { textAlign: 'center', marginBottom: space[1] },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: space[3] },
   nameInput: { flex: 1, fontFamily: type.display, fontSize: type.size.title, color: palette.text, padding: 0 },
   error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
