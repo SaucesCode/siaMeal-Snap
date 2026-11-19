@@ -1,91 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getNotificationStatus, requestNotificationPermission } from '../services/notificationService';
+import { useAuthStore } from '../stores/authStore';
 import { hapticFeedback } from '../utils/haptics';
+import { Tap } from './Tap';
+import { palette, radius, space, type } from '../theme';
 
+/** Asks once (on Today) whether Sia may remind you at your meal times. */
 export function NotificationPermissionBanner() {
+  const mealTimes = useAuthStore((s) => s.profile?.meal_times);
   const [visible, setVisible] = useState(false);
-  const [isRequesting, setIsRequesting] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    checkStatus();
-  }, []);
-
-  const checkStatus = async () => {
     if (Platform.OS === 'web') return;
-    const status = await getNotificationStatus();
-    // Only prompt if supported and user hasn't made a choice yet
-    if (status.isSupported && !status.hasBeenPrompted && !status.hasPermission) {
-      setVisible(true);
-    }
-  };
-
-  const handleEnable = async () => {
-    hapticFeedback.medium();
-    setIsRequesting(true);
-    await requestNotificationPermission();
-    setIsRequesting(false);
-    setVisible(false);
-  };
-
-  const handleDismiss = () => {
-    hapticFeedback.light();
-    setVisible(false);
-  };
+    getNotificationStatus().then((s) => {
+      if (s.isSupported && !s.hasBeenPrompted && !s.hasPermission) setVisible(true);
+    });
+  }, []);
 
   if (!visible) return null;
 
+  const enable = async () => {
+    hapticFeedback.medium();
+    setBusy(true);
+    await requestNotificationPermission(mealTimes ?? []);
+    setBusy(false);
+    setVisible(false);
+  };
+
   return (
-    <View className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-4 mb-4 shadow-sm shadow-emerald-500/10">
-      <View className="flex-row items-start justify-between">
-        <View className="flex-row items-center gap-2.5 mb-1.5 flex-1 pr-2">
-          <View className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 items-center justify-center">
-            <Ionicons name="notifications" size={16} color="#10b981" />
-          </View>
-          <Text
-            style={{ fontFamily: 'Outfit_700Bold' }}
-            className="text-white text-sm"
-          >
-            Enable Sia's Reminders?
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={handleDismiss}
-          className="p-1 -mr-1 -mt-1"
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <Ionicons name="notifications-outline" size={20} color={palette.text} />
+        <Text style={styles.title}>Want a nudge at mealtimes?</Text>
+        <Tap
+          onPress={() => setVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Not now"
+          style={({ pressed }) => [styles.close, pressed && styles.pressed]}
         >
-          <Ionicons name="close" size={16} color="#71717a" />
-        </TouchableOpacity>
+          <Ionicons name="close" size={18} color={palette.textMuted} />
+        </Tap>
       </View>
-
-      <Text className="text-zinc-400 text-xs leading-4 mb-3">
-        Let Sia nudge you to hydrate and shield your streak before midnight. You can change this anytime in Profile.
-      </Text>
-
-      <View className="flex-row items-center gap-2">
-        <TouchableOpacity
-          onPress={handleEnable}
-          disabled={isRequesting}
-          activeOpacity={0.8}
-          className="flex-1 bg-emerald-500 active:bg-emerald-600 rounded-xl py-2 px-3 items-center justify-center"
-        >
-          <Text
-            style={{ fontFamily: 'Outfit_700Bold' }}
-            className="text-white text-xs font-bold"
-          >
-            {isRequesting ? 'Enabling...' : 'Enable Reminders'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleDismiss}
-          activeOpacity={0.7}
-          className="px-3 py-2 rounded-xl bg-zinc-800/80 active:bg-zinc-700/80"
-        >
-          <Text className="text-zinc-400 text-xs font-semibold">Not Now</Text>
-        </TouchableOpacity>
+      <Text style={styles.body}>Sia can remind you to snap your meals. You can change this any time in Me.</Text>
+      <View style={styles.actions}>
+        <Tap onPress={enable} disabled={busy} accessibilityRole="button" style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
+          {busy ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.primaryText}>Turn on reminders</Text>}
+        </Tap>
+        <Tap onPress={() => setVisible(false)} accessibilityRole="button" style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+          <Text style={styles.secondaryText}>Not now</Text>
+        </Tap>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  pressed: { opacity: 0.7 },
+  card: { padding: space[4], marginBottom: space[4], borderRadius: radius.card, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  title: { flex: 1, fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -space[2] },
+  body: { fontFamily: type.body, fontSize: type.size.secondary, lineHeight: 19, color: palette.textMuted, marginBottom: space[3] },
+  actions: { flexDirection: 'row', gap: space[2] },
+  primary: { flex: 1, minHeight: 44, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
+  primaryText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointText },
+  secondary: { minHeight: 44, paddingHorizontal: space[4], borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  secondaryText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.textMuted },
+});

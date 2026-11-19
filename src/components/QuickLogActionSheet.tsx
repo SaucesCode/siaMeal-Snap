@@ -1,218 +1,123 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { MealType } from '../types';
 import { hapticFeedback } from '../utils/haptics';
+import { Tap } from './Tap';
+import { palette, radius, space, type } from '../theme';
 
 interface QuickLogActionSheetProps {
   visible: boolean;
   mealType: MealType;
   categoryTitle: string;
-  categoryIcon: keyof typeof MaterialCommunityIcons.glyphMap;
-  categoryColor: string;
-  categoryBadgeBg: string;
   onClose: () => void;
   onSelectCamera: (type: MealType) => void;
   onSelectText: (type: MealType) => void;
   onSelectBarcode: (type: MealType) => void;
   onSelectGallery: (type: MealType) => void;
-  onSelectRePounce?: (type: MealType) => void;
+  onSelectLogAgain?: (type: MealType) => void;
 }
 
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** The "+" on a meal: snap, pick a photo, scan a barcode, type it, or log something again. */
 export function QuickLogActionSheet({
   visible,
   mealType,
   categoryTitle,
-  categoryIcon,
-  categoryColor,
-  categoryBadgeBg,
   onClose,
   onSelectCamera,
   onSelectText,
   onSelectBarcode,
   onSelectGallery,
-  onSelectRePounce,
+  onSelectLogAgain,
 }: QuickLogActionSheetProps) {
   if (!visible) return null;
 
+  const choose = (fn: (t: MealType) => void) => {
+    hapticFeedback.light();
+    onClose();
+    fn(mealType);
+  };
+
+  const options: Array<{ icon: IoniconName; title: string; detail: string; onPress: () => void; primary?: boolean }> = [
+    { icon: 'camera', title: 'Snap a photo', detail: 'Sia counts it from the picture', onPress: () => choose(onSelectCamera), primary: true },
+    { icon: 'images-outline', title: 'Pick a photo', detail: 'From your gallery', onPress: () => choose(onSelectGallery) },
+    { icon: 'barcode-outline', title: 'Scan a barcode', detail: 'For packaged food', onPress: () => choose(onSelectBarcode) },
+    { icon: 'create-outline', title: 'Type it', detail: 'Describe what you ate', onPress: () => choose(onSelectText) },
+    ...(onSelectLogAgain
+      ? [{ icon: 'repeat' as IoniconName, title: 'Log again', detail: 'Something from the last two weeks', onPress: () => choose(onSelectLogAgain) }]
+      : []),
+  ];
+
   return (
-    <View className="absolute inset-0 z-50 justify-end bg-black/80">
-      <View className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-10 shadow-2xl">
-        {/* Header with Category Badge */}
-        <View className="flex-row items-center justify-between mb-5">
-          <View className="flex-row items-center gap-3">
-            <View
-              className={`w-10 h-10 rounded-2xl ${categoryBadgeBg} items-center justify-center border`}
-            >
-              <MaterialCommunityIcons name={categoryIcon} size={20} color={categoryColor} />
-            </View>
-            <View>
-              <Text
-                style={{ fontFamily: 'Outfit_800ExtraBold' }}
-                className="text-white text-lg tracking-tight"
-              >
-                Log {categoryTitle}
-              </Text>
-              <Text className="text-zinc-400 text-xs font-medium">
-                Choose your capture method
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              onClose();
-            }}
-            className="w-8 h-8 rounded-full bg-zinc-800/80 items-center justify-center border border-zinc-700/60"
-          >
-            <Ionicons name="close" size={16} color="#a1a1aa" />
-          </TouchableOpacity>
+    <View style={styles.overlay}>
+      <Tap style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <View style={styles.sheet} accessibilityViewIsModal>
+        <View style={styles.header}>
+          <Text style={styles.title} accessibilityRole="header">
+            Add {categoryTitle.toLowerCase()}
+          </Text>
+          <Tap onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
+            <Ionicons name="close" size={22} color={palette.text} />
+          </Tap>
         </View>
-
-        {/* Action Grid Options */}
-        <View className="gap-2.5 mb-2">
-          {/* 1. AI Vision Camera */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              onClose();
-              onSelectCamera(mealType);
-            }}
-            activeOpacity={0.8}
-            className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
+        {options.map((o) => (
+          <Tap
+            key={o.title}
+            onPress={o.onPress}
+            accessibilityRole="button"
+            accessibilityHint={o.detail}
+            style={({ pressed }) => [styles.option, o.primary && styles.optionPrimary, pressed && styles.pressed]}
           >
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/30">
-                <Ionicons name="camera" size={20} color="#10b981" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-sm"
-                >
-                  AI Food Photo Scan
-                </Text>
-                <Text className="text-zinc-400 text-xs">Instant meal macro analysis via camera</Text>
-              </View>
+            <View style={[styles.icon, o.primary && styles.iconPrimary]}>
+              <Ionicons name={o.icon} size={20} color={o.primary ? palette.shutterGlyph : palette.text} />
             </View>
-            <View className="bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/40">
-              <Text className="text-emerald-400 text-[10px] font-black uppercase tracking-wider">Fastest</Text>
+            <View style={styles.flex}>
+              <Text style={[styles.optionTitle, o.primary && styles.optionTitlePrimary]}>{o.title}</Text>
+              <Text style={[styles.optionDetail, o.primary && styles.optionDetailPrimary]}>{o.detail}</Text>
             </View>
-          </TouchableOpacity>
-
-          {/* 2. Photo Library Upload */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              onClose();
-              onSelectGallery(mealType);
-            }}
-            activeOpacity={0.8}
-            className="bg-zinc-950 border border-zinc-800/90 p-4 rounded-2xl flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-sky-500/15 items-center justify-center border border-sky-500/30">
-                <Ionicons name="images-outline" size={20} color="#38bdf8" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-sm"
-                >
-                  Photo Library Upload
-                </Text>
-                <Text className="text-zinc-400 text-xs">Select food photo from album</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#71717a" />
-          </TouchableOpacity>
-
-          {/* 3. Barcode Scan */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              onClose();
-              onSelectBarcode(mealType);
-            }}
-            activeOpacity={0.8}
-            className="bg-zinc-950 border border-zinc-800/90 p-4 rounded-2xl flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center border border-amber-500/30">
-                <Ionicons name="barcode-outline" size={20} color="#fbbf24" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-sm"
-                >
-                  Barcode Scanner
-                </Text>
-                <Text className="text-zinc-400 text-xs">Scan packaged foods & nutrition labels</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#71717a" />
-          </TouchableOpacity>
-
-          {/* 4. Natural Text Log */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.medium();
-              onClose();
-              onSelectText(mealType);
-            }}
-            activeOpacity={0.8}
-            className="bg-zinc-950 border border-zinc-800/90 p-4 rounded-2xl flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-purple-500/15 items-center justify-center border border-purple-500/30">
-                <Ionicons name="sparkles-outline" size={20} color="#c084fc" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-sm"
-                >
-                  Natural Language Text Log
-                </Text>
-                <Text className="text-zinc-400 text-xs">Type what you ate in plain text</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#71717a" />
-          </TouchableOpacity>
-
-          {/* 5. Quick Re-Pounce Recent Catch */}
-          {onSelectRePounce && (
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.medium();
-                onClose();
-                onSelectRePounce(mealType);
-              }}
-              activeOpacity={0.8}
-              className="bg-zinc-950 border border-emerald-500/30 p-4 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
-            >
-              <View className="flex-row items-center gap-3">
-                <View className="w-10 h-10 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
-                  <MaterialCommunityIcons name="repeat" size={20} color="#10b981" />
-                </View>
-                <View>
-                  <Text
-                    style={{ fontFamily: 'Outfit_700Bold' }}
-                    className="text-white text-sm"
-                  >
-                    Duplicate Recent Meal
-                  </Text>
-                  <Text className="text-zinc-400 text-xs">Duplicate past meals from last 14 days</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#10b981" />
-            </TouchableOpacity>
-          )}
-        </View>
+            <Ionicons name="chevron-forward" size={18} color={o.primary ? palette.pointMuted : palette.textMuted} />
+          </Tap>
+        ))}
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 50, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: palette.pointDeep, opacity: 0.6 },
+  sheet: {
+    gap: space[2],
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[8],
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: palette.bg,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: space[1] },
+  title: { flex: 1, fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    minHeight: 64,
+    paddingHorizontal: space[3],
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+  },
+  optionPrimary: { backgroundColor: palette.point, borderColor: palette.point },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bg },
+  iconPrimary: { backgroundColor: palette.shutter },
+  optionTitle: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  optionTitlePrimary: { color: palette.pointText },
+  optionDetail: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted, marginTop: 2 },
+  optionDetailPrimary: { color: palette.pointMuted },
+});

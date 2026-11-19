@@ -1,22 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Image } from 'expo-image';
+import { useShallow } from 'zustand/react/shallow';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { useMealImageSource } from '../lib/mealImages';
-import { Image } from 'expo-image';
+import { MEAL_TYPES, mealTypeLabel } from '../constants/mealTypes';
 import { hapticFeedback } from '../utils/haptics';
-import { useShallow } from 'zustand/react/shallow';
+import { Tap } from './Tap';
+import { palette, radius, space, type } from '../theme';
 
 interface MealDetailModalProps {
   meal: Meal | null;
@@ -27,505 +20,339 @@ interface MealDetailModalProps {
   onDuplicate?: (meal: Meal) => void;
 }
 
-interface MealTypeOption {
-  type: MealType;
-  label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  color: string;
-}
+const FIELDS = [
+  { key: 'calories', label: 'Calories', unit: 'kcal' },
+  { key: 'protein', label: 'Protein', unit: 'g' },
+  { key: 'carbs', label: 'Carbs', unit: 'g' },
+  { key: 'fat', label: 'Fat', unit: 'g' },
+] as const;
+type FieldKey = (typeof FIELDS)[number]['key'];
 
-const MEAL_TYPES: MealTypeOption[] = [
-  { type: 'breakfast', label: 'Breakfast', icon: 'cat', color: '#f59e0b' },
-  { type: 'lunch', label: 'Lunch', icon: 'fish', color: '#10b981' },
-  { type: 'dinner', label: 'Dinner', icon: 'weather-night', color: '#818cf8' },
-  { type: 'snack', label: 'Snack', icon: 'paw', color: '#06b6d4' },
-];
-
+/** A logged meal: see it, log it again today, ask Sia, edit or delete. */
 export function MealDetailModal({ meal, visible, onClose, onAskCoach, onDuplicate }: MealDetailModalProps) {
   const { updateMeal, deleteMeal, duplicateMeal } = useMealStore(
     useShallow((s) => ({ updateMeal: s.updateMeal, deleteMeal: s.deleteMeal, duplicateMeal: s.duplicateMeal }))
   );
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [mealType, setMealType] = useState<MealType>('snack');
-  const [calories, setCalories] = useState('0');
-  const [protein, setProtein] = useState('0');
-  const [carbs, setCarbs] = useState('0');
-  const [fat, setFat] = useState('0');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isDuplicating, setIsDuplicating] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const imageSource = useMealImageSource(meal?.image_url);
+  const [imageError, setImageError] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState(false);
+  const [mealType, setMealType] = useState<MealType>('snack');
+  const [values, setValues] = useState<Record<FieldKey, string>>({ calories: '0', protein: '0', carbs: '0', fat: '0' });
+  const [busy, setBusy] = useState<null | 'save' | 'delete' | 'again'>(null);
 
   useEffect(() => {
-    if (meal) {
-      setName(meal.name || '');
-      setMealType(meal.meal_type || 'snack');
-      setCalories(String(meal.calories ?? 0));
-      setProtein(String(meal.protein_g ?? 0));
-      setCarbs(String(meal.carbs_g ?? 0));
-      setFat(String(meal.fat_g ?? 0));
-      setIsEditing(false);
-      setImageError(false);
-    }
+    if (!meal) return;
+    setName(meal.name || '');
+    setMealType(meal.meal_type || 'snack');
+    setValues({
+      calories: String(Math.round(meal.calories ?? 0)),
+      protein: String(Math.round(meal.protein_g ?? 0)),
+      carbs: String(Math.round(meal.carbs_g ?? 0)),
+      fat: String(Math.round(meal.fat_g ?? 0)),
+    });
+    setEditing(false);
+    setNameError(false);
+    setImageError(false);
   }, [meal]);
 
   if (!meal) return null;
 
-  const handleSaveEdit = async () => {
+  const num = (k: FieldKey) => Math.max(0, parseFloat(values[k].replace(',', '.')) || 0);
+
+  const save = async () => {
     if (!name.trim()) {
       hapticFeedback.error();
-      Alert.alert('Meal Name', 'Please enter a name for this meal.');
+      setNameError(true);
       return;
     }
-
     try {
-      setIsSaving(true);
+      setBusy('save');
       await updateMeal(meal.id, {
         name: name.trim(),
         meal_type: mealType,
-        calories: Math.max(0, parseFloat(calories) || 0),
-        protein_g: Math.max(0, parseFloat(protein) || 0),
-        carbs_g: Math.max(0, parseFloat(carbs) || 0),
-        fat_g: Math.max(0, parseFloat(fat) || 0),
+        calories: num('calories'),
+        protein_g: num('protein'),
+        carbs_g: num('carbs'),
+        fat_g: num('fat'),
       });
-
       hapticFeedback.success();
-      setIsEditing(false);
       onClose();
     } catch (err: any) {
       hapticFeedback.error();
-      Alert.alert('Update Failed', err.message || 'Could not update meal.');
+      Alert.alert("Couldn't save your changes", err?.message || 'Please try again.');
     } finally {
-      setIsSaving(false);
+      setBusy(null);
     }
   };
 
-  const handleDelete = () => {
+  const remove = () => {
     hapticFeedback.medium();
-    Alert.alert(
-      'Delete Meal',
-      `Are you sure you want to delete "${meal.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsDeleting(true);
-              await deleteMeal(meal.id);
-              hapticFeedback.success();
-              onClose();
-            } catch (err: any) {
-              hapticFeedback.error();
-              Alert.alert('Delete Failed', err.message || 'Could not delete meal.');
-            } finally {
-              setIsDeleting(false);
-            }
-          },
+    Alert.alert('Delete this meal?', `"${meal.name}" will be removed from that day's totals.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setBusy('delete');
+            await deleteMeal(meal.id);
+            hapticFeedback.success();
+            onClose();
+          } catch (err: any) {
+            hapticFeedback.error();
+            Alert.alert("Couldn't delete this meal", err?.message || 'Please try again.');
+          } finally {
+            setBusy(null);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleDuplicate = async () => {
-    if (!meal) return;
+  const logAgain = async () => {
     try {
-      setIsDuplicating(true);
-      hapticFeedback.pounce();
+      setBusy('again');
+      hapticFeedback.success();
       await duplicateMeal(meal);
-      if (onDuplicate) {
-        onDuplicate(meal);
-      }
+      onDuplicate?.(meal);
       onClose();
     } catch (err: any) {
       hapticFeedback.error();
-      Alert.alert('Re-Pounce Failed', err.message || 'Could not duplicate meal.');
+      Alert.alert("Couldn't log this again", err?.message || 'Please try again.');
     } finally {
-      setIsDuplicating(false);
+      setBusy(null);
     }
   };
 
-  const formattedTime = new Date(meal.logged_at).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const time = new Date(meal.logged_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const items = Array.isArray(meal.food_items) ? meal.food_items : [];
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 justify-end bg-black/75">
-        <View className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl max-h-[88%] p-6">
-          {/* Header Bar */}
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-2">
-              <View className="bg-zinc-800 px-3 py-1 rounded-full flex-row items-center gap-1.5">
-                <Ionicons name="time-outline" size={13} color="#a1a1aa" />
-                <Text className="text-zinc-300 text-xs font-semibold">{formattedTime}</Text>
-              </View>
-              <View className="bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full flex-row items-center gap-1.5">
-                <MaterialCommunityIcons
-                  name={MEAL_TYPES.find((t) => t.type === (meal.meal_type || 'snack'))?.icon || 'paw'}
-                  size={12}
-                  color="#10b981"
-                />
-                <Text className="text-emerald-400 text-xs font-bold">
-                  {MEAL_TYPES.find((t) => t.type === (meal.meal_type || 'snack'))?.label || 'Catch'}
-                </Text>
-              </View>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.wrap}>
+        <Tap style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet} accessibilityViewIsModal>
+          <View style={styles.header}>
+            <View style={styles.flex}>
+              <Text style={styles.kicker}>
+                {mealTypeLabel(meal.meal_type || 'snack')} · {time}
+              </Text>
+              <Text style={styles.title} accessibilityRole="header" numberOfLines={2}>
+                {editing ? 'Edit meal' : meal.name}
+              </Text>
             </View>
-
-            <View className="flex-row items-center gap-2">
-              {!isEditing && (
-                <TouchableOpacity
-                  onPress={() => {
-                    hapticFeedback.light();
-                    setIsEditing(true);
-                  }}
-                  className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
-                >
-                  <Ionicons name="pencil" size={14} color="#e4e4e7" />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() => {
-                  hapticFeedback.light();
-                  onClose();
-                }}
-                className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
-              >
-                <Ionicons name="close" size={17} color="#e4e4e7" />
-              </TouchableOpacity>
-            </View>
+            <Tap onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
+              <Ionicons name="close" size={22} color={palette.text} />
+            </Tap>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Meal Photo */}
-            {imageSource && !imageError ? (
-              <View className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
-                <Image
-                  source={imageSource}
-                  style={{ width: '100%', height: 192 }}
-                  contentFit="cover"
-                  transition={150}
-                  accessibilityLabel={`Photo of ${meal.name}`}
-                  onError={() => setImageError(true)}
-                />
-              </View>
-            ) : null}
+          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+            {imageSource && !imageError && !editing && (
+              <Image
+                source={imageSource}
+                style={styles.photo}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors
+                onError={() => setImageError(true)}
+              />
+            )}
 
-            {/* Meal Name */}
-            {isEditing ? (
-              <View className="mb-4">
-                <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                  Meal Name
-                </Text>
+            {editing ? (
+              <>
+                <Text style={styles.label}>Name</Text>
                 <TextInput
                   value={name}
-                  onChangeText={setName}
-                  className="bg-zinc-950 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-base font-semibold"
+                  onChangeText={(t) => {
+                    setName(t);
+                    if (t.trim()) setNameError(false);
+                  }}
+                  accessibilityLabel="Meal name"
+                  style={[styles.input, nameError && styles.inputError]}
                 />
-              </View>
-            ) : (
-              <Text
-                style={{ fontFamily: 'Outfit_700Bold' }}
-                className="text-2xl text-white mb-4"
-              >
-                {meal.name}
-              </Text>
-            )}
+                {nameError && <Text style={styles.error}>Give it a name</Text>}
 
-            {/* Meal Type Switcher (Edit Mode) */}
-            {isEditing && (
-              <View className="mb-4">
-                <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                  Category
-                </Text>
-                <View className="flex-row gap-2">
-                  {MEAL_TYPES.map((t) => {
-                    const isSelected = mealType === t.type;
-                    return (
-                      <TouchableOpacity
-                        key={t.type}
-                        onPress={() => {
-                          hapticFeedback.selection();
-                          setMealType(t.type);
-                        }}
-                        className={`flex-1 py-2 rounded-xl border items-center ${
-                          isSelected
-                            ? 'bg-emerald-500/20 border-emerald-500'
-                            : 'bg-zinc-950 border-zinc-800'
-                        }`}
-                      >
-                        <MaterialCommunityIcons
-                          name={t.icon}
-                          size={15}
-                          color={isSelected ? '#10b981' : '#71717a'}
-                        />
-                        <Text
-                          style={{ fontFamily: 'Outfit_700Bold' }}
-                          className={`text-[10px] mt-0.5 ${
-                            isSelected ? 'text-emerald-400' : 'text-zinc-400'
-                          }`}
-                        >
-                          {t.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Calories & Macros Grid */}
-            <View className="bg-zinc-950/90 border border-zinc-800/90 rounded-2xl p-4 mb-4">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">
-                  Sia Nutritional Calibration
-                </Text>
-                <View className="bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                  <Text className="text-emerald-400 text-[9px] font-bold uppercase">Verified</Text>
-                </View>
-              </View>
-
-              {isEditing ? (
-                <View className="gap-3">
-                  <View className="flex-row items-center justify-between border-b border-zinc-800/80 pb-2">
-                    <Text className="text-white font-medium text-sm">Calories (kcal)</Text>
-                    <TextInput
-                      value={calories}
-                      onChangeText={setCalories}
-                      keyboardType="numeric"
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="bg-zinc-900 border border-zinc-700 text-emerald-400 font-bold px-3 py-1 rounded-lg text-right w-24"
-                    />
-                  </View>
-
-                  <View className="flex-row items-center justify-between border-b border-zinc-800/80 pb-2">
-                    <Text className="text-blue-400 font-medium text-sm">Protein (g)</Text>
-                    <TextInput
-                      value={protein}
-                      onChangeText={setProtein}
-                      keyboardType="numeric"
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="bg-zinc-900 border border-zinc-700 text-blue-400 font-bold px-3 py-1 rounded-lg text-right w-24"
-                    />
-                  </View>
-
-                  <View className="flex-row items-center justify-between border-b border-zinc-800/80 pb-2">
-                    <Text className="text-amber-400 font-medium text-sm">Carbs (g)</Text>
-                    <TextInput
-                      value={carbs}
-                      onChangeText={setCarbs}
-                      keyboardType="numeric"
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="bg-zinc-900 border border-zinc-700 text-amber-400 font-bold px-3 py-1 rounded-lg text-right w-24"
-                    />
-                  </View>
-
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-rose-400 font-medium text-sm">Fat (g)</Text>
-                    <TextInput
-                      value={fat}
-                      onChangeText={setFat}
-                      keyboardType="numeric"
-                      style={{ fontFamily: 'Outfit_700Bold' }}
-                      className="bg-zinc-900 border border-zinc-700 text-rose-400 font-bold px-3 py-1 rounded-lg text-right w-24"
-                    />
-                  </View>
-                </View>
-              ) : (
-                <View>
-                  <View className="flex-row items-center justify-between">
-                    <View className="items-center flex-1">
-                      <Text
-                        style={{ fontFamily: 'Outfit_900Black' }}
-                        className="text-emerald-400 text-xl"
-                      >
-                        {Math.round(meal.calories)}
-                      </Text>
-                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                        Calories
-                      </Text>
-                    </View>
-
-                    <View className="w-px h-8 bg-zinc-800" />
-
-                    <View className="items-center flex-1">
-                      <Text
-                        style={{ fontFamily: 'Outfit_900Black' }}
-                        className="text-blue-400 text-xl"
-                      >
-                        {Math.round(meal.protein_g)}g
-                      </Text>
-                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                        Protein
-                      </Text>
-                    </View>
-
-                    <View className="w-px h-8 bg-zinc-800" />
-
-                    <View className="items-center flex-1">
-                      <Text
-                        style={{ fontFamily: 'Outfit_900Black' }}
-                        className="text-amber-400 text-xl"
-                      >
-                        {Math.round(meal.carbs_g)}g
-                      </Text>
-                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                        Carbs
-                      </Text>
-                    </View>
-
-                    <View className="w-px h-8 bg-zinc-800" />
-
-                    <View className="items-center flex-1">
-                      <Text
-                        style={{ fontFamily: 'Outfit_900Black' }}
-                        className="text-rose-400 text-xl"
-                      >
-                        {Math.round(meal.fat_g)}g
-                      </Text>
-                      <Text className="text-zinc-500 text-[10px] font-bold uppercase mt-0.5">
-                        Fat
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* Food items tags */}
-            {meal.food_items && meal.food_items.length > 0 && (
-              <View className="mb-6">
-                <Text className="text-zinc-400 text-[10px] font-bold uppercase mb-2 tracking-wider">
-                  Ingredients & Items
-                </Text>
-                <View className="flex-row flex-wrap gap-1.5">
-                  {meal.food_items.map((item, idx) => (
-                    <View
-                      key={idx}
-                      className="bg-zinc-950 border border-zinc-800 px-3 py-1.5 rounded-xl"
+                <Text style={styles.label}>Meal</Text>
+                <View style={styles.chips} accessibilityRole="radiogroup">
+                  {MEAL_TYPES.map((m) => (
+                    <Tap
+                      key={m.type}
+                      onPress={() => setMealType(m.type)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: mealType === m.type }}
+                      style={[styles.chip, mealType === m.type && styles.chipOn]}
                     >
-                      <Text className="text-zinc-300 text-xs font-medium">{item}</Text>
+                      <Text style={[styles.chipText, mealType === m.type && styles.chipTextOn]}>{m.label}</Text>
+                    </Tap>
+                  ))}
+                </View>
+
+                <View style={styles.fields}>
+                  {FIELDS.map((f) => (
+                    <View key={f.key} style={styles.fieldWrap}>
+                      <Text style={styles.label}>{f.label}</Text>
+                      <View style={styles.field}>
+                        <TextInput
+                          value={values[f.key]}
+                          onChangeText={(t) => setValues((v) => ({ ...v, [f.key]: t }))}
+                          keyboardType="decimal-pad"
+                          accessibilityLabel={`${f.label} in ${f.unit === 'g' ? 'grams' : 'calories'}`}
+                          style={styles.fieldInput}
+                          selectTextOnFocus
+                        />
+                        <Text style={styles.unit}>{f.unit}</Text>
+                      </View>
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
-
-            {/* Action Buttons */}
-            {isEditing ? (
-              <View className="flex-row gap-3 mb-6">
-                <TouchableOpacity
-                  onPress={() => {
-                    hapticFeedback.light();
-                    setIsEditing(false);
-                  }}
-                  className="flex-1 bg-zinc-800 py-3.5 rounded-2xl items-center"
-                >
-                  <Text className="text-zinc-300 font-bold text-sm">Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleSaveEdit}
-                  disabled={isSaving}
-                  className="flex-1 bg-emerald-500 py-3.5 rounded-2xl items-center"
-                >
-                  {isSaving ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <Text className="text-white font-bold text-sm">Save Changes</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              </>
             ) : (
-              <View className="gap-3 mb-6">
-                {onAskCoach && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      hapticFeedback.medium();
-                      onAskCoach(meal);
-                    }}
-                    activeOpacity={0.8}
-                    className="bg-zinc-950 border border-emerald-500/35 p-3.5 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10"
-                  >
-                    <View className="flex-row items-center gap-2.5">
-                      <View className="w-8 h-8 rounded-xl bg-emerald-500/20 items-center justify-center border border-emerald-500/40">
-                        <Ionicons name="chatbubble-ellipses" size={15} color="#10b981" />
-                      </View>
-                      <View>
-                        <Text
-                          style={{ fontFamily: 'Outfit_700Bold' }}
-                          className="text-white text-xs"
-                        >
-                          Ask Sia About This Meal
-                        </Text>
-                        <Text className="text-zinc-400 text-[10px]">
-                          Get instant AI coach tactical breakdown
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="#10b981" />
-                  </TouchableOpacity>
-                )}
-
-                {/* 1-Tap Duplicate to Today */}
-                <TouchableOpacity
-                  onPress={handleDuplicate}
-                  disabled={isDuplicating}
-                  activeOpacity={0.8}
-                  className="bg-zinc-950 border border-zinc-800/90 p-3.5 rounded-2xl flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center gap-2.5">
-                    <View className="w-8 h-8 rounded-xl bg-emerald-500/15 items-center justify-center border border-emerald-500/30">
-                      <MaterialCommunityIcons name="repeat" size={16} color="#10b981" />
-                    </View>
-                    <View>
-                      <Text
-                        style={{ fontFamily: 'Outfit_700Bold' }}
-                        className="text-white text-xs"
-                      >
-                        Duplicate to Today
-                      </Text>
-                      <Text className="text-zinc-400 text-[10px]">
-                        Copy this meal into today's log
-                      </Text>
-                    </View>
+              <>
+                <View style={styles.tiles}>
+                  <View style={[styles.tile, styles.tileDark]}>
+                    <Text style={[styles.tileValue, styles.tileValueDark]}>{Math.round(meal.calories)}</Text>
+                    <Text style={[styles.tileLabel, styles.tileLabelDark]}>kcal</Text>
                   </View>
-                  {isDuplicating ? (
-                    <ActivityIndicator color="#10b981" size="small" />
-                  ) : (
-                    <Ionicons name="chevron-forward" size={16} color="#71717a" />
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDelete}
-                  disabled={isDeleting}
-                  className="bg-rose-500/10 border border-rose-500/30 py-3.5 rounded-2xl flex-row items-center justify-center gap-2"
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator color="#ef4444" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="trash-outline" size={16} color="#fb7185" />
-                      <Text className="text-rose-400 font-bold text-sm">Delete Meal</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  {[
+                    [meal.protein_g, 'protein'],
+                    [meal.carbs_g, 'carbs'],
+                    [meal.fat_g, 'fat'],
+                  ].map(([v, l]) => (
+                    <View key={l} style={styles.tile}>
+                      <Text style={styles.tileValue}>{Math.round(Number(v) || 0)} g</Text>
+                      <Text style={styles.tileLabel}>{l}</Text>
+                    </View>
+                  ))}
+                </View>
+                {items.length > 0 && (
+                  <View style={styles.chips}>
+                    {items.map((item, i) => (
+                      <View key={`${item}-${i}`} style={styles.item}>
+                        <Text style={styles.itemText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
             )}
           </ScrollView>
+
+          {editing ? (
+            <View style={styles.actionsRow}>
+              <Tap onPress={() => setEditing(false)} accessibilityRole="button" style={({ pressed }) => [styles.secondary, styles.flex, pressed && styles.pressed]}>
+                <Text style={styles.secondaryText}>Cancel</Text>
+              </Tap>
+              <Tap onPress={save} disabled={busy !== null} accessibilityRole="button" style={({ pressed }) => [styles.primary, styles.flex, pressed && styles.pressed]}>
+                {busy === 'save' ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.primaryText}>Save</Text>}
+              </Tap>
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <Tap onPress={logAgain} disabled={busy !== null} accessibilityRole="button" style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
+                {busy === 'again' ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.primaryText}>Log again today</Text>}
+              </Tap>
+              <View style={styles.actionsRow}>
+                {onAskCoach && (
+                  <Tap onPress={() => onAskCoach(meal)} accessibilityRole="button" style={({ pressed }) => [styles.secondary, styles.flex, pressed && styles.pressed]}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={18} color={palette.text} />
+                    <Text style={styles.secondaryText}>Ask Sia</Text>
+                  </Tap>
+                )}
+                <Tap onPress={() => setEditing(true)} accessibilityRole="button" style={({ pressed }) => [styles.secondary, styles.flex, pressed && styles.pressed]}>
+                  <Ionicons name="pencil" size={18} color={palette.text} />
+                  <Text style={styles.secondaryText}>Edit</Text>
+                </Tap>
+              </View>
+              <Tap onPress={remove} disabled={busy !== null} accessibilityRole="button" style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
+                {busy === 'delete' ? <ActivityIndicator color={palette.over} /> : <Text style={styles.deleteText}>Delete meal</Text>}
+              </Tap>
+            </View>
+          )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  wrap: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: palette.pointDeep, opacity: 0.6 },
+  sheet: {
+    maxHeight: '90%',
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[6],
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: palette.bg,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: space[2] },
+  kicker: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted },
+  title: { fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  body: { paddingBottom: space[3] },
+  photo: { width: '100%', height: 180, borderRadius: radius.card, marginBottom: space[3], backgroundColor: palette.line },
+  tiles: { flexDirection: 'row', gap: space[2], marginTop: space[1] },
+  tile: { flex: 1, paddingVertical: space[3], alignItems: 'center', borderRadius: radius.card, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  tileDark: { backgroundColor: palette.point, borderColor: palette.point },
+  tileValue: { fontFamily: type.displayBold, fontSize: type.size.section, color: palette.text, fontVariant: ['tabular-nums'] },
+  tileValueDark: { color: palette.pointText },
+  tileLabel: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted },
+  tileLabelDark: { color: palette.pointMuted },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[3] },
+  item: { minHeight: 32, justifyContent: 'center', paddingHorizontal: space[3], borderRadius: radius.full, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  itemText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text },
+  label: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginTop: space[3], marginBottom: space[1] },
+  input: {
+    minHeight: 52,
+    paddingHorizontal: space[4],
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    fontFamily: type.bodySemibold,
+    fontSize: type.size.body,
+    color: palette.text,
+  },
+  inputError: { borderColor: palette.over },
+  error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: space[4], borderRadius: radius.full, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  chipOn: { backgroundColor: palette.point, borderColor: palette.point },
+  chipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
+  chipTextOn: { color: palette.pointText },
+  fields: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  fieldWrap: { width: '48%', flexGrow: 1 },
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 52,
+    paddingHorizontal: space[3],
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+  },
+  fieldInput: { flex: 1, fontFamily: type.displayBold, fontSize: type.size.body, color: palette.text },
+  unit: { fontFamily: type.body, fontSize: type.size.caption, color: palette.textMuted },
+  actions: { gap: space[2], marginTop: space[2] },
+  actionsRow: { flexDirection: 'row', gap: space[2], marginTop: space[2] },
+  primary: { minHeight: 52, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
+  primaryText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+  secondary: {
+    flexDirection: 'row',
+    gap: space[2],
+    minHeight: 52,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  secondaryText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
+  delete: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  deleteText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.over },
+});

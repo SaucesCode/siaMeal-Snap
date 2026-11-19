@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { palette, radius, space, type } from '../theme';
 
 export interface ToastConfig {
   title: string;
@@ -67,92 +68,52 @@ export function ToastBanner({ toast, onDismiss, duration = 2400 }: ToastBannerPr
 
   if (!toast) return null;
 
-  const getTheme = () => {
-    switch (toast.type) {
-      case 'water':
-        return {
-          icon: toast.icon || 'water',
-          iconColor: toast.iconColor || '#06b6d4',
-          badgeBg: toast.badgeBg || 'bg-cyan-500/15 border border-cyan-500/30',
-          borderColor: 'border-cyan-500/30',
-        };
-      case 'warning':
-        return {
-          icon: toast.icon || 'alert-circle',
-          iconColor: toast.iconColor || '#fb7185',
-          badgeBg: toast.badgeBg || 'bg-rose-500/15 border border-rose-500/30',
-          borderColor: 'border-rose-500/30',
-        };
-      case 'info':
-        return {
-          icon: toast.icon || 'information-circle',
-          iconColor: toast.iconColor || '#818cf8',
-          badgeBg: toast.badgeBg || 'bg-indigo-500/15 border border-indigo-500/30',
-          borderColor: 'border-indigo-500/30',
-        };
-      default:
-        return {
-          icon: toast.icon || 'checkmark-circle',
-          iconColor: toast.iconColor || '#10b981',
-          badgeBg: toast.badgeBg || 'bg-emerald-500/15 border border-emerald-500/30',
-          borderColor: 'border-emerald-500/30',
-        };
-    }
-  };
-
-  const theme = getTheme();
+  const icon = toast.icon || ICONS[toast.type ?? 'success'];
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.container,
-        {
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-    >
-      <View
-        className={`bg-zinc-900/95 ${theme.borderColor} border rounded-2xl px-4 py-3 flex-row items-center gap-3 shadow-2xl shadow-black`}
-        style={styles.cardShadow}
-      >
-        <View className={`w-9 h-9 rounded-xl ${theme.badgeBg} items-center justify-center`}>
-          <Ionicons name={theme.icon as any} size={18} color={theme.iconColor} />
-        </View>
-
-        <View className="flex-1 mr-1">
-          <Text
-            style={{ fontFamily: 'Outfit_700Bold' }}
-            className="text-white text-sm"
-            numberOfLines={1}
-          >
+    <Animated.View pointerEvents="none" style={[styles.container, { transform: [{ translateY }], opacity }]} accessibilityLiveRegion="polite">
+      <View style={styles.card}>
+        <Ionicons name={icon as any} size={20} color={toast.type === 'warning' ? palette.carbs : palette.leaf} />
+        <View style={styles.text}>
+          <Text style={styles.title} numberOfLines={1}>
             {toast.title}
           </Text>
-          {toast.message && (
-            <Text className="text-zinc-400 text-xs font-medium mt-0.5" numberOfLines={1}>
+          {toast.message ? (
+            <Text style={styles.message} numberOfLines={1}>
               {toast.message}
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
     </Animated.View>
   );
 }
 
+const ICONS: Record<NonNullable<ToastConfig['type']>, string> = {
+  success: 'checkmark-circle',
+  water: 'water',
+  info: 'information-circle',
+  warning: 'alert-circle',
+};
+
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    top: 0,
-    zIndex: 9999,
-    elevation: 9999,
+  container: { position: 'absolute', left: space[4], right: space[4], top: 0, zIndex: 9999, elevation: 9999 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    minHeight: 56,
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
+    borderRadius: radius.card,
+    backgroundColor: palette.point,
+    shadowColor: palette.pointDeep,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  cardShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-  },
+  text: { flex: 1 },
+  title: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.pointText },
+  message: { fontFamily: type.body, fontSize: type.size.caption, color: palette.pointMuted, marginTop: 2 },
 });

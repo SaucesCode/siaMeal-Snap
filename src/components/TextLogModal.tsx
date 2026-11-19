@@ -1,19 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { analyzeMealText, NotFoodError } from '../services/aiService';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
 import { MealType } from '../types';
 import { Sia } from './sia';
+import { Tap } from './Tap';
+import { palette, radius, space, type } from '../theme';
 
 interface TextLogModalProps {
   visible: boolean;
@@ -22,49 +16,38 @@ interface TextLogModalProps {
   initialMealType?: MealType;
 }
 
-const QUICK_SUGGESTIONS = [
-  { label: 'Eggs & sourdough toast', text: '2 scrambled eggs with butter and 2 slices of sourdough toast' },
-  { label: 'Chicken & rice bowl', text: '200g grilled chicken breast with 1 cup white rice and steamed broccoli' },
-  { label: 'Whey protein shake', text: '1 scoop whey protein with 300ml almond milk and a banana' },
-  { label: 'Salmon & avocado salad', text: 'Grilled salmon fillet with mixed greens, avocado, and olive oil' },
+const EXAMPLES = [
+  { label: 'Chicken adobo & rice', text: 'Chicken adobo, 2 pieces, with 1 cup of white rice' },
+  { label: 'Pandesal & eggs', text: '2 pandesal, 2 fried eggs and a cup of coffee with milk' },
+  { label: 'Sinigang & rice', text: 'A bowl of sinigang na baboy with 1 cup of rice' },
+  { label: 'Banana & milk', text: '1 banana and a glass of milk' },
 ];
 
-export function TextLogModal({
-  visible,
-  onClose,
-  onSuccess,
-  initialMealType = 'snack',
-}: TextLogModalProps) {
+/** Type what you ate; Sia works out calories and macros, then Review opens. */
+export function TextLogModal({ visible, onClose, onSuccess, initialMealType = 'snack' }: TextLogModalProps) {
   const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const textInputRef = useRef<any>(null);
-
-  const setDraftMeal = useMealStore((state) => state.setDraftMeal);
+  const inputRef = useRef<React.ComponentRef<typeof TextInput> | null>(null);
+  const setDraftMeal = useMealStore((s) => s.setDraftMeal);
 
   useEffect(() => {
-    if (visible) {
-      setTimeout(() => textInputRef.current?.focus(), 250);
-    }
+    if (visible) setTimeout(() => inputRef.current?.focus(), 250);
   }, [visible]);
 
-  const handleAnalyze = async (overrideText?: string) => {
+  const analyze = async () => {
     if (isAnalyzing) return;
-
-    const description = (overrideText || text).trim();
+    const description = text.trim();
     if (!description) {
       hapticFeedback.error();
-      Alert.alert(
-        'Empty Description',
-        'Please type what you ate (e.g., "Two scrambled eggs, sourdough toast, and black coffee").'
-      );
+      setError('Type what you ate first, like "chicken adobo with rice".');
       return;
     }
-
     try {
       hapticFeedback.medium();
       setIsAnalyzing(true);
+      setError(null);
       const result = await analyzeMealText(description);
-
       setDraftMeal({
         name: result.meal_name || description,
         meal_type: initialMealType,
@@ -80,15 +63,15 @@ export function TextLogModal({
         dietary_tags: result.dietary_tags,
         feline_verdict: result.feline_verdict,
       });
-
       hapticFeedback.success();
       setText('');
       onSuccess();
-    } catch (error: any) {
+    } catch (err: any) {
       hapticFeedback.error();
-      Alert.alert(
-        error instanceof NotFoodError ? "That doesn't sound like food" : "Couldn't read that meal",
-        error?.message || 'Please try again, or log it manually.'
+      setError(
+        err instanceof NotFoodError
+          ? `${err.message} Try describing a meal or drink.`
+          : `Couldn't read that meal. ${err?.message || 'Please try again.'}`
       );
     } finally {
       setIsAnalyzing(false);
@@ -98,110 +81,80 @@ export function TextLogModal({
   if (!visible) return null;
 
   return (
-    <View className="absolute inset-0 z-50 justify-end bg-black/80">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="w-full justify-end"
-      >
-        <View className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-10 shadow-2xl">
-          {/* Header */}
-          <View className="flex-row items-center justify-between mb-3.5">
-            <View className="flex-row items-center gap-2.5">
-              <View className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 items-center justify-center">
-                <Ionicons name="sparkles-outline" size={16} color="#c084fc" />
-              </View>
-              <View>
-                <Text
-                  style={{ fontFamily: 'Outfit_700Bold' }}
-                  className="text-white text-lg"
-                >
-                  Log Meal by Text
-                </Text>
-                <Text className="text-zinc-500 text-xs font-semibold">
-                  Natural language nutrition engine
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
+    <View style={styles.overlay}>
+      <Tap style={styles.backdrop} onPress={() => !isAnalyzing && onClose()} accessibilityLabel="Close" />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={styles.sheet} accessibilityViewIsModal>
+          <View style={styles.header}>
+            <Text style={styles.title} accessibilityRole="header">
+              Type what you ate
+            </Text>
+            <Tap
               onPress={() => {
                 hapticFeedback.light();
                 onClose();
               }}
               disabled={isAnalyzing}
-              className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={({ pressed }) => [styles.close, pressed && styles.pressed]}
             >
-              <Ionicons name="close" size={16} color="#a1a1aa" />
-            </TouchableOpacity>
+              <Ionicons name="close" size={22} color={palette.text} />
+            </Tap>
           </View>
 
-          <Text className="text-zinc-400 text-xs mb-3.5 leading-4">
-            Describe what you ate in natural language. The AI Vision & Text engine calculates portions and macros automatically.
-          </Text>
-
           {isAnalyzing ? (
-            <View className="py-4 items-center justify-center bg-zinc-950/80 border border-emerald-500/20 rounded-2xl">
-              <Sia expression="thinking" size={104} />
-              <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base text-center mt-3">
-                Reading your meal…
-              </Text>
-              <Text className="text-zinc-400 text-xs text-center mt-1">Usually takes a few seconds.</Text>
+            <View style={styles.busy} accessibilityLiveRegion="polite">
+              <Sia expression="thinking" size={96} />
+              <Text style={styles.busyTitle}>Reading your meal…</Text>
+              <Text style={styles.busySub}>Usually takes a few seconds.</Text>
             </View>
           ) : (
             <>
-              {/* Text Input Area */}
+              <Text style={styles.helper}>Include amounts if you know them. Sia works out the calories and macros.</Text>
               <TextInput
-                ref={textInputRef}
+                ref={inputRef}
                 value={text}
-                onChangeText={setText}
-                placeholder="e.g. 200g grilled salmon with steamed broccoli and 1 cup of brown rice"
-                placeholderTextColor="#52525b"
+                onChangeText={(t) => {
+                  setText(t);
+                  if (error) setError(null);
+                }}
+                placeholder="e.g. 2 pieces chicken adobo with 1 cup of rice"
+                placeholderTextColor={palette.textMuted}
                 multiline
-                numberOfLines={4}
+                maxLength={300}
                 textAlignVertical="top"
-                className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl p-4 text-base min-h-[110px] mb-3.5 font-medium"
-                editable={!isAnalyzing}
+                accessibilityLabel="What you ate"
+                style={[styles.input, error ? styles.inputError : null]}
               />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              {/* 1-Tap Quick Suggestions */}
-              <View className="mb-4">
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-2">
-                  Quick Suggestions (Tap to Fill)
-                </Text>
-                <View className="flex-row flex-wrap gap-1.5">
-                  {QUICK_SUGGESTIONS.map((item, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => {
-                        hapticFeedback.selection();
-                        setText(item.text);
-                      }}
-                      className="bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5 rounded-xl"
-                    >
-                      <Text className="text-zinc-300 text-[11px] font-medium">
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              <Text style={styles.examplesLabel}>Examples</Text>
+              <View style={styles.examples}>
+                {EXAMPLES.map((e) => (
+                  <Tap
+                    key={e.label}
+                    onPress={() => {
+                      hapticFeedback.selection();
+                      setText(e.text);
+                      setError(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityHint="Fills in this example"
+                    style={({ pressed }) => [styles.example, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.exampleText}>{e.label}</Text>
+                  </Tap>
+                ))}
               </View>
 
-              {/* Action Button */}
-              <TouchableOpacity
-                onPress={() => handleAnalyze()}
-                disabled={isAnalyzing || !text.trim()}
-                activeOpacity={0.8}
-                className={`w-full rounded-2xl py-4 flex-row items-center justify-center gap-2 ${
-                  text.trim()
-                    ? 'bg-emerald-500 shadow-lg shadow-emerald-500/25'
-                    : 'bg-zinc-800 border border-zinc-700 opacity-60'
-                }`}
+              <Tap
+                onPress={analyze}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.submit, pressed && styles.pressed]}
               >
-                <Ionicons name="flash" size={18} color="#ffffff" />
-                <Text numberOfLines={1} className="text-white font-bold text-base">
-                  Analyze & Calculate Macros
-                </Text>
-              </TouchableOpacity>
+                <Text style={styles.submitText}>Count it</Text>
+              </Tap>
             </>
           )}
         </View>
@@ -209,3 +162,52 @@ export function TextLogModal({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  pressed: { opacity: 0.7 },
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 50, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: palette.pointDeep, opacity: 0.6 },
+  sheet: {
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[8],
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: palette.bg,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: space[1] },
+  title: { flex: 1, fontFamily: type.display, fontSize: type.size.section + 3, color: palette.text },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  helper: { fontFamily: type.body, fontSize: type.size.secondary, lineHeight: 19, color: palette.textMuted, marginBottom: space[3] },
+  input: {
+    minHeight: 110,
+    padding: space[4],
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    fontFamily: type.bodySemibold,
+    fontSize: type.size.body,
+    lineHeight: 21,
+    color: palette.text,
+  },
+  inputError: { borderColor: palette.over },
+  error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, lineHeight: 17, color: palette.over, marginTop: space[2] },
+  examplesLabel: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginTop: space[4], marginBottom: space[2] },
+  examples: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  example: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: space[3],
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+  },
+  exampleText: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.text },
+  submit: { minHeight: 54, marginTop: space[6], borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
+  submitText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+  busy: { alignItems: 'center', paddingVertical: space[6] },
+  busyTitle: { fontFamily: type.display, fontSize: type.size.section, color: palette.text, marginTop: space[3] },
+  busySub: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted, marginTop: space[1] },
+});

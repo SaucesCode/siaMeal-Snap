@@ -11,6 +11,7 @@ import { useCoachStore } from '../stores/coachStore';
 import { useMealStore, selectTodayMeals } from '../stores/mealStore';
 import { buildCoachContext } from '../utils/coachContext';
 import { LaunchWink } from '../components/sia/LaunchWink';
+import { palette } from '../theme';
 import { AiNutritionCoachModal } from '../components/AiNutritionCoachModal';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -96,7 +97,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#09090b' },
+            contentStyle: { backgroundColor: palette.bg },
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -130,6 +131,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#09090b',
+    backgroundColor: palette.bg,
   },
 });

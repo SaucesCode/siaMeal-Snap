@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '../../stores/authStore';
 import { useMealStore, getTodayString, selectTodayMeals } from '../../stores/mealStore';
@@ -16,7 +15,7 @@ import { MealItemCard } from '../../components/MealItemCard';
 import { MealDetailModal } from '../../components/MealDetailModal';
 import { TextLogModal } from '../../components/TextLogModal';
 import { QuickLogActionSheet } from '../../components/QuickLogActionSheet';
-import { RePounceSheet } from '../../components/RePounceSheet';
+import { LogAgainSheet } from '../../components/LogAgainSheet';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { NextMealIdea } from '../../components/NextMealIdea';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionBanner';
@@ -31,32 +30,19 @@ import { MEAL_TYPES } from '../../constants/mealTypes';
 import { Meal, MealType } from '../../types';
 import { hapticFeedback } from '../../utils/haptics';
 import { calorieSummary, greetingName } from '../../utils/todaySummary';
+import { getDefaultMealType } from '../../utils/nutrition';
 import { palette, radius, space, type } from '../../theme';
 import { Tap } from '../../components/Tap';
 
-type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-/** What the (still dark) quick-log and log-again sheets need to title themselves. */
+/** The meal a "+" sheet is adding to. */
 interface SheetCategory {
   type: MealType;
   title: string;
-  icon: MciName;
 }
-
-const SHEET_ICONS: Record<MealType, MciName> = {
-  breakfast: 'weather-sunny',
-  lunch: 'silverware-fork-knife',
-  dinner: 'weather-night',
-  snack: 'food-apple-outline',
-};
-
-const SHEET_ACCENT = palette.leaf;
-const SHEET_BADGE = 'bg-leaf/10 border-leaf/30';
 
 const sheetCategory = (t: MealType): SheetCategory => ({
   type: t,
   title: MEAL_TYPES.find((m) => m.type === t)?.label ?? 'Snack',
-  icon: SHEET_ICONS[t],
 });
 
 function MealsSkeleton() {
@@ -104,6 +90,8 @@ export default function TodayScreen() {
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [actionSheetCategory, setActionSheetCategory] = useState<SheetCategory | null>(null);
   const [logAgainCategory, setLogAgainCategory] = useState<SheetCategory | null>(null);
+  /** Which meal "Type a meal" logs to (the + sheet closes before the text sheet opens). */
+  const [textMealType, setTextMealType] = useState<MealType>('snack');
   const [yesterdayMeals, setYesterdayMeals] = useState<Record<MealType, Meal | null>>({
     breakfast: null,
     lunch: null,
@@ -322,6 +310,7 @@ export default function TodayScreen() {
           <Tap
             onPress={() => {
               hapticFeedback.light();
+              setTextMealType(getDefaultMealType());
               setTextModalVisible(true);
             }}
             accessibilityRole="button"
@@ -423,15 +412,15 @@ export default function TodayScreen() {
           visible
           mealType={actionSheetCategory.type}
           categoryTitle={actionSheetCategory.title}
-          categoryIcon={actionSheetCategory.icon}
-          categoryColor={SHEET_ACCENT}
-          categoryBadgeBg={SHEET_BADGE}
           onClose={() => setActionSheetCategory(null)}
           onSelectCamera={(t) => router.push({ pathname: '/(tabs)/camera', params: { mode: 'photo', meal_type: t } } as any)}
           onSelectBarcode={(t) => router.push({ pathname: '/(tabs)/camera', params: { mode: 'barcode', meal_type: t } } as any)}
           onSelectGallery={(t) => handlePickGallery(t)}
-          onSelectText={() => setTextModalVisible(true)}
-          onSelectRePounce={() => setLogAgainCategory(actionSheetCategory)}
+          onSelectText={(t) => {
+            setTextMealType(t);
+            setTextModalVisible(true);
+          }}
+          onSelectLogAgain={(t) => setLogAgainCategory(sheetCategory(t))}
         />
       )}
 
@@ -460,19 +449,17 @@ export default function TodayScreen() {
             setTextModalVisible(false);
             router.push('/review' as any);
           }}
-          initialMealType={actionSheetCategory?.type || 'snack'}
+          initialMealType={textMealType}
         />
       )}
 
       {logAgainCategory && (
-        <RePounceSheet
+        <LogAgainSheet
           visible
-          categoryType={logAgainCategory.type}
-          categoryTitle={logAgainCategory.title}
-          categoryIcon={logAgainCategory.icon}
-          categoryColor={SHEET_ACCENT}
+          mealType={logAgainCategory.type}
+          mealLabel={logAgainCategory.title}
           onClose={() => setLogAgainCategory(null)}
-          onPounceMeal={(meal) => handleLogAgain(meal, logAgainCategory.type)}
+          onPick={(meal) => handleLogAgain(meal, logAgainCategory.type)}
         />
       )}
     </SafeAreaView>
