@@ -29,7 +29,7 @@ import { useCoachStore } from '../stores/coachStore';
 import { useMealStore, getTodayString } from '../stores/mealStore';
 import { getDefaultMealType } from '../utils/nutrition';
 import { parseMealSuggestions, ParsedSuggestedMeal } from '../utils/mealSuggestionParser';
-import SiaCatMascot from './SiaCatMascot';
+import { Sia } from './sia';
 import { ToastBanner, ToastConfig } from './ToastBanner';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -779,7 +779,7 @@ export function AiNutritionCoachModal({
         {/* Header */}
         <View className="flex-row items-center justify-between pb-3 border-b border-zinc-800/80">
           <View className="flex-row items-center gap-2.5">
-            <SiaCatMascot size={36} mood="head" withGlow={false} />
+            <Sia expression={isTyping && streamingReply === '' ? 'thinking' : 'resting'} size={48} />
             <View>
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
@@ -1022,7 +1022,7 @@ export function AiNutritionCoachModal({
                     >
                       {msg.role === 'assistant' && (
                         <View className="mr-2 mt-0.5 self-start">
-                          <SiaCatMascot size={28} mood="head" withGlow={false} />
+                          <Sia expression="happy" size={28} />
                         </View>
                       )}
 
@@ -1049,7 +1049,7 @@ export function AiNutritionCoachModal({
           {/* Friendly prompt if all history belongs to previous days and today is fresh */}
           {dateGroups.length > 0 && dateGroups.every((g) => !g.isToday) && (
             <View className="my-3 p-3 bg-zinc-950/60 border border-dashed border-zinc-800 rounded-2xl items-center flex-row gap-2.5">
-              <SiaCatMascot size={26} mood="head" withGlow={false} />
+              <Sia expression="happy" size={28} />
               <View className="flex-1">
                 <Text className="text-zinc-300 text-xs font-bold">New Day, Fresh Macros!</Text>
                 <Text className="text-zinc-500 text-[10px] leading-3 mt-0.5">
@@ -1063,7 +1063,7 @@ export function AiNutritionCoachModal({
           {isTyping && streamingReply !== '' && (
             <View className="mb-3 flex-row justify-start items-start">
               <View className="mr-2 mt-0.5 self-start">
-                <SiaCatMascot size={28} mood="head" withGlow={false} />
+                <Sia expression="happy" size={28} />
               </View>
               <View
                 accessibilityLiveRegion="polite"
@@ -1078,7 +1078,7 @@ export function AiNutritionCoachModal({
           {isTyping && streamingReply === '' && (
             <View className="mb-3 flex-row justify-start items-start">
               <View className="mr-2 mt-0.5 self-start">
-                <SiaCatMascot size={28} mood="head" withGlow={false} />
+                <Sia expression="happy" size={28} />
               </View>
               <View className="bg-zinc-950 border border-zinc-800/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-row items-center gap-2">
                 <Text className="text-zinc-400 text-xs font-semibold">Sia is thinking</Text>

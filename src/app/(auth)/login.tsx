@@ -17,7 +17,7 @@ import { BrandLogo } from '../../components/BrandLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../stores/authStore';
 import { hapticFeedback } from '../../utils/haptics';
-import SiaCatMascot from '../../components/SiaCatMascot';
+import { Sia } from '../../components/sia';
 import { CatEarCard, WhiskerDivider } from '../../components/feline';
 
 export default function LoginScreen() {
@@ -110,12 +110,7 @@ export default function LoginScreen() {
 
         {/* Borderless Free-Standing Sia Greeting + Comic Speech Bubble */}
         <View className="flex-row items-center gap-3 mb-5 px-1">
-          <SiaCatMascot
-            size={74}
-            mood={isFormFilled ? 'chef' : showPassword ? 'scanning' : 'idle'}
-            withGlow={true}
-            interactive={true}
-          />
+          <Sia expression={isFormFilled ? 'happy' : showPassword ? 'thinking' : 'resting'} size={74} />
           <View className="flex-1 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl p-3.5 relative shadow-md shadow-black">
             <View
               style={{

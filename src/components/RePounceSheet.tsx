@@ -15,7 +15,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Meal, MealType } from '../types';
 import { useMealStore } from '../stores/mealStore';
 import { hapticFeedback } from '../utils/haptics';
-import SiaCatMascot from './SiaCatMascot';
+import { Sia } from './sia';
 import { useShallow } from 'zustand/react/shallow';
 
 interface RePounceSheetProps {
@@ -176,7 +176,7 @@ export function RePounceSheet({
             </View>
           ) : filteredMeals.length === 0 ? (
             <View className="py-12 items-center justify-center px-4">
-              <SiaCatMascot mood="thinking" size={72} />
+              <Sia expression="resting" size={72} />
               <Text
                 style={{ fontFamily: 'Outfit_700Bold' }}
                 className="text-white text-base mt-3 text-center"

@@ -4,7 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FelineHunterTier } from '../utils/felineGamification';
 import { hapticFeedback } from '../utils/haptics';
-import SiaCatMascot from './SiaCatMascot';
+import { Sia } from './sia';
 
 interface FelineMilestoneCelebrationModalProps {
   visible: boolean;
@@ -48,7 +48,7 @@ export function FelineMilestoneCelebrationModal({
 
           {/* Mascot in Celebratory Mood */}
           <View className="mb-3 mt-2">
-            <SiaCatMascot size={84} mood="celebrating" withGlow={true} />
+            <Sia expression="celebrating" size={84} />
           </View>
 
           {/* Milestone Badge Pill */}

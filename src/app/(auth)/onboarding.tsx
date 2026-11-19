@@ -23,7 +23,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWaterStore } from '../../stores/waterStore';
 import { hapticFeedback } from '../../utils/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import SiaCatMascot from '../../components/SiaCatMascot';
+import { Sia } from '../../components/sia';
 import { CatEarCard, PawProgressBar, WhiskerDivider } from '../../components/feline';
 
 export default function OnboardingScreen() {
@@ -148,28 +148,28 @@ export default function OnboardingScreen() {
         return {
           title: 'Hunter Biometrics',
           subtitle: 'Mifflin-St Jeor Basal Metabolic Rate',
-          mascotMood: 'idle' as const,
+          siaExpression: 'resting' as const,
           speech: "Let's calibrate your resting metabolism. Enter your biometrics so I can pinpoint your exact daily burn!",
         };
       case 2:
         return {
           title: 'Daily Prowl Activity',
           subtitle: 'Physical Activity Level (PAL)',
-          mascotMood: 'walking' as const,
+          siaExpression: 'resting' as const,
           speech: 'How active are your daily prowls? This multiplier scales your BMR into your Total Daily Energy Expenditure (TDEE).',
         };
       case 3:
         return {
           title: 'Hunting Objective',
           subtitle: 'Caloric Deficit or Surplus Pace',
-          mascotMood: 'scanning' as const,
+          siaExpression: 'thinking' as const,
           speech: 'Choose your hunting goal. We can dial in a fat-loss deficit, athletic agility maintenance, or muscle-building surplus.',
         };
       case 4:
         return {
           title: 'Macro Fuel Ratio',
           subtitle: 'Protein, Carbs & Healthy Fats',
-          mascotMood: 'chef' as const,
+          siaExpression: 'happy' as const,
           speech: 'What kind of prey fuels your engine best? Choose how we balance your calories across clean macros.',
         };
       case 5:
@@ -177,7 +177,7 @@ export default function OnboardingScreen() {
         return {
           title: "Sia's Macro Blueprint",
           subtitle: 'Personalized Daily Nutrition Plan',
-          mascotMood: 'celebrating' as const,
+          siaExpression: 'celebrating' as const,
           speech: "Purr-fect! Your daily nutrition blueprint is calibrated and ready. Let's pounce on those goals!",
         };
     }
@@ -256,12 +256,7 @@ export default function OnboardingScreen() {
         >
           {/* Borderless Free-Standing Sia Companion + Comic Speech Bubble */}
           <View className="flex-row items-center gap-3 mb-5 px-1">
-            <SiaCatMascot
-              size={76}
-              mood={stepMeta.mascotMood}
-              withGlow={true}
-              interactive={true}
-            />
+            <Sia expression={stepMeta.siaExpression} size={76} />
             <View className="flex-1 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl p-3.5 relative shadow-md shadow-black">
               <View
                 style={{

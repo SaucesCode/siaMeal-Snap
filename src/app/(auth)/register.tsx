@@ -18,7 +18,7 @@ import { BrandLogo } from '../../components/BrandLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { hapticFeedback } from '../../utils/haptics';
 import { openPrivacyPolicy } from '../../lib/legal';
-import SiaCatMascot from '../../components/SiaCatMascot';
+import { Sia } from '../../components/sia';
 import { CatEarCard, WhiskerDivider } from '../../components/feline';
 
 export default function RegisterScreen() {
@@ -129,12 +129,7 @@ export default function RegisterScreen() {
 
         {/* Borderless Free-Standing Sia Pride Invite + Comic Speech Bubble */}
         <View className="flex-row items-center gap-3 mb-5 px-1">
-          <SiaCatMascot
-            size={74}
-            mood={isFormFilled ? 'chef' : 'scanning'}
-            withGlow={true}
-            interactive={true}
-          />
+          <Sia expression={isFormFilled ? 'happy' : 'resting'} size={74} />
           <View className="flex-1 bg-zinc-900/95 border border-emerald-500/35 rounded-2xl p-3.5 relative shadow-md shadow-black">
             <View
               style={{

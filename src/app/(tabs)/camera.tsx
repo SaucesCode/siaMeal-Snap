@@ -25,8 +25,7 @@ import { hapticFeedback } from '../../utils/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { MealType } from '../../types';
-import SiaCatMascot from '../../components/SiaCatMascot';
-import { SiaMascotHero, SiaWalkingLoader, SiaContextualLoader } from '../../components/feline';
+import { Sia } from '../../components/sia';
 
 type ScanMode = 'photo' | 'barcode';
 
@@ -759,12 +758,11 @@ export default function CameraScreen() {
           className="bg-black/92 items-center justify-center px-6"
         >
           <View className="bg-zinc-900 border border-emerald-500/40 p-6 rounded-3xl items-center w-full max-w-xs shadow-2xl shadow-emerald-500/30">
-            <SiaContextualLoader
-              mode="scan"
-              size={112}
-              label={processingStatus || 'Sia is scanning your meal...'}
-              sublabel="Aperture vision eye calculating calories & macros"
-            />
+            <Sia expression="thinking" size={112} />
+            <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-base text-center mt-3">
+              {processingStatus || 'Looking at your plate…'}
+            </Text>
+            <Text className="text-zinc-400 text-xs text-center mt-1">Usually takes a few seconds.</Text>
           </View>
         </View>
       )}
@@ -779,12 +777,7 @@ export default function CameraScreen() {
         <View className="flex-1 bg-black/85 items-center justify-center px-6">
           <View className="bg-zinc-900 border border-rose-500/40 p-6 rounded-3xl items-center w-full max-w-sm shadow-2xl shadow-rose-500/25">
             <View className="mb-2">
-              <SiaMascotHero
-                size={88}
-                pose="chef"
-                badge="NOT EDIBLE"
-                withGlow={false}
-              />
+              <Sia expression="puzzled" size={88} />
             </View>
 
             <Text
