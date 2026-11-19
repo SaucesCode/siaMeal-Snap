@@ -1,20 +1,20 @@
 import React from 'react';
 import { View } from 'react-native';
 import { BottomTabBar, type BottomTabBarProps } from 'expo-router/tabs';
-import { SiaPerch, SiaPerchPaws } from './SiaPerch';
-import { useSiaStore } from './siaStore';
+import { create } from 'zustand';
 
-/**
- * The tab bar with Sia perched on it: her strip sits above the bar (so screens end above her),
- * her chin tucks behind the bar, and her paws grip its edge. Hidden entirely by "Show Sia".
- */
+/** The rendered tab bar height, so Sia's perch can sit exactly on its top edge. */
+export const useTabBarHeight = create<{ height: number; setHeight: (h: number) => void }>((set) => ({
+  height: 0,
+  setHeight: (height) => set({ height }),
+}));
+
+/** The standard tab bar, measured so the floating perch knows where the bar's edge is. */
 export function SiaTabBar(props: BottomTabBarProps) {
-  const hidden = useSiaStore((s) => s.hidden);
+  const setHeight = useTabBarHeight((s) => s.setHeight);
   return (
-    <View>
-      {!hidden && <SiaPerch />}
+    <View onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
       <BottomTabBar {...props} />
-      {!hidden && <SiaPerchPaws />}
     </View>
   );
 }

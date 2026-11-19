@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AccessibilityInfo, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSegments } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useShallow } from 'zustand/react/shallow';
 import { Sia } from '../../components/sia';
@@ -8,33 +9,55 @@ import { motion, palette, radius, space, type } from '../../theme';
 import { useCoachStore } from '../../stores/coachStore';
 import { hapticFeedback } from '../../utils/haptics';
 import { useSiaStore } from './siaStore';
+import { useTabBarHeight } from './SiaTabBar';
 
 /** Sia's size on the perch. */
 export const PERCH_SIA_SIZE = 78;
-/** How much of her head is tucked behind the tab bar (≈15 %). */
+/** How much of her head is hidden below the tab bar's edge (≈15 %). */
 const CHIN_TUCK = 12;
-/**
- * Height of the strip reserved above the tab bar for Sia and her bubble. It is part of the tab
- * bar's own layout, so every tab screen's content ends above her automatically.
- */
-export const PERCH_RESERVED_HEIGHT = 68;
+/** How far she rises above the bar. Tab screens keep at least this much bottom scroll padding. */
+export const PERCH_SCROLL_INSET = PERCH_SIA_SIZE - CHIN_TUCK;
 const PERCH_RIGHT = 14;
 /** Paws flank her face (viewBox x ≈ 62 and 178 on a 78 px Sia), clear of her mouth. */
 const PAWS_RIGHT = 16;
 const PAWS_GAP = 21;
+/** The toes hang over the bar's edge; the rest of the paw rests on top of it. */
+const PAW_OVERHANG = PAW_HEIGHT * 0.4;
+
+function useKeyboardVisible() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return visible;
+}
 
 /**
- * Sia peeking over the tab bar. Rendered by SiaTabBar *before* the bar so her chin is tucked
- * behind it; the paws are rendered after the bar so they grip its edge.
+ * Sia floating on the tab bar's top edge, with nothing behind her. Her head is clipped exactly
+ * at the bar's edge (so she peeks over it) and her paws rest on the edge. Not shown on the
+ * camera, while typing, or when "Show Sia" is off.
  */
-export function SiaPerch() {
-  const { current, pet } = useSiaStore(useShallow((s) => ({ current: s.current, pet: s.pet })));
+export function SiaPerchOverlay() {
+  const { current, hidden, pet } = useSiaStore(
+    useShallow((s) => ({ current: s.current, hidden: s.hidden, pet: s.pet }))
+  );
+  const barHeight = useTabBarHeight((s) => s.height);
   const openCoach = useCoachStore((s) => s.openCoach);
+  const segments = useSegments() as string[];
+  const keyboardVisible = useKeyboardVisible();
   const line = current?.line ?? null;
 
   useEffect(() => {
     if (line && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(line);
   }, [line]);
+
+  const onCamera = segments.includes('camera');
+  if (hidden || barHeight === 0 || onCamera || keyboardVisible) return null;
 
   const openChat = () => {
     hapticFeedback.light();
@@ -42,8 +65,8 @@ export function SiaPerch() {
   };
 
   return (
-    <View style={styles.strip} pointerEvents="box-none">
-      {line && <Bubble key={line} text={line} onPress={openChat} />}
+    <>
+      {line && <Bubble key={line} text={line} bottom={barHeight + space[3]} onPress={openChat} />}
       <Pressable
         onPress={openChat}
         onLongPress={() => {
@@ -53,20 +76,16 @@ export function SiaPerch() {
         accessibilityRole="button"
         accessibilityLabel="Chat with Sia"
         accessibilityHint="Opens the nutrition coach"
-        style={styles.siaButton}
+        style={[styles.peek, { bottom: barHeight }]}
       >
         <Sia expression={current?.expression ?? 'resting'} size={PERCH_SIA_SIZE} />
       </Pressable>
-    </View>
+      <SiaPaws gap={PAWS_GAP} style={[styles.paws, { bottom: barHeight - PAW_OVERHANG }]} />
+    </>
   );
 }
 
-/** The paws, positioned over the tab bar's top edge (render after the bar). */
-export function SiaPerchPaws() {
-  return <SiaPaws gap={PAWS_GAP} style={styles.paws} />;
-}
-
-function Bubble({ text, onPress }: { text: string; onPress: () => void }) {
+function Bubble({ text, bottom, onPress }: { text: string; bottom: number; onPress: () => void }) {
   const opacity = useSharedValue(0);
   useEffect(() => {
     opacity.set(withTiming(1, { duration: motion.fast }));
@@ -74,7 +93,7 @@ function Bubble({ text, onPress }: { text: string; onPress: () => void }) {
   const fadeIn = useAnimatedStyle(() => ({ opacity: opacity.get() }));
 
   return (
-    <Animated.View style={[styles.bubble, fadeIn]}>
+    <Animated.View style={[styles.bubble, { bottom }, fadeIn]}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityHint="Opens the nutrition coach">
         <Text accessibilityLiveRegion="polite" style={styles.bubbleText}>
           {text}
@@ -85,26 +104,21 @@ function Bubble({ text, onPress }: { text: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  strip: {
-    height: PERCH_RESERVED_HEIGHT,
-    backgroundColor: palette.bg,
-  },
-  siaButton: {
+  // Only the part above the bar is visible: the view clips her chin at the bar's edge.
+  peek: {
     position: 'absolute',
     right: PERCH_RIGHT,
-    bottom: -CHIN_TUCK,
     width: PERCH_SIA_SIZE,
-    height: PERCH_SIA_SIZE,
+    height: PERCH_SCROLL_INSET,
+    overflow: 'hidden',
   },
   paws: {
     position: 'absolute',
-    top: PERCH_RESERVED_HEIGHT - PAW_HEIGHT / 2,
     right: PAWS_RIGHT,
   },
   bubble: {
     position: 'absolute',
     right: PERCH_RIGHT + PERCH_SIA_SIZE + space[2],
-    bottom: space[3],
     maxWidth: 220,
     backgroundColor: palette.surface,
     borderColor: palette.line,

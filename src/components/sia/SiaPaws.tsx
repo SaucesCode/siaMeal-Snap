@@ -6,23 +6,26 @@ import { SIA_COLORS as C } from './siaArt';
 export const PAW_WIDTH = 26;
 export const PAW_HEIGHT = 19;
 
-/** One paw over a ledge: ear-coloured (Siamese points), dark outline, two toe lines. */
+/**
+ * One paw resting on a ledge, seen from the front: a rounded bean (the back of the paw) whose
+ * toes curl forward over the edge, so the two toe lines sit on the lower edge, dividing it into
+ * three toes. Ear-coloured, like a Siamese cat's points.
+ */
 function Paw() {
   return (
     <Svg width={PAW_WIDTH} height={PAW_HEIGHT} viewBox="0 0 30 22">
       <Path
-        d="M1.5 9 C1.5 4 6 1.5 15 1.5 C24 1.5 28.5 4 28.5 9 L28.5 20.5 L1.5 20.5 Z"
+        d="M2.5 11 C2.5 4.5 8 1.5 15 1.5 C22 1.5 27.5 4.5 27.5 11 C27.5 17 23 20.5 15 20.5 C7 20.5 2.5 17 2.5 11 Z"
         fill={C.mask}
         stroke={C.outline}
         strokeWidth={3}
-        strokeLinejoin="round"
       />
-      <Path d="M10.5 3 V8.5 M19.5 3 V8.5" stroke={C.outline} strokeWidth={2.4} strokeLinecap="round" />
+      <Path d="M10.5 20 V15 M19.5 20 V15" stroke={C.outline} strokeWidth={2.4} strokeLinecap="round" />
     </Svg>
   );
 }
 
-/** Sia's two front paws gripping an edge. Decorative. */
+/** Sia's two front paws. Decorative. */
 export function SiaPaws({ gap, style }: { gap: number; style?: StyleProp<ViewStyle> }) {
   return (
     <View
