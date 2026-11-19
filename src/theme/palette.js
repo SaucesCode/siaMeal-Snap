@@ -29,6 +29,8 @@ module.exports = {
   fatOnLight: '#D9738A',
 
   water: '#2B78B8',
+  // Sia's shutter-eye green, for the calorie ring on the cocoa card.
+  eye: '#22E592',
 
   over: '#B42318',
 };
