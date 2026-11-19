@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { makeRedirectUri } from 'expo-auth-session';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -9,52 +10,9 @@ import { hapticFeedback } from '../../utils/haptics';
 import { routeAfterAuth } from '../../features/auth/afterAuth';
 import { validateAuthForm, type AuthErrors, type AuthMode } from '../../features/auth/authForm';
 import { Sia } from '../../components/sia';
+import { Field } from '../../features/auth/Field';
 import { Tap } from '../../components/Tap';
 import { palette, radius, space, type } from '../../theme';
-
-function Field({
-  label,
-  error,
-  secure,
-  value,
-  onText,
-  ...input
-}: {
-  label: string;
-  error?: string;
-  secure?: boolean;
-  value: string;
-  onText: (t: string) => void;
-} & Omit<React.ComponentProps<typeof TextInput>, 'value' | 'onChangeText' | 'onChange'>) {
-  const [hidden, setHidden] = useState(true);
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputBox, error ? styles.inputError : null]}>
-        <TextInput
-          value={value}
-          onChangeText={onText}
-          secureTextEntry={secure && hidden}
-          placeholderTextColor={palette.textMuted}
-          accessibilityLabel={label}
-          style={styles.input}
-          {...input}
-        />
-        {secure && (
-          <Tap
-            onPress={() => setHidden((h) => !h)}
-            accessibilityRole="button"
-            accessibilityLabel={hidden ? `Show ${label.toLowerCase()}` : `Hide ${label.toLowerCase()}`}
-            style={styles.eye}
-          >
-            <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={20} color={palette.textMuted} />
-          </Tap>
-        )}
-      </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
-  );
-}
 
 /** Sign in or create an account with email; inline messages, typed input is never lost. */
 export default function EmailScreen() {
@@ -70,6 +28,14 @@ export default function EmailScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const creating = mode === 'create';
+  const forgot = mode === 'forgot';
+
+  const switchMode = (next: AuthMode) => {
+    setMode(next);
+    setErrors({});
+    setFormError(null);
+    setNotice(null);
+  };
 
   const clear = (key: keyof AuthErrors) => {
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
@@ -87,7 +53,15 @@ export default function EmailScreen() {
       setBusy(true);
       setFormError(null);
       hapticFeedback.medium();
-      if (creating) {
+      if (forgot) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: makeRedirectUri({ scheme: 'siamealsnap', path: 'auth/reset' }),
+        });
+        if (error) throw error;
+        hapticFeedback.success();
+        setMode('signin');
+        setNotice(`If there's an account for ${email.trim()}, we sent it a link. Open it on this phone to set a new password.`);
+      } else if (creating) {
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) throw error;
         if (data.session) {
@@ -112,7 +86,9 @@ export default function EmailScreen() {
           ? 'That email and password don’t match. Check them and try again.'
           : /already registered/i.test(message)
             ? 'There’s already an account with that email. Sign in instead.'
-            : message || 'Something went wrong. Please try again.'
+            : /rate limit|too many|security purposes/i.test(message)
+              ? 'Too many tries. Wait a minute, then try again.'
+              : message || 'Something went wrong. Please try again.'
       );
     } finally {
       setBusy(false);
@@ -127,11 +103,17 @@ export default function EmailScreen() {
           <Tap onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
             <Ionicons name="chevron-back" size={24} color={palette.text} />
           </Tap>
-          <Sia expression={creating ? 'happy' : 'resting'} size={72} />
+          <Sia expression={creating ? 'happy' : forgot ? 'puzzled' : 'resting'} size={72} />
           <Text style={styles.title} accessibilityRole="header">
-            {creating ? 'Create your account' : 'Welcome back'}
+            {creating ? 'Create your account' : forgot ? 'Reset your password' : 'Welcome back'}
           </Text>
-          <Text style={styles.subtitle}>{creating ? 'Takes a minute. Sia will set up your plan next.' : 'Sign in to pick up where you left off.'}</Text>
+          <Text style={styles.subtitle}>
+            {creating
+              ? 'Takes a minute. Sia will set up your plan next.'
+              : forgot
+                ? 'Enter your account email and we’ll send you a link to set a new password.'
+                : 'Sign in to pick up where you left off.'}
+          </Text>
 
           {notice ? (
             <View style={styles.notice} accessibilityLiveRegion="polite">
@@ -154,6 +136,7 @@ export default function EmailScreen() {
             autoComplete="email"
             textContentType="emailAddress"
           />
+          {!forgot && (
           <Field
             label="Password"
             secure
@@ -167,6 +150,12 @@ export default function EmailScreen() {
             autoComplete={creating ? 'new-password' : 'current-password'}
             textContentType={creating ? 'newPassword' : 'password'}
           />
+          )}
+          {mode === 'signin' && (
+            <Tap onPress={() => switchMode('forgot')} accessibilityRole="button" style={styles.forgot}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Tap>
+          )}
           {creating && (
             <Field
               label="Confirm password"
@@ -197,21 +186,21 @@ export default function EmailScreen() {
             accessibilityState={{ busy, disabled: busy }}
             style={({ pressed }) => [styles.submit, pressed && styles.pressed]}
           >
-            {busy ? <ActivityIndicator color={palette.pointText} /> : <Text style={styles.submitText}>{creating ? 'Create account' : 'Sign in'}</Text>}
+            {busy ? (
+              <ActivityIndicator color={palette.pointText} />
+            ) : (
+              <Text style={styles.submitText}>{creating ? 'Create account' : forgot ? 'Send reset link' : 'Sign in'}</Text>
+            )}
           </Tap>
 
           <Tap
-            onPress={() => {
-              setMode(creating ? 'signin' : 'create');
-              setErrors({});
-              setFormError(null);
-            }}
+            onPress={() => switchMode(creating || forgot ? 'signin' : 'create')}
             accessibilityRole="button"
             style={styles.switch}
           >
             <Text style={styles.switchText}>
-              {creating ? 'Already have an account? ' : 'New here? '}
-              <Text style={styles.switchStrong}>{creating ? 'Sign in' : 'Create an account'}</Text>
+              {forgot ? 'Remembered it? ' : creating ? 'Already have an account? ' : 'New here? '}
+              <Text style={styles.switchStrong}>{creating || forgot ? 'Sign in' : 'Create an account'}</Text>
             </Text>
           </Tap>
         </ScrollView>
@@ -239,25 +228,11 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
   },
   noticeText: { flex: 1, fontFamily: type.bodySemibold, fontSize: type.size.secondary, lineHeight: 19, color: palette.text },
-  field: { marginBottom: space[3] },
-  label: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.textMuted, marginBottom: space[1] },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 52,
-    paddingLeft: space[4],
-    borderRadius: radius.control,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surface,
-  },
-  inputError: { borderColor: palette.over },
-  input: { flex: 1, minHeight: 50, fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.text },
-  eye: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  error: { fontFamily: type.bodySemibold, fontSize: type.size.caption, color: palette.over, marginTop: space[1] },
   formError: { fontFamily: type.bodySemibold, fontSize: type.size.secondary, lineHeight: 19, color: palette.over, marginBottom: space[2] },
   submit: { minHeight: 54, marginTop: space[2], borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
   submitText: { fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.pointText },
+  forgot: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', marginTop: -space[2] },
+  forgotText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text, textDecorationLine: 'underline' },
   switch: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: space[2] },
   switchText: { fontFamily: type.body, fontSize: type.size.secondary, color: palette.textMuted },
   switchStrong: { fontFamily: type.bodyBold, color: palette.text },
