@@ -11,7 +11,6 @@ import { MealItemCard } from '../../components/MealItemCard';
 import { MealDetailModal } from '../../components/MealDetailModal';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { Tap } from '../../components/Tap';
-import { Sia } from '../../components/sia';
 import { WeekStrip, type StripDay } from '../../features/history/WeekStrip';
 import { StripSia } from '../../features/history/StripSia';
 import { MEAL_TYPES } from '../../constants/mealTypes';
@@ -197,7 +196,6 @@ export default function HistoryScreen() {
 
         {sections.length === 0 ? (
           <View style={styles.empty}>
-            <Sia expression="sleepy" size={72} animated={false} />
             <Text style={styles.emptyText}>Nothing logged {isToday ? 'today' : `on ${label}`}.</Text>
           </View>
         ) : (
@@ -265,7 +263,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
   },
-  emptyText: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.textMuted, marginTop: space[3] },
+  emptyText: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.textMuted },
   section: { marginBottom: space[3] },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space[2], minHeight: 40 },
   sectionLabel: { flex: 1, fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },
