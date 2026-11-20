@@ -1,4 +1,4 @@
-import { dayMood, meLine, stripSiaX, waterMood } from '../tabMoods';
+import { dayMood, daySpot, meLine, nextSpot, stripSiaX, waterMood } from '../tabMoods';
 
 describe('dayMood', () => {
   it('a past day with nothing logged is sleepy', () => {
@@ -86,5 +86,20 @@ describe('stripSiaX', () => {
   it('recomputes for a new width and is 0 before the strip is measured', () => {
     expect(stripSiaX(3, 600, 56)).toBeGreaterThan(stripSiaX(3, 343, 56));
     expect(stripSiaX(2, 0, 56)).toBe(0);
+  });
+});
+
+describe('daySpot', () => {
+  it('follows where the day sits in the week strip', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map(daySpot)).toEqual(['left', 'left', 'center', 'center', 'center', 'right', 'right']);
+    expect(daySpot(-1)).toBe('center');
+  });
+});
+
+describe('nextSpot', () => {
+  it('cycles left, centre, right', () => {
+    expect(nextSpot('left')).toBe('center');
+    expect(nextSpot('center')).toBe('right');
+    expect(nextSpot('right')).toBe('left');
   });
 });

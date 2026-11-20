@@ -1,4 +1,5 @@
 import type { SiaExpression } from '../../components/sia';
+import type { SiaSpot } from './siaReactions';
 import { space } from '../../theme';
 
 export type TabMood = { expression: SiaExpression; label: string };
@@ -48,4 +49,17 @@ export function stripSiaX(index: number, stripWidth: number, siaSize: number, co
   const cell = (stripWidth - gap * (count - 1)) / count;
   const x = index * (cell + gap) + cell / 2 - siaSize / 2;
   return Math.round(Math.min(stripWidth - siaSize, Math.max(0, x)));
+}
+
+/** Where Sia rises over History's day card: under the day you picked in the strip above. */
+export function daySpot(index: number): SiaSpot {
+  if (index < 0) return 'center';
+  return index <= 1 ? 'left' : index <= 4 ? 'center' : 'right';
+}
+
+const SPOTS: SiaSpot[] = ['left', 'center', 'right'];
+
+/** The next spot along, so each new reaction (e.g. adding water) visibly moves her. */
+export function nextSpot(prev: SiaSpot): SiaSpot {
+  return SPOTS[(SPOTS.indexOf(prev) + 1) % SPOTS.length];
 }
