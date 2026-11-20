@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useShallow } from 'zustand/react/shallow';
-import { useMealStore, getLocalDateString } from '../../stores/mealStore';
+import { useMealStore, getLocalDateString, getTodayString } from '../../stores/mealStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachStore } from '../../stores/coachStore';
 import { DailyMacroSummary } from '../../components/MacroCard';
@@ -13,6 +13,7 @@ import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { Tap } from '../../components/Tap';
 import { Sia } from '../../components/sia';
 import { WeekStrip, type StripDay } from '../../features/history/WeekStrip';
+import { StripSia } from '../../features/history/StripSia';
 import { MEAL_TYPES } from '../../constants/mealTypes';
 import { Meal } from '../../types';
 import { dayLabel, weekLine } from '../../utils/historyText';
@@ -178,6 +179,7 @@ export default function HistoryScreen() {
           </Tap>
         </View>
 
+        <StripSia days={stripDays} selected={selectedDate} target={targetCalories} today={getTodayString()} />
         <WeekStrip days={stripDays} selected={selectedDate} target={targetCalories} onSelect={setSelectedDate} />
         <Text style={styles.weekLine}>{weekLine(weeklySummary)}</Text>
 
