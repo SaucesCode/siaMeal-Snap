@@ -14,6 +14,8 @@ import { validateBody, initialsFor, type BodyErrors } from '../../utils/bodyVali
 import { WeightTrackerSheet } from '../../components/WeightTrackerSheet';
 import { Tap } from '../../components/Tap';
 import { Sheet, Option } from '../../features/me/Sheet';
+import { SiaCompanionRow } from '../../features/me/SiaCompanionRow';
+import { useStreakStore } from '../../stores/streakStore';
 import { FoodChips, MealTimes, slotsFromTimes, type MealSlot } from '../../features/onboarding/Pickers';
 import { displayTime, mealReminderTimes, validateGoalWeight, weeksToGoal } from '../../features/onboarding/flow';
 import { hapticFeedback } from '../../utils/haptics';
@@ -268,6 +270,7 @@ export default function ProfileScreen() {
 
   const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight_kg : weight;
   const name = fullName.trim() || user?.email?.split('@')[0] || '';
+  const streak = useStreakStore((s) => s.streak);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
@@ -277,6 +280,7 @@ export default function ProfileScreen() {
           Me
         </Text>
 
+        <View style={styles.profileCard}>
         <Tap
           onPress={() => setSheet('name')}
           accessibilityRole="button"
@@ -298,6 +302,8 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="pencil" size={18} color={palette.textMuted} />
         </Tap>
+        <SiaCompanionRow weightKg={latestWeight} targetWeightKg={profile?.target_weight_kg} streak={streak} />
+        </View>
 
         <Text style={styles.section} accessibilityRole="header">
           Daily targets
@@ -506,16 +512,14 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: space[4], paddingTop: space[2], paddingBottom: 120 },
   pressed: { opacity: 0.7 },
   title: { fontFamily: type.display, fontSize: type.size.title + 4, color: palette.text, marginBottom: space[4] },
-  person: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
+  profileCard: {
     padding: space[4],
     borderRadius: radius.card,
     backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: palette.line,
   },
+  person: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56 },
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.point },
   initials: { fontFamily: type.display, fontSize: type.size.section + 3, color: palette.pointText },
   name: { fontFamily: type.displayBold, fontSize: type.size.section, color: palette.text },
