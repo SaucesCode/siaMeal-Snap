@@ -10,7 +10,10 @@ import { useCoachStore } from '../../stores/coachStore';
 import { hapticFeedback } from '../../utils/haptics';
 import { useSiaStore } from './siaStore';
 import { useTabBarHeight } from './SiaTabBar';
-import { isTodayRoute } from './siaRoutes';
+import { meLine } from './tabMoods';
+import { useAuthStore } from '../../stores/authStore';
+import { useStreakStore } from '../../stores/streakStore';
+import { useWeightStore } from '../../stores/weightStore';
 
 /** Sia's size on the perch. */
 export const PERCH_SIA_SIZE = 78;
@@ -38,10 +41,13 @@ function useKeyboardVisible() {
   return visible;
 }
 
+/** How long her progress line stays up on Me before she goes quiet. */
+const LINE_MS = 5000;
+
 /**
- * Sia floating on the tab bar's top edge, with nothing behind her. Her head is clipped exactly
- * at the bar's edge (so she peeks over it) and her paws rest on the edge. Not shown on Today
- * (she peeks over the calories card there), the camera, while typing, or when "Show Sia" is off.
+ * Sia on the tab bar's top edge above Me, head clipped at the bar's edge and paws resting on it.
+ * Only on Me: on Today, History and Water she peeks over a card instead (SiaPeek), and never on the
+ * camera, while typing, or when "Show Sia" is off. Her bubble shows one line about your progress.
  */
 export function SiaPerchOverlay() {
   const { current, hidden, pet } = useSiaStore(
@@ -51,15 +57,22 @@ export function SiaPerchOverlay() {
   const openCoach = useCoachStore((s) => s.openCoach);
   const segments = useSegments() as string[];
   const keyboardVisible = useKeyboardVisible();
-  const line = current?.line ?? null;
+  const profile = useAuthStore((s) => s.profile);
+  const latestKg = useWeightStore((s) => (s.entries.length ? s.entries[s.entries.length - 1].weight_kg : null));
+  const streak = useStreakStore((s) => s.streak);
+  const line = meLine({ weightKg: latestKg ?? profile?.weight_kg, targetWeightKg: profile?.target_weight_kg, streak });
+  const onMe = segments.includes('profile');
+  const [showLine, setShowLine] = useState(true);
 
   useEffect(() => {
-    if (line && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(line);
-  }, [line]);
+    if (!onMe) return;
+    setShowLine(true);
+    if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(line);
+    const quiet = setTimeout(() => setShowLine(false), LINE_MS);
+    return () => clearTimeout(quiet);
+  }, [line, onMe]);
 
-  // On Today she peeks over the calories card instead (SiaPeek); never two of her at once.
-  const elsewhere = segments.includes('camera') || isTodayRoute(segments);
-  if (hidden || barHeight === 0 || elsewhere || keyboardVisible) return null;
+  if (hidden || barHeight === 0 || !onMe || keyboardVisible) return null;
 
   const openChat = () => {
     hapticFeedback.light();
@@ -68,7 +81,7 @@ export function SiaPerchOverlay() {
 
   return (
     <>
-      {line && <Bubble key={line} text={line} bottom={barHeight + space[3]} onPress={openChat} />}
+      {showLine && <Bubble key={line} text={line} bottom={barHeight + space[3]} onPress={openChat} />}
       <Pressable
         onPress={openChat}
         onLongPress={() => {

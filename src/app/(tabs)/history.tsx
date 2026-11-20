@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useShallow } from 'zustand/react/shallow';
-import { useMealStore, getLocalDateString } from '../../stores/mealStore';
+import { useMealStore, getLocalDateString, getTodayString } from '../../stores/mealStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachStore } from '../../stores/coachStore';
 import { DailyMacroSummary } from '../../components/MacroCard';
@@ -11,8 +11,12 @@ import { MealItemCard } from '../../components/MealItemCard';
 import { MealDetailModal } from '../../components/MealDetailModal';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { Tap } from '../../components/Tap';
-import { Sia } from '../../components/sia';
 import { WeekStrip, type StripDay } from '../../features/history/WeekStrip';
+import { SiaPeek } from '../../features/sia/SiaPeek';
+import { PEEK_SHOWN_Y, PEEK_SIZE } from '../../features/sia/peekMotion';
+import { useSiaStore } from '../../features/sia/siaStore';
+import { dayMood, daySpot } from '../../features/sia/tabMoods';
+import type { SiaReaction } from '../../features/sia/siaReactions';
 import { MEAL_TYPES } from '../../constants/mealTypes';
 import { Meal } from '../../types';
 import { dayLabel, weekLine } from '../../utils/historyText';
@@ -126,6 +130,16 @@ export default function HistoryScreen() {
   const label = dayLabel(selectedDate);
   const isToday = label === 'Today';
 
+  // Sia peeks over the day card: she rises under the day you picked, her face showing how it went.
+  const siaHidden = useSiaStore((s) => s.hidden);
+  const today = getTodayString();
+  const dayIndex = stripDays.findIndex((d) => d.date === selectedDate);
+  const dayExpression = dayMood(totals.calories, targetCalories, selectedDate === today ? 'today' : selectedDate > today ? 'future' : 'past').expression;
+  const dayReaction = useMemo<SiaReaction>(
+    () => ({ expression: dayExpression, line: null, spot: daySpot(dayIndex) }),
+    [selectedDate, dayExpression, dayIndex]
+  );
+
   const handleDelete = async (id: string) => {
     try {
       await deleteMeal(id);
@@ -184,18 +198,20 @@ export default function HistoryScreen() {
         <Text style={styles.dayTitle} accessibilityRole="header">
           {label}
         </Text>
-        <DailyMacroSummary
-          targetCalories={targetCalories}
-          consumedCalories={totals.calories}
-          protein={{ consumed: totals.protein_g, target: targetProtein }}
-          carbs={{ consumed: totals.carbs_g, target: targetCarbs }}
-          fat={{ consumed: totals.fat_g, target: targetFat }}
-          variant={isToday ? 'today' : 'past'}
-        />
+        <View style={siaHidden ? undefined : styles.heroWithSia}>
+          <DailyMacroSummary
+            targetCalories={targetCalories}
+            consumedCalories={totals.calories}
+            protein={{ consumed: totals.protein_g, target: targetProtein }}
+            carbs={{ consumed: totals.carbs_g, target: targetCarbs }}
+            fat={{ consumed: totals.fat_g, target: targetFat }}
+            variant={isToday ? 'today' : 'past'}
+          />
+          <SiaPeek reaction={dayReaction} />
+        </View>
 
         {sections.length === 0 ? (
           <View style={styles.empty}>
-            <Sia expression="sleepy" size={72} animated={false} />
             <Text style={styles.emptyText}>Nothing logged {isToday ? 'today' : `on ${label}`}.</Text>
           </View>
         ) : (
@@ -255,6 +271,7 @@ const styles = StyleSheet.create({
   },
   weekLine: { fontFamily: type.bodySemibold, fontSize: type.size.secondary, color: palette.textMuted, marginBottom: space[6] },
   dayTitle: { fontFamily: type.displayBold, fontSize: type.size.section + 3, color: palette.text, marginBottom: space[2] },
+  heroWithSia: { marginTop: PEEK_SIZE - PEEK_SHOWN_Y + space[1] },
   empty: {
     alignItems: 'center',
     paddingVertical: space[6],
@@ -263,7 +280,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
   },
-  emptyText: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.textMuted, marginTop: space[3] },
+  emptyText: { fontFamily: type.bodySemibold, fontSize: type.size.body, color: palette.textMuted },
   section: { marginBottom: space[3] },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space[2], minHeight: 40 },
   sectionLabel: { flex: 1, fontFamily: type.bodyBold, fontSize: type.size.body, color: palette.text },

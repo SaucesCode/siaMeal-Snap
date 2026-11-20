@@ -100,7 +100,7 @@ export default function TabLayout() {
         listeners={selectHaptic}
       />
     </Tabs>
-    {/* Sia floats on the tab bar's edge, over every tab screen. */}
+    {/* On Me, Sia perches on the tab bar's edge above the Me tab. */}
     <SiaPerchOverlay />
     </View>
   );
