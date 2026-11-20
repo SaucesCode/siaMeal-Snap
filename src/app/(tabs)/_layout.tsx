@@ -6,8 +6,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '../../stores/authStore';
 import { hapticFeedback } from '../../utils/haptics';
-import { SiaPerchOverlay } from '../../features/sia/SiaPerch';
-import { SiaTabBar } from '../../features/sia/SiaTabBar';
 import { useSiaEvents } from '../../features/sia/useSiaEvents';
 import { palette, type } from '../../theme';
 
@@ -60,7 +58,6 @@ export default function TabLayout() {
   return (
     <View style={styles.root}>
     <Tabs
-      tabBar={(props) => <SiaTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: [styles.bar, { height: BAR_CONTENT_HEIGHT + insets.bottom }],
@@ -100,8 +97,6 @@ export default function TabLayout() {
         listeners={selectHaptic}
       />
     </Tabs>
-    {/* Sia floats on the tab bar's edge, over every tab screen. */}
-    <SiaPerchOverlay />
     </View>
   );
 }
