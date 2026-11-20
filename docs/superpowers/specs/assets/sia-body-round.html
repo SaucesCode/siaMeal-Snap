@@ -1,0 +1,146 @@
+<style>
+  .wrap { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2A1810; }
+  .wrap h2 { font-family: 'Outfit', system-ui, sans-serif; margin: 8px 0 4px; font-size: 22px; }
+  .wrap .lede { margin: 0 0 16px; color: #6B5246; max-width: 74ch; line-height: 1.5; }
+  .wrap .options.row { display: flex; flex-direction: row; flex-wrap: wrap; gap: 22px; }
+  .wrap .pick.option { display: block; flex: 0 0 auto; width: 440px; padding: 14px; border: 2px solid #E8DCCF; border-radius: 18px; background: #FFFDF9; cursor: pointer; }
+  .wrap .pick.selected { border-color: #2A1810; box-shadow: 0 0 0 3px #22E59255; }
+  .pick h3 { margin: 10px 4px 2px; font-family: 'Outfit', system-ui, sans-serif; font-size: 17px; }
+  .pick p { margin: 0 4px; font-size: 13px; color: #6B5246; line-height: 1.45; }
+  .art { width: 440px; height: 560px; background: #FBF5EC; border-radius: 14px; display: block; }
+  .tip { transform-origin: 196px 336px; animation: tip 4.2s ease-in-out infinite; }
+  @keyframes tip { 0%, 72%, 100% { transform: rotate(0); } 80% { transform: rotate(-2deg); } 88% { transform: rotate(1deg); } }
+  @media (prefers-reduced-motion: reduce) { .wrap * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <h2>Sia's body: a sitting Siamese in the same style as her head</h2>
+  <p class="lede">Her head is unchanged and at its real size. The body follows the head's rules: flat colours (no gradients), the head's two line weights (6 for every outer edge, 5.5 for every inner line), a flat darker tone for shade (like her chin), hard-edged dark points on her legs, paws and tail (like her face mask), and cream toe lines (like her whiskers). Three builds, from round to slim.</p>
+
+  <div class="row">
+    <div class="pick option" data-choice="round-final">
+      <svg class="art" data-build="round" role="img" aria-label="Sia, round build, sitting"></svg>
+      <h3>Round, sitting, tail curled at her side</h3>
+      <p>The tail comes from behind her, out to her right and curls up like a question mark. Lines on the body are a touch heavier so they read the same as her head.</p>
+    </div>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="leafG" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#68D458"/><stop offset="100%" stop-color="#43AA38"/></linearGradient>
+    <g id="earL">
+      <path d="M 48 116 C 43 76 50 44 61 37 C 71 31 95 54 109 73 Z" fill="#4B3329" stroke="#2A1810" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M 55 108 C 52 78 57 53 64 48 C 72 44 90 62 101 76 Z" fill="#5E4136"/>
+    </g>
+    <g id="earR">
+      <path d="M 192 116 C 197 76 190 44 179 37 C 169 31 145 54 131 73 Z" fill="#4B3329" stroke="#2A1810" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M 185 108 C 188 78 183 53 176 48 C 168 44 150 62 139 76 Z" fill="#5E4136"/>
+    </g>
+    <g id="sprout">
+      <path d="M 120 72 L 120 55" stroke="#25853E" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 120 60 C 106 60 99 50 100 41 C 110 40 119 47 120 60 Z" fill="url(#leafG)" stroke="#1E6F35" stroke-width="2"/>
+      <path d="M 120 58 C 121 41 132 33 145 34 C 145 48 135 58 120 58 Z" fill="url(#leafG)" stroke="#1E6F35" stroke-width="2"/>
+    </g>
+    <g id="head">
+      <path d="M 48 112 C 42 128 38 147 36 154 L 44 157 L 39 164 C 54 192 84 206 120 206 C 156 206 186 192 201 164 L 196 157 L 204 154 C 202 147 198 128 192 112 C 176 78 150 68 120 68 C 90 68 64 78 48 112 Z" fill="#F5E8D0" stroke="#2A1810" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M 46 166 C 62 190 88 202 120 202 C 152 202 178 190 194 166 C 176 184 150 193 120 193 C 90 193 64 184 46 166 Z" fill="#E6D2B5"/>
+      <path d="M 56 136 C 56 106 82 90 120 90 C 158 90 184 106 184 136 C 184 158 164 172 146 181 C 134 187 127 189 120 189 C 113 189 106 187 94 181 C 76 172 56 158 56 136 Z" fill="#4B3329"/>
+    </g>
+
+    <!-- Natural Siamese-blue eye, same footprint as the shutter (r 17.5 + 3 stroke) -->
+    <g id="eyeIris"><circle cx="89" cy="134" r="17.5" fill="#5FB4E8" stroke="#2A1810" stroke-width="3"/></g>
+    <g id="eyeShine"><circle cx="94" cy="127.5" r="4" fill="#fff"/><circle cx="84.5" cy="140" r="1.8" fill="#fff" opacity=".8"/></g>
+
+    <!-- Shutter eye: thin bezel the same width as the natural eye's outline -->
+    <g id="shutter">
+      <circle cx="151" cy="134" r="17.5" fill="#22E592" stroke="#2A1810" stroke-width="3"/>
+      <circle cx="147" cy="130" r="10" fill="#38F8A6" opacity=".45"/>
+    </g>
+    <clipPath id="irisClip"><circle cx="151" cy="134" r="16"/></clipPath>
+    <g id="blades">
+      <polygon points="151,126 158,130 158,138 151,142 144,138 144,130" fill="#141F1A"/>
+      <g stroke="#141F1A" stroke-width="3" stroke-linecap="round"><line x1="151" y1="126" x2="159" y2="119"/><line x1="158" y1="130" x2="167" y2="133"/><line x1="158" y1="138" x2="160" y2="148"/><line x1="151" y1="142" x2="143" y2="149"/><line x1="144" y1="138" x2="135" y2="135"/><line x1="144" y1="130" x2="142" y2="120"/></g>
+    </g>
+
+    <g id="nose"><path d="M 111 148 C 111 144 129 144 129 148 C 129 153 123 158 120 158 C 117 158 111 153 111 148 Z" fill="#F77E8B" stroke="#2A1810" stroke-width="4.5" stroke-linejoin="round"/></g>
+    <symbol id="star" viewBox="-10 -10 20 20"><path d="M0 -9 C1.5 -2 2 -1.5 9 0 C2 1.5 1.5 2 0 9 C-1.5 2 -2 1.5 -9 0 C-2 -1.5 -1.5 -2 0 -9Z" fill="#F2C063" stroke="#2A1810" stroke-width="1.6"/></symbol>
+
+    <!-- Simplified head for 20–32 px -->
+    <symbol id="mini" viewBox="30 24 180 186">
+      <path d="M 48 116 C 43 76 50 44 61 37 C 71 31 95 54 109 73 Z" fill="#4B3329" stroke="#2A1810" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M 192 116 C 197 76 190 44 179 37 C 169 31 145 54 131 73 Z" fill="#4B3329" stroke="#2A1810" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M 120 72 L 120 52" stroke="#25853E" stroke-width="9" stroke-linecap="round"/>
+      <path d="M 120 60 C 104 60 97 48 98 38 C 110 37 119 46 120 60 Z M 120 58 C 121 39 133 31 147 32 C 147 48 136 58 120 58 Z" fill="#4FBF45" stroke="#1E6F35" stroke-width="4"/>
+      <path d="M 48 112 C 42 128 38 147 36 154 L 44 157 L 39 164 C 54 192 84 206 120 206 C 156 206 186 192 201 164 L 196 157 L 204 154 C 202 147 198 128 192 112 C 176 78 150 68 120 68 C 90 68 64 78 48 112 Z" fill="#F5E8D0" stroke="#2A1810" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M 56 136 C 56 106 82 90 120 90 C 158 90 184 106 184 136 C 184 158 164 172 146 181 C 134 187 127 189 120 189 C 113 189 106 187 94 181 C 76 172 56 158 56 136 Z" fill="#4B3329"/>
+      <path d="M 70 141 C 77 118 101 118 108 141" stroke="#1A0F0A" stroke-width="13" stroke-linecap="round" fill="none"/>
+      <circle cx="151" cy="134" r="19" fill="#22E592" stroke="#141F1A" stroke-width="5"/>
+      <polygon points="151,125 159,129.5 159,138.5 151,143 143,138.5 143,129.5" fill="#141F1A"/>
+      <path d="M 110 148 C 110 143 130 143 130 148 C 130 154 123 159 120 159 C 117 159 110 154 110 148 Z" fill="#F77E8B"/>
+    </symbol>
+  </defs>
+</svg>
+<script>
+  const FACES = {"resting": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><g class=\"all\"><use href=\"#earL\"/><use href=\"#earR\"/><use href=\"#sprout\"/><use href=\"#head\"/><path d=\"M 71 141 C 78 120 100 120 107 141\" stroke=\"#2A1810\" stroke-width=\"6.5\" stroke-linecap=\"round\" fill=\"none\"/><use href=\"#shutter\"/><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(1) translate(-151 -134)\"/></g><use href=\"#nose\"/><path d=\"M 101 163 C 106 173 118 171 120 158 C 122 171 134 173 139 163\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/></g>\n    </svg>", "happy": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\"/><use href=\"#earR\"/><use href=\"#sprout\"/><use href=\"#head\"/><use href=\"#eyeIris\"/><circle cx=\"89\" cy=\"135\" r=\"11.5\" fill=\"#1A0F0A\"/><circle cx=\"95\" cy=\"128\" r=\"4.6\" fill=\"#fff\"/><circle cx=\"84.5\" cy=\"140\" r=\"1.8\" fill=\"#fff\" opacity=\".8\"/><use href=\"#shutter\"/><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(1.4) translate(-151 -134)\"/></g><ellipse cx=\"76\" cy=\"160\" rx=\"9\" ry=\"5\" fill=\"#F77E8B\" opacity=\".55\"/><ellipse cx=\"164\" cy=\"160\" rx=\"9\" ry=\"5\" fill=\"#F77E8B\" opacity=\".55\"/><use href=\"#nose\"/><path d=\"M 101 163 C 106 173 118 171 120 158 C 122 171 134 173 139 163\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/><path class=\"ht\" d=\"M 192 70 C 192 64 199 62 202 67 C 205 62 212 64 212 70 C 212 77 202 82 202 82 C 202 82 192 77 192 70 Z\" fill=\"#F77E8B\" stroke=\"#2A1810\" stroke-width=\"2.5\"/>\n    </svg>", "loves": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\" transform=\"rotate(-6 78 110)\"/><use href=\"#earR\" transform=\"rotate(6 162 110)\"/><use href=\"#sprout\" transform=\"translate(0,-4)\"/><use href=\"#head\"/><use href=\"#eyeIris\"/><circle cx=\"89\" cy=\"135\" r=\"11.5\" fill=\"#1A0F0A\"/><circle cx=\"95\" cy=\"128\" r=\"4.6\" fill=\"#fff\"/><circle cx=\"84.5\" cy=\"140\" r=\"1.8\" fill=\"#fff\" opacity=\".8\"/><use href=\"#shutter\"/><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(1.4) translate(-151 -134)\"/></g><use href=\"#nose\"/><path d=\"M 101 163 C 106 173 118 171 120 158 C 122 171 134 173 139 163 C 136 183 104 183 101 163 Z\" fill=\"#7A2E2E\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linejoin=\"round\"/><ellipse cx=\"120\" cy=\"175\" rx=\"7.5\" ry=\"4\" fill=\"#F77E8B\"/><use href=\"#star\" class=\"st\" x=\"176\" y=\"58\" width=\"26\" height=\"26\"/><use href=\"#star\" class=\"st st2\" x=\"36\" y=\"70\" width=\"20\" height=\"20\"/>\n    </svg>", "celebrating": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\"/><use href=\"#earR\"/><use href=\"#sprout\"/><use href=\"#head\"/><use href=\"#eyeIris\"/><ellipse cx=\"86\" cy=\"130\" rx=\"2.6\" ry=\"11\" fill=\"#1A0F0A\"/><circle cx=\"91\" cy=\"125\" r=\"3.4\" fill=\"#fff\"/><circle cx=\"84.5\" cy=\"140\" r=\"1.8\" fill=\"#fff\" opacity=\".8\"/><use href=\"#shutter\"/><g class=\"bl\"><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(0.7) translate(-151 -134)\"/></g></g><use href=\"#nose\"/><path d=\"M 106 164 C 110 168 118 167 120 159 C 122 167 130 168 134 164\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/>\n    </svg>", "thinking": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\" transform=\"rotate(-14 78 112)\"/><use href=\"#earR\" transform=\"rotate(14 162 112)\"/><g class=\"sp\"><use href=\"#sprout\" transform=\"rotate(30 120 72)\"/></g><use href=\"#head\"/><use href=\"#eyeIris\"/><ellipse cx=\"89\" cy=\"137\" rx=\"2.6\" ry=\"11\" fill=\"#1A0F0A\"/><circle cx=\"93.5\" cy=\"133\" r=\"3.4\" fill=\"#fff\"/><circle cx=\"84.5\" cy=\"140\" r=\"1.8\" fill=\"#fff\" opacity=\".8\"/><use href=\"#shutter\"/><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(0.75) translate(-151 -134)\"/></g><path d=\"M 66 110 L 112 110 L 112 121 C 99 122 83 126 66 133 Z\" fill=\"#4B3329\"/><path d=\"M 68 132 C 82 126 97 122.5 110 121.5\" stroke=\"#2A1810\" stroke-width=\"4\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M 128 110 L 174 110 L 174 133 C 157 126 141 122 128 121 Z\" fill=\"#4B3329\"/><path d=\"M 130 121.5 C 143 122.5 158 126 172 132\" stroke=\"#2A1810\" stroke-width=\"4\" stroke-linecap=\"round\" fill=\"none\"/><use href=\"#nose\"/><path d=\"M 103 168 C 107 163 116 164 120 158 C 124 164 133 163 137 168\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/>\n    </svg>", "concerned": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><g transform=\"rotate(-9 120 140)\"><use href=\"#earL\" transform=\"rotate(-4 78 110)\"/><use href=\"#earR\" transform=\"rotate(10 162 110)\"/><use href=\"#sprout\" transform=\"rotate(-24 120 72)\"/><use href=\"#head\"/><use href=\"#eyeIris\"/><ellipse cx=\"89\" cy=\"134\" rx=\"2.6\" ry=\"11\" fill=\"#1A0F0A\"/><circle cx=\"94\" cy=\"127.5\" r=\"4\" fill=\"#fff\"/><circle cx=\"84.5\" cy=\"140\" r=\"1.8\" fill=\"#fff\" opacity=\".8\"/><use href=\"#shutter\"/><g clip-path=\"url(#irisClip)\"><use href=\"#blades\" transform=\"translate(151 134) scale(0.7) translate(-151 -134)\"/></g><use href=\"#nose\"/><path d=\"M 120 158 L 120 163\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\"/><ellipse cx=\"120\" cy=\"170\" rx=\"5\" ry=\"5.5\" fill=\"#7A2E2E\" stroke=\"#2A1810\" stroke-width=\"5\"/></g><text x=\"190\" y=\"80\" font-family=\"Outfit\" font-weight=\"800\" font-size=\"34\" fill=\"#2A1810\">?</text>\n    </svg>", "puzzled": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\" transform=\"rotate(-8 78 112)\"/><use href=\"#earR\" transform=\"rotate(8 162 112)\"/><use href=\"#sprout\" transform=\"rotate(14 120 72)\"/><use href=\"#head\"/><path d=\"M 71 134 C 78 145 100 145 107 134\" stroke=\"#2A1810\" stroke-width=\"6.5\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M 133 134 C 140 145 162 145 169 134\" stroke=\"#2A1810\" stroke-width=\"10\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M 133 134 C 140 145 162 145 169 134\" stroke=\"#22E592\" stroke-width=\"4.5\" stroke-linecap=\"round\" fill=\"none\"/><use href=\"#nose\"/><path d=\"M 106 164 C 110 168 118 167 120 159 C 122 167 130 168 134 164\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/><text class=\"z\" x=\"182\" y=\"78\" font-family=\"Outfit\" font-weight=\"800\" font-size=\"22\" fill=\"#7A6457\">z</text><text class=\"z z2\" x=\"194\" y=\"62\" font-family=\"Outfit\" font-weight=\"800\" font-size=\"16\" fill=\"#7A6457\">z</text>\n    </svg>", "sleepy": "<svg viewBox=\"30 20 180 192\" width=\"84\" height=\"84\" style=\"overflow:visible\"><use href=\"#earL\" transform=\"rotate(-8 78 112)\"/><use href=\"#earR\" transform=\"rotate(8 162 112)\"/><use href=\"#sprout\" transform=\"rotate(14 120 72)\"/><use href=\"#head\"/><path d=\"M 71 134 C 78 145 100 145 107 134\" stroke=\"#2A1810\" stroke-width=\"6.5\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M 133 134 C 140 145 162 145 169 134\" stroke=\"#2A1810\" stroke-width=\"10\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M 133 134 C 140 145 162 145 169 134\" stroke=\"#22E592\" stroke-width=\"4.5\" stroke-linecap=\"round\" fill=\"none\"/><use href=\"#nose\"/><path d=\"M 106 164 C 110 168 118 167 120 159 C 122 167 130 168 134 164\" stroke=\"#2A1810\" stroke-width=\"5.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/><text class=\"z\" x=\"182\" y=\"78\" font-family=\"Outfit\" font-weight=\"800\" font-size=\"22\" fill=\"#7A6457\">z</text><text class=\"z z2\" x=\"194\" y=\"62\" font-family=\"Outfit\" font-weight=\"800\" font-size=\"16\" fill=\"#7A6457\">z</text>\n    </svg>"};
+  const C = { cream: '#F5E8D0', shade: '#E6D2B5', point: '#4B3329', line: '#2A1810' };
+  const STROKE = `stroke="${C.line}" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"`;
+  const BUILDS = { round: { sx: 1.08, ky: -0.12 }, balanced: { sx: 0.96, ky: 0.14 }, slim: { sx: 0.84, ky: 0.42 } };
+  const HIP = 270; // everything below this line stretches with the leg length
+
+  // Map every "x y" pair in a path: narrow/widen around the centre line, stretch below the hips.
+  function shape(d, { sx, ky }) {
+    const t = d.trim().split(/\s+/);
+    const out = [];
+    for (let i = 0; i < t.length; i++) {
+      if (/^[A-Za-z]$/.test(t[i])) { out.push(t[i]); continue; }
+      const x = parseFloat(t[i]), y = parseFloat(t[i + 1]); i++;
+      const X = 120 + (x - 120) * sx;
+      const Y = y <= HIP ? y : y + (y - HIP) * ky;
+      out.push(X.toFixed(1), Y.toFixed(1));
+    }
+    return out.join(' ');
+  }
+
+  function sia(build, n) {
+    const b = BUILDS[build];
+    const P = (d) => shape(d, b);
+    const floor = 350 + (350 - HIP) * b.ky;
+    const body = P('M 84 196 C 72 224 66 252 66 278 C 46 290 38 316 44 336 C 48 348 60 351 76 351 L 164 351 C 180 351 192 348 196 336 C 202 316 194 290 174 278 C 174 252 168 224 156 196 Z');
+    const id = 'bodyClip' + n;
+    const head = (FACES.happy || FACES.resting).replace('<svg ', '<svg x="30" y="20" width="180" height="192" ').replace(/ width="84" height="84"/, '');
+    return `
+      <ellipse cx="120" cy="${floor + 16}" rx="${104 * b.sx}" ry="10" fill="${C.shade}"/>
+      <g class="tip">
+        <path d="${P('M 168 322 C 196 344 236 356 256 336 C 272 320 268 290 248 282 C 234 277 222 286 226 297 C 229 304 238 302 240 296 C 246 302 252 316 244 328 C 232 342 204 334 172 310 Z')}" fill="${C.point}" ${STROKE}/>
+      </g>
+      <clipPath id="${id}"><path d="${body}"/></clipPath>
+      <path d="${body}" fill="${C.cream}" ${STROKE}/>
+      <g clip-path="url(#${id})">
+        <path d="${P('M 60 190 L 180 190 L 180 212 C 156 232 84 232 60 212 Z')}" fill="${C.shade}"/>
+        <path d="${P('M 48 296 C 38 318 42 342 62 352 C 52 336 50 316 58 298 Z')}" fill="${C.shade}"/>
+        <path d="${P('M 192 296 C 202 318 198 342 178 352 C 188 336 190 316 182 298 Z')}" fill="${C.shade}"/>
+        <path d="${P('M 86 312 C 98 304 110 304 120 311 L 120 356 L 84 356 Z')}" fill="${C.point}"/>
+        <path d="${P('M 120 311 C 130 304 142 304 154 312 L 156 356 L 120 356 Z')}" fill="${C.point}"/>
+      </g>
+      <path d="${P('M 90 278 C 87 302 87 326 90 348')}" fill="none" stroke="${C.line}" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="${P('M 150 278 C 153 302 153 326 150 348')}" fill="none" stroke="${C.line}" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="${P('M 120 284 C 119 304 120 326 120 344')}" fill="none" stroke="${C.line}" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="${P('M 64 286 C 72 288 78 295 82 304')}" fill="none" stroke="${C.line}" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="${P('M 176 286 C 168 288 162 295 158 304')}" fill="none" stroke="${C.line}" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="${P('M 44 351 C 42 341 50 336 60 337 C 70 338 75 344 74 351 Z')}" fill="${C.point}" ${STROKE}/>
+      <path d="${P('M 196 351 C 198 341 190 336 180 337 C 170 338 165 344 166 351 Z')}" fill="${C.point}" ${STROKE}/>
+      <path d="${P('M 84 351 C 82 336 92 330 102 330 C 113 330 121 336 120 351 Z')}" fill="${C.point}" ${STROKE}/>
+      <path d="${P('M 120 351 C 119 336 127 330 138 330 C 148 330 158 336 156 351 Z')}" fill="${C.point}" ${STROKE}/>
+      <path d="${P('M 96 350 L 96 342 M 108 350 L 108 342 M 132 350 L 132 342 M 144 350 L 144 342')}" fill="none" stroke="${C.cream}" stroke-width="2.6" stroke-linecap="round" opacity=".95"/>
+
+      ${head}`;
+  }
+
+  document.querySelectorAll('[data-build]').forEach((el, n) => {
+    const b = BUILDS[el.dataset.build];
+    const floor = 350 + (350 - HIP) * b.ky;
+    el.setAttribute('viewBox', `14 20 270 ${floor + 40 - 20}`);
+    el.innerHTML = sia(el.dataset.build, n);
+  });
+</script>
