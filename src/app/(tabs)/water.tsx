@@ -7,6 +7,7 @@ import { useWaterStore } from '../../stores/waterStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { CalorieEyeRing } from '../../components/CalorieEyeRing';
+import { WaterSia } from '../../features/water/WaterSia';
 import { Tap } from '../../components/Tap';
 import { hapticFeedback } from '../../utils/haptics';
 import { waterStatus } from '../../utils/historyText';
@@ -39,6 +40,7 @@ export default function WaterScreen() {
   );
 
   const [toast, setToast] = useState<ToastConfig | null>(null);
+  const [addedAt, setAddedAt] = useState(0);
   const [goalOpen, setGoalOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customText, setCustomText] = useState('');
@@ -55,6 +57,7 @@ export default function WaterScreen() {
     hapticFeedback.medium();
     const before = todayMl;
     await addWater(ml);
+    setAddedAt(Date.now());
     if (before < goal && before + ml >= goal) hapticFeedback.success();
     setToast({ title: `${amountLabel(ml)} water`, message: `${litres(before + ml)} of ${litres(goal)} today`, type: 'water' });
   };
@@ -127,6 +130,7 @@ export default function WaterScreen() {
           </View>
         )}
 
+        <View style={styles.heroWrap}>
         <View style={styles.hero} accessible accessibilityLabel={`${litres(todayMl)} of ${litres(goal)} today. ${waterStatus(todayMl, goal)}`}>
           <CalorieEyeRing
             size={176}
@@ -139,6 +143,8 @@ export default function WaterScreen() {
             centerCaption={`of ${litres(goal)}`}
           />
           <Text style={styles.status}>{waterStatus(todayMl, goal)}</Text>
+        </View>
+        <WaterSia ml={todayMl} goal={goal} addedAt={addedAt} />
         </View>
 
         <View style={styles.quick}>
@@ -255,7 +261,8 @@ const styles = StyleSheet.create({
   goalChipOn: { backgroundColor: palette.point, borderColor: palette.point },
   goalChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
   goalChipTextOn: { color: palette.pointText },
-  hero: { alignItems: 'center', paddingVertical: space[6], borderRadius: radius.hero, backgroundColor: palette.point, marginBottom: space[4] },
+  heroWrap: { marginBottom: space[4] },
+  hero: { alignItems: 'center', paddingVertical: space[6], borderRadius: radius.hero, backgroundColor: palette.point },
   status: { fontFamily: type.displayBold, fontSize: type.size.section, color: palette.pointText, marginTop: space[3] },
   quick: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   quickButton: {

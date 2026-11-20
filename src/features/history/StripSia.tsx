@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Sia } from '../../components/sia';
 import { Tap } from '../../components/Tap';
 import { useCoachStore } from '../../stores/coachStore';
@@ -8,11 +8,10 @@ import { hapticFeedback } from '../../utils/haptics';
 import { motion } from '../../theme';
 import { useSiaStore } from '../sia/siaStore';
 import { dayMood, stripSiaX } from '../sia/tabMoods';
+import { hop, siaEase } from '../sia/hop';
 import type { StripDay } from './WeekStrip';
 
 const SIZE = 56;
-const HOP = 10;
-const ease = Easing.bezier(...motion.easeOut);
 
 /** Sia above the week strip: she hops to the day you pick and her face shows how it went. */
 export function StripSia({ days, selected, target, today }: { days: StripDay[]; selected: string; target: number; today: string }) {
@@ -30,8 +29,8 @@ export function StripSia({ days, selected, target, today }: { days: StripDay[]; 
       x.set(targetX);
       return;
     }
-    x.set(withTiming(targetX, { duration: motion.base, easing: ease }));
-    y.set(withSequence(withTiming(-HOP, { duration: motion.base / 2, easing: ease }), withTiming(0, { duration: motion.base / 2, easing: ease })));
+    x.set(withTiming(targetX, { duration: motion.base, easing: siaEase }));
+    y.set(hop());
   }, [targetX, reduceMotion]);
 
   const move = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }, { translateY: y.get() }] }));
