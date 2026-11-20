@@ -38,6 +38,23 @@ describe('<WaterSia />', () => {
     expect(screen.getByLabelText('Sia: A little behind')).toBeTruthy();
   });
 
+  it('keeps her mood current while the tab stays open', async () => {
+    jest.setSystemTime(new Date(2026, 10, 20, 8, 30));
+    await render(<WaterSia ml={0} goal={2500} addedAt={0} />);
+    expect(screen.getByLabelText('Sia: Morning, nothing yet')).toBeTruthy();
+    jest.setSystemTime(new Date(2026, 10, 20, 16, 0));
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(screen.getByLabelText('Sia: Thirsty — a glass would help')).toBeTruthy();
+  });
+
+  it('celebrates straight away when an add reaches the goal', async () => {
+    const { rerender } = await render(<WaterSia ml={2200} goal={2500} addedAt={0} />);
+    await rerender(<WaterSia ml={2700} goal={2500} addedAt={Date.now()} />);
+    expect(screen.getByLabelText('Sia: Water goal reached')).toBeTruthy();
+  });
+
   it('is not shown when "Show Sia" is off', async () => {
     useSiaStore.setState({ hidden: true });
     await render(<WaterSia ml={300} goal={2500} addedAt={0} />);
