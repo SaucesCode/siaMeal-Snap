@@ -7,7 +7,10 @@ import { useWaterStore } from '../../stores/waterStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ToastBanner, ToastConfig } from '../../components/ToastBanner';
 import { CalorieEyeRing } from '../../components/CalorieEyeRing';
-import { WaterSia } from '../../features/water/WaterSia';
+import { SiaPeek } from '../../features/sia/SiaPeek';
+import { PEEK_SHOWN_Y, PEEK_SIZE } from '../../features/sia/peekMotion';
+import { useSiaStore } from '../../features/sia/siaStore';
+import { useWaterReaction } from '../../features/water/useWaterReaction';
 import { Tap } from '../../components/Tap';
 import { hapticFeedback } from '../../utils/haptics';
 import { waterStatus } from '../../utils/historyText';
@@ -41,6 +44,7 @@ export default function WaterScreen() {
 
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const [addedAt, setAddedAt] = useState(0);
+  const siaHidden = useSiaStore((s) => s.hidden);
   const [goalOpen, setGoalOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customText, setCustomText] = useState('');
@@ -48,6 +52,7 @@ export default function WaterScreen() {
 
   const goal = Number(profile?.target_water_ml) || Number(dailyGoalMl) || 2500;
   const fraction = goal > 0 ? Math.min(1, todayMl / goal) : 0;
+  const waterReaction = useWaterReaction(todayMl, goal, addedAt);
 
   useEffect(() => {
     loadTodayWater();
@@ -130,7 +135,7 @@ export default function WaterScreen() {
           </View>
         )}
 
-        <View style={styles.heroWrap}>
+        <View style={siaHidden ? styles.heroWrap : [styles.heroWrap, styles.heroWithSia]}>
         <View style={styles.hero} accessible accessibilityLabel={`${litres(todayMl)} of ${litres(goal)} today. ${waterStatus(todayMl, goal)}`}>
           <CalorieEyeRing
             size={176}
@@ -144,7 +149,7 @@ export default function WaterScreen() {
           />
           <Text style={styles.status}>{waterStatus(todayMl, goal)}</Text>
         </View>
-        <WaterSia ml={todayMl} goal={goal} addedAt={addedAt} />
+        <SiaPeek reaction={waterReaction} />
         </View>
 
         <View style={styles.quick}>
@@ -262,6 +267,7 @@ const styles = StyleSheet.create({
   goalChipText: { fontFamily: type.bodyBold, fontSize: type.size.secondary, color: palette.text },
   goalChipTextOn: { color: palette.pointText },
   heroWrap: { marginBottom: space[4] },
+  heroWithSia: { marginTop: PEEK_SIZE - PEEK_SHOWN_Y + space[1] },
   hero: { alignItems: 'center', paddingVertical: space[6], borderRadius: radius.hero, backgroundColor: palette.point },
   status: { fontFamily: type.displayBold, fontSize: type.size.section, color: palette.pointText, marginTop: space[3] },
   quick: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
